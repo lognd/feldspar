@@ -1,0 +1,50 @@
+# Coaxial-swirl injector -- hydraulics + combustion stability.
+# Anchors: G25 (no fluid-circuit language), G26 (acoustics namespace
+# was missing from the catalog), G27 (empirical stability rating +
+# waiver ladder).
+
+import std.mech.cnc (cnc_lathe, cnc_mill)
+
+part InjectorHead:
+    material: AISI_316
+
+    stage milled: process=cnc_mill(axes=5)
+        then:
+            body     = FaceMill(...)
+            elements = PatternOf<CoaxElement(lox_dia 2.4mm,
+                           fuel_annulus 0.5mm, swirl 3turns)>(n=18,
+                           circular(dia 48mm))
+            manifold_fuel = Pocket(depth 6mm, ...)   # G25: this POCKET
+            manifold_lox  = Pocket(depth 8mm, ...)   # is secretly a
+                                                     # FLOW NETWORK --
+        # G25 -- THE LITHOS FALL-FLAT: the fuel path (inlet -> manifold
+        # -> 18 annuli -> chamber) is a hydraulic circuit: series/
+        # parallel resistances, plenum volumes, element-to-element
+        # distribution. hematite describes SOLIDS; cuprite `nets:` is
+        # electrical. There is NO home for flow topology, so the
+        # obligations below cannot even be LOWERED from geometry --
+        # today the designer must hand-assert the circuit as givens.
+
+    require Hydraulics:
+        # Injector stiffness (chugging margin): dP_inj / Pc >= 20%
+        # over the throttle domain. Closed-form orifice/swirl
+        # hydraulics chain -- routable once the circuit is expressible.
+        stiffness_fuel: forall throttle in [0.6, 1.0]:
+            fluids.dp(fuel_path) / thermo.pressure(chamber) >= 0.20
+        distribution: fluids.flow_imbalance(elements) < 5%
+
+    require Stability:
+        # G26: chamber acoustic modes vs injector response -- needs an
+        # `acoustics` namespace (chamber transverse/longitudinal mode
+        # frequencies: closed-form cavity acoustics; damper sizing:
+        # quarter-wave/Helmholtz). Added to the 07 catalog by this
+        # finding.
+        mode_sep: acoustics.first_tangential(chamber) not_within
+                      10% of elec.none   # placeholder: injector
+                                         # response freq -- see G27
+        # G27: full combustion-instability rating is EMPIRICAL
+        # (hot-fire bomb tests; NASA SP-194 methods) -- beyond any
+        # v1..v3 solver tier. The honest form is the ladder:
+        rated: assume!(stability_rating(chamber, injector) == stable,
+                   basis="SP-194 similarity to heritage element; "
+                         "replace by test(bomb_test_report)")

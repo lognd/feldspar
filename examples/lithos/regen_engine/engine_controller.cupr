@@ -1,0 +1,40 @@
+# Engine controller -- valve drivers, igniter exciter, Pc sensing,
+# abort chain. The elec side is the MATURE seam (buck/driver
+# precedents); included to close the loop: its timing claims consume
+# the SAME events the mech transients reference (G33: shared event
+# vocabulary across .hem/.cupr is load-bearing and already works).
+
+import std.elec.power (HighSideSwitch, FlybackClamp)
+import std.elec.sense (BridgeAmp)
+
+block EngineController:
+    ports:
+        vbus:   supply(in, [24V, 32V])
+        mv_f:   actuator(out, solenoid, i <= 2A)     # fuel main valve
+        mv_o:   actuator(out, solenoid, i <= 2A)
+        exciter: actuator(out, pulse, 40mJ)
+        pc_in:  analog(in, [0V, 5V])                 # chamber pressure
+        abort:  digital(out, family=cmos_3v3)
+    then:
+        sw_f  = HighSideSwitch(fet=vendor(bts50085), i <= 2A)
+        sw_o  = HighSideSwitch(fet=vendor(bts50085), i <= 2A)
+        clamp = FlybackClamp(v_clamp=48V)
+        amp   = BridgeAmp(gain=101, bw >= 10kHz)
+
+    event ignition_cmd: v(exciter).crosses(vih)
+    event overpressure: v(pc_in).crosses(4.2V)       # 1.25x pc scaled
+
+    require Sequencing:
+        # G33: `startup` in engine_assembly.hem and these command
+        # events must be ONE ledger -- cross-file event identity is
+        # regolith's, and it already has the machinery (events are
+        # datums). No new gap; the fixture pins it.
+        lead:  timing(mv_o.open -> mv_f.open) = 80ms +- 10ms
+        abort_fast: timing(overpressure -> mv_f.close) <= 15ms
+
+    require Drive:
+        coil_ok: peak(v(mv_f), within 5ms after mv_f.close) < 45V
+        sense:   rms(v(pc_in), band=[10Hz, 1kHz]) < 5mV   # noise floor
+
+    require Thermal:
+        fet_t: thermo.temperature(sw_f.fet.junction) < 110degC

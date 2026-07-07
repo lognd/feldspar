@@ -1,0 +1,53 @@
+# Feed + cooling circuit -- WRITTEN TO FALL FLAT. This file attempts
+# the engine's fluid system in today's hematite and documents exactly
+# where the language runs out (G25). Kept as the reproduction case
+# for the lithos-side ask (../cad 20-solver-abstraction sec. 7
+# item 6). UPDATE 2026-07-07: a full draft answer now exists --
+# ../cad/docs/calcite/ (the calcite track: media, FluidPort,
+# flownet, the `flownet` payload); the strawman below became its
+# 02-language.md. This file stays as the motivating reproduction.
+
+# WHAT EXISTS: parts (tube runs as swept solids), interfaces
+# (mechanical mating), boundary intervals. WHAT DOES NOT: flow ports,
+# flow topology, component flow models.
+
+part FuelFeedTube:
+    material: AISI_316
+    stage bent: process=tube_bend(od 12mm, wall 1mm)
+        run = TubeRun(path=..., bends=4)
+    # A tube's MECHANICAL side is expressible. Its FLUID side --
+    # "carries RP-1 at 0.9 kg/s, drops 0.4 bar, sees water hammer at
+    # valve close" -- has nowhere to live.
+
+# --- STRAWMAN (not legal today; the shape the ask proposes) --------
+#
+# interface FluidPort<fluid: medium, dia: length>:
+#     flow:
+#         mdot:  through            # conserved through the port
+#         p, T:  across             # potential pair at the port
+#
+# flownet EngineFuel:                       # the fluids analog of
+#     nodes: (tank.out, valve.a, valve.b,   # cuprite `nets:` --
+#             regen.inlet, regen.outlet,    # relational, KCL-like
+#             injector.fuel_in)             # conservation per node
+#     edges:
+#         feed:   FuelFeedTube.run          (tank.out -> valve.a)
+#         mv:     vendor(mv74_valve)        (valve.a -> valve.b)
+#         jacket: Liner.cooling             (regen.inlet -> regen.outlet)
+#         drop:   InjectorHead.fuel_path    (... -> injector.fuel_in)
+#
+# require Feed:
+#     margin: fluids.pressure(injector.fuel_in)
+#                 - thermo.pressure(chamber) >= 5bar
+#     hammer: peak(fluids.pressure(valve.b),
+#                  within 20ms after event(mv.close)) < 80bar
+# -------------------------------------------------------------------
+#
+# Consequences of the gap, recorded:
+# 1. Lowering cannot emit hydraulic obligations from geometry; every
+#    fluid claim's givens are hand-asserted (assume!-shaped design).
+# 2. The regen jacket's coolant side (chamber.hem's coupled group)
+#    gets its boundary conditions by fiat, not from the circuit.
+# 3. feldspar's fluids catalog (pipe flow, minor losses, networks,
+#    water hammer) has solvers with NO source of truth to consume --
+#    the engine side is ready; the language side is not.

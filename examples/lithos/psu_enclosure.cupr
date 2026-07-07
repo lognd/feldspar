@@ -1,0 +1,50 @@
+# Sealed PSU enclosure thermal chain -- feldspar pressure test #3
+# (cross-domain): a buck's dissipation promise drives an enclosure
+# air-rise claim and a capacitor derating claim. Exercises:
+# cross-namespace ROUTES (elec.power -> thermo.temperature ->
+# component life), natural-convection correlations whose published
+# Ra-range IS the Domain (G9), swept efficiency with grid coverage
+# (G10/OPEN-8), a ripple claim needing the ngspice tier + band
+# reduction (G8/OPEN-11).
+
+import std.elec.power (Buck)
+
+block SealedPsu:
+    ports:
+        vin:  supply(in, [18V, 36V])
+        out:  supply(out, 5.0V +- 2%, i <= 3A)
+        gnd:  reference
+    then:
+        conv = Buck<v_out=5.0V, i_max=3A>
+    promises:
+        power: dissipation <= 2.5W       # the thermal boundary the
+                                         # enclosure claims consume
+
+    require Regulation:
+        # G8: rms-in-band -> spectrum payload + reduction edge; the
+        # discharging tier is ngspice tran + PSD (Phase 4/M7).
+        ripple: rms(v(out), band=[100kHz, 10MHz]) < 25mV
+
+    require Efficiency:
+        # G10: forall over load -> ONE swept obligation; the model
+        # declares monotonicity or sweeps; evidence must state
+        # coverage (corners vs grid(k)) -- the bare-float Prediction
+        # .coverage cannot encode this today (OPEN-8).
+        eta: forall i(out) in [0.3A, 3A]:
+                 elec.power(out) / elec.power(vin) >= 87%
+
+    require Thermal:
+        # Cross-namespace route the feldspar planner must find:
+        #   elec.dissipation (given, from the promise)
+        #   -> heat.natural_convection_enclosure   [thermo/heat ns]
+        #   -> thermo.temperature.enclosure_air
+        # G9: the convection correlation's validity box is its
+        # published Ra range; outside it -> out-of-domain VALUE,
+        # falls through to the conduction-only conservative bound.
+        air_rise: thermo.temperature(enclosure_air)
+                      - thermo.temperature(ambient) < 30K
+
+        # Derating chain continues across namespaces: air temp ->
+        # capacitor core temp -> life. Bridges are ordinary edges;
+        # the claim never names a solver.
+        cap_life: elec.life(conv.c_out, over=5yr) >= 1.0

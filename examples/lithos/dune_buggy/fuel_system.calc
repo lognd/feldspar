@@ -1,0 +1,55 @@
+# Fuel system -- calcite customer #3 (G39): tank -> pump -> filter
+# -> rail -> injector, with the return line. The vapor-lock claim is
+# the pv(T) NPSH-analog at the hot-soak corner -- the classic
+# desert-vehicle failure, and precisely the physics calcite + the
+# fluids catalog exist to make claimable.
+
+medium Gasoline: liquid
+    props: registry(gasoline_e10_summer)   # rho(T), mu(T), pv(T) --
+                                           # E10 summer blend: the
+                                           # WORST published pv(T)
+
+flownet FuelFeed(medium=Gasoline):
+    reference: tank_vent(101kPa, T_amb)
+    nodes: tank_out, pump_in, pump_out, filt_in, filt_out,
+           rail_in, rail_ret, reg_out
+    edges:
+        pickup:  Pipe(from=FuelTank.tank.pickup_tube)
+                     (tank_out -> pump_in)
+        pump:    Pump(curve=registry(walbro_gsl392))
+                     (pump_in -> pump_out)
+        filt:    Filter(dp_curve=registry(wix_33011))
+                     (filt_in -> filt_out)
+        supply:  Pipe(from=fuel_lines.supply_run)
+                     (filt_out -> rail_in)
+        reg:     Regulator(set=300kPa, droop=registry(aeb_reg))
+                     (rail_ret -> reg_out)
+        return:  Pipe(from=fuel_lines.return_run)
+                     (reg_out -> tank_out)
+
+require Supply:
+    # Rail pressure held across the flow domain: regulator droop +
+    # line losses + filter dP (clogged corner from the record's
+    # end-of-life column) -- series resistance chain, closed-form
+    # tier end to end.
+    rail: fluids.pressure(rail_in) within [280kPa, 320kPa]
+          given mdot in [0.2g/s, 9.5g/s], filter = end_of_life
+
+require VaporLock:
+    # THE claim this file exists for: pump suction above the E10
+    # vapor pressure at the hot-soak restart corner (engine-bay
+    # radiant soak into the pickup line after shutdown -- the
+    # temperature given comes from the vehicle-level soak promise
+    # chain). LOWER-bound margin; G28's extreme-range record
+    # obligation applies to pv(T) near 60degC.
+    suction: fluids.pressure(pump_in) - fluids.vapor_pressure(
+                 Gasoline, T=hot_soak(engine_bay)) > 25kPa
+
+require Slosh:
+    # Pickup uncovering under sustained lateral g at low fill: the
+    # tank's baffle geometry (fuel_tank.hem) bounds the uncovered
+    # duration; the pump's dry-run tolerance is a vendor record.
+    starve: assume!(pickup_covered(FuelTank.baffles,
+                accel=3.5g_lat, fill=0.8L, duration=3s) == true,
+                basis="baffle geometry per print + surrogate rig "
+                      "video; replace by test(skid_pad_log)")

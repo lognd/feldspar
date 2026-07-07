@@ -1,0 +1,45 @@
+# Dash instrumentation -- gauges, warnings, logging: the small
+# closer file. Anchors: warning-latency timing chains crossing three
+# files (sensor -> ECU -> dash), sensor noise floors (signal ns),
+# sunlight-readable display thermals, G33 shared-event identity
+# outside propulsion.
+
+import std.elec.sense (BridgeAmp, NtcInput)
+import std.elec.digital (Mcu, CanNode)
+
+block DashUnit:
+    ports:
+        bus12: supply(in, [11.5V, 14.8V])
+        can:   digital(bus, family=can_2v5)   # from efi_ecu.cupr
+        oilp:  analog(in, [0.5V, 4.5V])       # oil pressure sender
+        gnd:   reference
+    then:
+        node = CanNode(vendor(mcp2542))
+        mcu  = Mcu(vendor(stm32g0), clock=48MHz)
+        amp  = BridgeAmp(gain=13, bw >= 1kHz)
+
+    event oil_low: fluids.pressure(engine_gallery).crosses(80kPa,
+                       falling)
+    event warn_shown: display.warning_active
+
+    require Warning:
+        # G33 outside propulsion: `oil_low` is ONE event datum --
+        # the sender threshold here, the ECU's spark-cut consumer in
+        # efi_ecu.cupr, and the engine gallery quantity in
+        # engine_bottom_end.hem all bind the same ledger entry.
+        # The latency chain crosses sensor lag + CAN scheduling +
+        # display refresh: a timing budget over three files.
+        oil_latency: timing(oil_low -> warn_shown) <= 500ms
+        kill_confirm: timing(kill_cmd -> warn_shown) <= 300ms
+
+    require Sensing:
+        oilp_noise: rms(v(oilp), band=[10Hz, 1kHz]) < 8mV
+        oilp_error: signal.channel_error(oilp_chain) < 25kPa
+
+    require Environment:
+        # Direct-sun display soak plus engine-bay conduction: the
+        # display vendor record's operating ceiling vs the solar
+        # load boundary -- heat ns cheap tier, worst corner.
+        lcd_temp: thermo.temperature(display.panel) < 70degC
+                  given solar = 1000W/m^2, T_amb = 55degC
+        vib_ok: mech.first_mode(dash_bracket) > 80Hz

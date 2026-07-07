@@ -1,0 +1,60 @@
+# Roll cage -- occupant cell: plastic collapse, proof transforms,
+# and the honesty ladder. Pressure: plastic-hinge collapse mechanism
+# (mech.struct plastic analysis), G41 proof-claim duplication, G37
+# occupant metrics on the assume!/test ladder.
+
+import std.mech.tube (TubeProfile, Bend)
+import std.mech.joining (Weld)
+import SpaceFrame (from frame.hem)
+
+part RollCage:
+    pieces:
+        hoops:  2 x TubeStock(od 44.5mm, wall 2.4mm), material: AISI_4130_N
+        braces: 5 x TubeStock(od 38mm, wall 2.0mm),   material: AISI_4130_N
+
+    stage bent: process=mandrel_bend(clr 3.0d)
+        then:
+            main_hoop  = Bend(hoops.only(1), plan=hoop_rev_b)
+            front_hoop = Bend(hoops.only(2), plan=hoop_rev_b_front)
+
+    stage welded: process=gtaw, joins=[hoops, braces], from=bent
+        cage = Weld(fillet 3mm, all_notches)
+
+    zones over welded.cage:
+        crown:     .where(within=(main_hoop.apex, 150mm))
+        shoulder:  .where(between=(main_hoop.apex, brace_junction))
+        anchorage: remainder
+
+    boundary:
+        # Rollover load cases per the sanctioning-body rulebook:
+        # applied as static envelopes at the crown.
+        rollover_vertical: <= 8.0kN at=crown
+        rollover_lateral:  <= 5.3kN at=crown
+        structure: static
+
+    require Crash:
+        # Plastic analysis tier (07 mech.struct): collapse load from
+        # hinge mechanisms is the RIGHT model -- elastic von Mises
+        # margins are meaningless for a crash structure. LOWER-bound
+        # claim: the collapse load must EXCEED the case load.
+        collapse: mech.collapse_load(welded.cage, under=boundary
+                      .rollover_vertical) >= 1.5 * 8.0kN
+        crush_space: mech.deflection(crown,
+                      under=boundary.rollover_vertical) < 50mm
+
+    require Proof:
+        # G41: homologation proof = the Crash claims re-run at scaled
+        # givens (longhand again; the claim-transform sugar ask now
+        # has two big fixtures behind it).
+        proof_crush: mech.deflection(crown,
+                         under=1.3 * boundary.rollover_vertical) < 75mm
+
+    require Occupant:
+        # G37: injury metrics (head clearance is geometry; HIC-class
+        # dynamics is NOT solver territory) -- the honesty ladder,
+        # exactly the G27 combustion-stability pattern.
+        clearance: mech.clearance(crown, to=helmet_envelope) >= 80mm
+        survivable: assume!(occupant_injury(cage, drop_2m) == pass,
+                        basis="SFI-heritage cage geometry + padding "
+                              "per rulebook; replace by "
+                              "test(drop_test_report)")

@@ -1,0 +1,56 @@
+# Bodywork -- panels, mounts, sealing: sheet-metal mfg tier (bend
+# allowance, springback), panel vibration modes (plate tables), dust
+# sealing on the ladder. Deliberately the CHEAP file: every claim
+# should resolve at table/closed-form tier -- the fixture that proves
+# the planner does not over-solve.
+
+import std.mech.sheet (Blank, Bend, Hem)
+
+part BodyPanels:
+    material: AL_5052_H32
+    pieces:
+        hood: SheetStock(t 1.2mm)
+        sides: 2 x SheetStock(t 1.0mm)
+        floor: SheetStock(t 1.5mm)
+
+    stage cut: process=laser_cut
+        blanks = Blank(panel_flat_set)
+    stage formed: process=press_brake, from=cut
+        then:
+            panels = Bend(blanks.all, per=panel_bend_plan)
+            edges  = Hem(panels.exposed_edges)
+
+    boundary:
+        structure: spectrum(chassis_psd)
+        T_env: [-10degC, 70degC]           # hood over the engine
+
+    require Manufacturing:
+        # mfg tier: bend allowance / K-factor and springback are the
+        # 07 forming entries; min bend radius vs grain is a DFM rule
+        # (regolith rule-pack territory -- feldspar supplies the
+        # formula, the screen stays regolith's, 10 sec. 5 seam).
+        springback_ok: mfg.springback(formed.panels.all) < 1.5deg
+        manufacturable(formed)
+
+    require Vibration:
+        # Panel first modes above the dominant chassis PSD content:
+        # Kirchhoff plate coefficient TABLES (t, Roark) -- the
+        # LOWER-bound modal claim at the cheapest possible tier
+        # (contrast the assembly-level first_mode claims that need
+        # the (r)/(d) tiers).
+        no_drum: mech.first_mode(formed.panels.hood) > 45Hz
+        floor_mode: mech.first_mode(formed.panels.floor) > 60Hz
+
+    require Attachment:
+        # Quarter-turn fastener pull-through at panel flutter loads:
+        # bearing/tear-out closed forms; vendor retention record.
+        pull_through: mech.bearing_margin(formed.panels.all
+                          .fastener_holes, under=flutter_envelope)
+                          >= 2.0
+
+    require Sealing:
+        # Engine-bay dust sealing is empirical foam/gasket vendor
+        # territory: honesty ladder, tested at the vehicle level.
+        dust: assume!(cabin_dust_ingress(panels, seals) == acceptable,
+                  basis="closed-cell foam per print + positive-"
+                        "pressure airbox; replace by test(dust_run)")

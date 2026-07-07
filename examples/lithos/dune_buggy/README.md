@@ -5,7 +5,7 @@ final, double-wishbone front / trailing-arm rear, hydraulic discs,
 tubular spaceframe, 12V EFI electrical), written as a COMPLETE
 lithos project: 27 source files across all four language tracks
 (.hem, .cupr, and -- deliberately, against the PROPOSED draft --
-.calc), every committed feldspar phase, and both toolchains' weakest
+.fluo), every committed feldspar phase, and both toolchains' weakest
 joints at once. It is the largest fixture in the corpus and is
 INTENDED to be ridiculous: if the solver graph and the language
 stack survive a vehicle, they survive a product.
@@ -40,9 +40,9 @@ find -- tier, ports, eps behavior, payloads, milestone gates.
 | `exhaust_intake.hem` | exhaust + airbox | muffler Helmholtz (acoustics #2), header expansion |
 | `bodywork.hem` | panels | bend allowance (mfg), panel modes, dust sealing |
 | `seat_restraint.hem` | seat + harness | anchor proof loads, occupant ladder (G37) |
-| `cooling.calc` | coolant loop | calcite customer #2 (G39): pump curve, HxSegment, thermostat |
-| `fuel_system.calc` | fuel feed | calcite customer #3 (G39): vapor lock = pv(T) NPSH-analog |
-| `brake_hydraulics.calc` | brake circuit | calcite customer #4 (G39): master-cylinder imposer, pedal transient |
+| `cooling.fluo` | coolant loop | fluorite customer #2 (G39): pump curve, HxSegment, thermostat |
+| `fuel_system.fluo` | fuel feed | fluorite customer #3 (G39): vapor lock = pv(T) NPSH-analog |
+| `brake_hydraulics.fluo` | brake circuit | fluorite customer #4 (G39): master-cylinder imposer, pedal transient |
 | `electrical_power.cupr` | battery/charging | kill chain timing, ampacity, harness routing gap (G42) |
 | `efi_ecu.cupr` | EFI controller | injector/VR/lambda loop (control ns), ADC budgets |
 | `dash_instrumentation.cupr` | dash | sensor noise floors, warning latency |
@@ -85,11 +85,11 @@ find -- tier, ports, eps behavior, payloads, milestone gates.
   convection/soak: two-way, and the fade claim is thin-margin on
   long descents. Proves the M8 composite mechanism generalizes
   beyond the regen wall with zero new design.
-- **G39 (fixture, calcite): three more circuits.** Brake hydraulics
+- **G39 (fixture, fluorite): three more circuits.** Brake hydraulics
   (master cylinder as pressure imposer; pedal-step transient peak),
   fuel feed (vapor lock at hot soak = the NPSH/pv(T) machinery),
   coolant loop (pump curve, thermostat state domain, HxSegment
-  zone coupling). Written against the PROPOSED calcite draft; they
+  zone coupling). Written against the PROPOSED fluorite draft; they
   are reproduction demand for COPEN-1 ratification, recorded at
   sec. 7 item 6.
 - **G40 (confirms G17): statistical stackups, customer #2.** Toe
@@ -102,14 +102,14 @@ find -- tier, ports, eps behavior, payloads, milestone gates.
   duplication smell is now two-for-two across big fixtures.
 - **G42 (OPEN, lithos ask, sec. 7 item 8): wiring routing has no
   home.** Voltage-drop and ampacity claims need conductor LENGTHS
-  and bundle factors; hoses get hematite TubeRun geometry + calcite
+  and bundle factors; hoses get hematite TubeRun geometry + fluorite
   extraction, but a wire run (routed path along the frame, bundle
   membership, connector environment) is inexpressible -- lengths
   are hand-asserted givens today. Recorded as the new sec. 7 ask.
 - **G43 (folds into OPEN-8/sec. 7 item 2): discrete config axes in
   coverage.** `forall range_state in {low, high}` crossed with
   continuous payload/boundary domains needs coverage over MIXED
-  discrete x continuous axes (calcite COPEN-7 hits the same wall
+  discrete x continuous axes (fluorite COPEN-7 hits the same wall
   from line-ups); the per-axis encoding ask already recorded must
   carry discrete axes, not just grids.
 

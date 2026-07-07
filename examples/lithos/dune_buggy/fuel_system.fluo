@@ -1,7 +1,7 @@
-# Fuel system -- calcite customer #3 (G39): tank -> pump -> filter
+# Fuel system -- fluorite customer #3 (G39): tank -> pump -> filter
 # -> rail -> injector, with the return line. The vapor-lock claim is
 # the pv(T) NPSH-analog at the hot-soak corner -- the classic
-# desert-vehicle failure, and precisely the physics calcite + the
+# desert-vehicle failure, and precisely the physics fluorite + the
 # fluids catalog exist to make claimable.
 
 medium Gasoline: liquid

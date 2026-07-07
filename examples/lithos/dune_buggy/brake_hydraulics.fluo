@@ -1,4 +1,4 @@
-# Brake hydraulics -- calcite customer #4 (G39): the master
+# Brake hydraulics -- fluorite customer #4 (G39): the master
 # cylinders are pressure IMPOSERS driven by a MECHANICAL input
 # (pedal_box.hem force through the bias bar) -- the first flownet
 # whose imposer is another track's output. Exercises: imposer-from-

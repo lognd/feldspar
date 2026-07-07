@@ -128,8 +128,8 @@ duplication with regolith's WO-25/WO-28 territory:
   and determinism holds (seeded, ordered search). A CAM engine that
   cannot be made deterministic is wrapped at tier=discretized with
   `deterministic=False` and honestly never cached.
-- New payload kinds this section and calcite add to 09 sec. 4:
-  `flownet` (calcite lowering) and `plan` (planner solvers).
+- New payload kinds this section and fluorite add to 09 sec. 4:
+  `flownet` (fluorite lowering) and `plan` (planner solvers).
 
 ## 6. What stays true across all of it
 

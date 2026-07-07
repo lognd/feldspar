@@ -25,8 +25,8 @@ part CylinderHead:
         # The exhaust-bridge hot spot: gas-side convection -> head
         # conduction -> coolant-side convection -- a small CoupledGroup
         # (the regen-wall pattern at 1/10 scale; M8 customer #3).
-        # Boundary conditions come from cooling.calc's jacket edge
-        # (the calcite HxSegment names THIS zone -- cross-track).
+        # Boundary conditions come from cooling.fluo's jacket edge
+        # (the fluorite HxSegment names THIS zone -- cross-track).
         bridge_temp: thermo.temperature.max(bridge) < 210degC
 
     require Structural:

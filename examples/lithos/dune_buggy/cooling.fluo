@@ -1,5 +1,5 @@
-# Coolant loop -- calcite customer #2 (G39). Written against the
-# PROPOSED calcite draft (../cad/docs/calcite/, COPEN-1 pending):
+# Coolant loop -- fluorite customer #2 (G39). Written against the
+# PROPOSED fluorite draft (../cad/docs/fluorite/, COPEN-1 pending):
 # this file is reproduction DEMAND for ratification, exactly as
 # feed_lines.hem was for the language's existence. Exercises: pump
 # curve records as imposers, thermostat state domains, HxSegment
@@ -22,7 +22,7 @@ flownet EngineCooling(medium=Coolant50):
                      (head_in -> head_out)
                  # cross-track: the zone datum here IS the zone the
                  # head's Thermal CoupledGroup names -- both sides
-                 # bind one datum (calcite 03 sec. 4); the coupled
+                 # bind one datum (fluorite 03 sec. 4); the coupled
                  # solve is feldspar's (M8), the language only
                  # guarantees the names meet.
         stat:    Valve(states={closed, open}, cracking=82degC)

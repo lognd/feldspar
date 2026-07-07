@@ -146,12 +146,12 @@ Almost every trace below begins with one of these; the solve cache
   head conduction (cf/r), coolant-side Gnielinski (cf, heat)} --
   composite over boundary ports, unit-calibrated eps, residual into
   measured_eps, NoConvergence reroutable. Boundary conditions
-  arrive from cooling.calc's flownet solve (ASK-6/calcite).
+  arrive from cooling.fluo's flownet solve (ASK-6/fluorite).
 - `no_float`/`surge`: cam kinematics (cf, dynamics) + spring modes
   (cf, vibration) over the speed domain. P3.
 - `flow`: incompressible orifice chain (cf) vs compressible choked
   check (cf, fluids compressible) -- regime tags (`choked`) from a
-  screening solver feed sibling domains (calcite 03 sec. 3's
+  screening solver feed sibling domains (fluorite 03 sec. 3's
   regime-reporting pattern, engine-side). P2.
 
 ## 7. driveline (cvt_drive, gearbox_final, halfshaft, hub_rear)
@@ -177,7 +177,7 @@ Almost every trace below begins with one of these; the solve cache
 - `spline_shear`, `pilot_fit` (G15), `axle_life`: mech.design (cf)
   + pair records + spectrum fatigue as above.
 
-## 8. brakes (brake_corner, pedal_box, brake_hydraulics.calc)
+## 8. brakes (brake_corner, pedal_box, brake_hydraulics.fluo)
 
 - `no_fade` (G38, M8 customer #2): CoupledGroup{friction power
   split by effusivity (cf), disc transient conduction (cf/r, heat),
@@ -190,14 +190,14 @@ Almost every trace below begins with one of these; the solve cache
   ACROSS TRACKS (calc file) -- field/scalar promise chain; wet
   boiling point column (rec).
 - `line_p`, `volume`, `rise`, `release`, `half_system`: flownet
-  payload (ASK-6/calcite) -> `fluids.*` network solvers: series
+  payload (ASK-6/fluorite) -> `fluids.*` network solvers: series
   resistance (cf), compliance budget (cf; COPEN-5 extraction),
   transient line dynamics (r, method-of-characteristics class).
   `half_system` sweeps a DISCRETE failure-state axis (G43).
 - `mount_stiff` (LOWER) + `reserve`: statics (cf) + the cross-track
   compliance budget -- three files, one claim, all promise-lowered.
 
-## 9. fluids files (cooling.calc, fuel_system.calc)
+## 9. fluids files (cooling.fluo, fuel_system.fluo)
 
 - `reject`: flownet -> `pump curve (rec) + network dp (cf/r,
   Hardy-Cross class) + effectiveness-NTU (cf, heat)` -- the P2
@@ -207,7 +207,7 @@ Almost every trace below begins with one of these; the solve cache
   vehicle soak promise -- cross-file, cross-track.
 - `stat_snap`/`rise`: transient network tier (r) with Plenum
   capacitance + line compliance extracted from hematite walls
-  (COPEN-5): the extraction rule is calcite's open design item;
+  (COPEN-5): the extraction rule is fluorite's open design item;
   feldspar's solver is ready (fluids: water hammer (cf/r)).
 - `rail`: series chain (cf) with end-of-life filter record column
   (rec) -- worst-corner discipline over a RECORD CONDITION axis.
@@ -269,7 +269,7 @@ Almost every trace below begins with one of these; the solve cache
 | CoupledGroups (G22/G38) | 3 | M8 |
 | tier competitions through ONE kind (G6) | 6 | M1/OPEN-6 (ASK-1) |
 | 2-D/mixed forall coverage (G29/G43) | 5 | ASK-2 |
-| flownet-consuming claims (G25/G39) | 14 | ASK-6/calcite |
+| flownet-consuming claims (G25/G39) | 14 | ASK-6/fluorite |
 | config-domain kinematic fields (G36) | 6 | ASK-7 extension |
 | hand-asserted routing givens (G42) | 3 | ASK-8 (new) |
 | honesty-ladder items (G27/G37) | 7 | none -- by design |

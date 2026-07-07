@@ -1,6 +1,6 @@
 # Fuel tank -- slosh, baffles, straps: dynamic fluid loads asserted
 # as envelopes (the honest v1 form), strap fatigue, and the
-# fuel_system.calc interface (tank outlet is a calcite FluidPort).
+# fuel_system.fluo interface (tank outlet is a fluorite FluidPort).
 
 import std.mech.formed (Welded_Tank)
 import std.mech.sheet (Blank, Bend)

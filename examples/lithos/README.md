@@ -21,7 +21,7 @@ seam lands they become the conformance suite's realistic inputs.
   README -- including the two deepest LITHOS gaps found so far
   (fluid-circuit language, computed zone fields).
 - `dune_buggy/` -- the whole-vehicle stress test (27 files, all
-  four language tracks incl. the PROPOSED .calc draft, every
+  four language tracks incl. the PROPOSED .fluo draft, every
   committed phase): findings G34-G43 in its README, plus
   `SOLVER-TRACE.md` mapping every claim group to its exact solver
   route, eps behavior, and milestone gate.

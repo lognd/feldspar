@@ -1,7 +1,7 @@
 # Electrical power -- battery, charging, kill chain, distribution:
 # THE G42 file. Voltage-drop and ampacity claims below need conductor
 # LENGTHS and bundle factors; wires have no routed-geometry home
-# (hoses get TubeRun + calcite extraction; a wire run along the frame
+# (hoses get TubeRun + fluorite extraction; a wire run along the frame
 # has nothing), so every length given here is HAND-ASSERTED -- the
 # reproduction case for the sec. 7 item 8 ask.
 

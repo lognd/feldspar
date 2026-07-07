@@ -26,9 +26,9 @@ import SeatFrame, HarnessAnchors (from seat_restraint.hem)
 import PowerSystem (from electrical_power.cupr)
 import EfiEcu (from efi_ecu.cupr)
 import DashUnit (from dash_instrumentation.cupr)
-import EngineCooling (from cooling.calc)
-import FuelFeed (from fuel_system.calc)
-import BrakeCircuits (from brake_hydraulics.calc)
+import EngineCooling (from cooling.fluo)
+import FuelFeed (from fuel_system.fluo)
+import BrakeCircuits (from brake_hydraulics.fluo)
 
 assembly DuneBuggy:
     parts:
@@ -95,7 +95,7 @@ assembly DuneBuggy:
 
     require Braking:
         # Consumes: tire mu record (wheel_tire), circuit pressure
-        # (brake_hydraulics.calc), pad mu(T) (brake_corner), bias
+        # (brake_hydraulics.fluo), pad mu(T) (brake_corner), bias
         # (pedal_box) -- four files, one decel claim.
         decel: vehicle.decel_available(all, surface=hardpack)
                    >= 0.75g
@@ -112,7 +112,7 @@ assembly DuneBuggy:
         first_mode: mech.first_mode(assembly) > 28Hz
 
     require Thermal:
-        # The promise web: engine rejection -> cooling.calc loop;
+        # The promise web: engine rejection -> cooling.fluo loop;
         # regulator dissipation -> body bay; exhaust radiant -> tank
         # standoff. Each arrow is a lowered given, none is hand-fed.
         tank_standoff: thermo.temperature(FuelTank.tank.shell)

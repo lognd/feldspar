@@ -1,7 +1,7 @@
 # Pedal box -- pedals, master cylinders, bias bar: human-input
 # statics, LOWER-bound stiffness for pedal feel, reserve-travel
-# geometry, and the mechanical half of the brake_hydraulics.calc
-# circuit (the master cylinder is calcite's pressure IMPOSER; its
+# geometry, and the mechanical half of the brake_hydraulics.fluo
+# circuit (the master cylinder is fluorite's pressure IMPOSER; its
 # mount stiffness lives here -- one artifact, two tracks, shared
 # datums).
 
@@ -38,7 +38,7 @@ part PedalBox:
 
     require Feel:
         # LOWER-bound mount stiffness: master-cylinder mount flex
-        # eats pedal travel; the calcite circuit's compliance budget
+        # eats pedal travel; the fluorite circuit's compliance budget
         # (COPEN-5's wall-compliance analog) CONSUMES this promise --
         # a cross-track promise chain (mech stiffness -> hydraulic
         # transient response).
@@ -46,7 +46,7 @@ part PedalBox:
 
     require Geometry:
         # Reserve travel with worn pads + hot fluid: the pedal must
-        # not reach the tray floor -- consumes brake_hydraulics.calc's
+        # not reach the tray floor -- consumes brake_hydraulics.fluo's
         # volume-consumption promise and pad-wear allowance from
         # brake_corner.hem. Three files, one claim, zero new
         # mechanism (G18 chains).

@@ -60,8 +60,8 @@ coupling, distributed fields, fluid circuits, empirical stability,
   (`FluidPort` through/across pairs, `flownet` as the KCL-like
   fluids analog of `nets:`). Ask: sec. 7 item 6. THE biggest lithos
   gap this project found. UPDATE 2026-07-07: draft spec written --
-  the calcite track (`../cad/docs/calcite/`); awaiting design-cycle
-  ratification (calcite COPEN-1).
+  the fluorite track (`../cad/docs/fluorite/`); awaiting design-cycle
+  ratification (fluorite COPEN-1).
 - **G27 (accepted): empirical stability stays on the honesty
   ladder.** Combustion-instability rating is hot-fire-empirical
   (SP-194); the right form is `assume!`/`waive ... by test(...)`,

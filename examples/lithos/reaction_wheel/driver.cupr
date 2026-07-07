@@ -1,0 +1,51 @@
+# Three-phase wheel driver -- elec side: drive losses, ripple,
+# current-loop bandwidth, FET thermal chain. Friction anchors: G16
+# (claim-expression algebra stays regolith-side), G18 (promise
+# chains), Phase 4/5 fixtures.
+
+import std.elec.power (HalfBridge, ShuntAmp)
+
+block WheelDriver<i_peak: current = 1.5A>:
+    ports:
+        vbus: supply(in, [11V, 13V])
+        u, v, w: phase(out, i <= i_peak)
+        gnd:  reference
+        spi:  digital(bus, family=cmos_3v3)
+    params:
+        f_pwm: frequency = in [20kHz, 80kHz]
+    then:
+        br_u = HalfBridge(fets=vendor(bsc0902ns), i <= i_peak)
+        br_v = HalfBridge(fets=vendor(bsc0902ns), i <= i_peak)
+        br_w = HalfBridge(fets=vendor(bsc0902ns), i <= i_peak)
+        cs   = ShuntAmp(r=5mohm, gain=50)
+    promises:
+        power: dissipation <= 1.8W        # G18: consumed by the
+                                          # housing's thermal claim
+    event torque_step: step(i(u), 1A/ms)
+
+    require Losses:
+        # G16: the claim EXPRESSION (sum of loss terms vs a limit) is
+        # regolith's algebra; feldspar only supplies the quantities
+        # (switching + conduction loss solvers, catalog elec).
+        total: elec.loss.switching(br_u) + elec.loss.conduction(br_u)
+                   + 2 * (elec.loss.switching(br_v)
+                   + elec.loss.conduction(br_v)) <= 1.6W
+
+    require Control:
+        # Phase 5 fixture: closed-loop bandwidth from plant + gains --
+        # control namespace closed forms; frequency-domain quantity.
+        bw:  control.bandwidth(current_loop) > 2kHz
+        pm:  control.phase_margin(current_loop) > 45deg
+
+    require Ripple:
+        torque_ripple: rms(i(u), band=[f_pwm/2, 5*f_pwm]) < 30mA
+
+    require Thermal:
+        # FET junction chain: loss -> R_th(junction-board) ->
+        # derating; the R_ds_on(T) record is a G5-style table edge --
+        # note it is CYCLIC (loss depends on T, T on loss): the
+        # closed-form tier uses the conservative hot-corner R_ds_on
+        # (breaks the cycle by envelope, cited); the numeric tier
+        # iterates. G20: cyclic port dependence handled by envelope
+        # edges at the cheap tier, never by planner loops.
+        t_j: thermo.temperature(br_u.fet_high.junction) < 125degC

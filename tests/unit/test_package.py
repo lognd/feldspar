@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import feldspar
 from feldspar.__about__ import __version__
-from feldspar.pack import register
 
 
 def test_version_single_sourced() -> None:
@@ -10,6 +9,10 @@ def test_version_single_sourced() -> None:
     assert feldspar.__version__ == __version__
 
 
-def test_pack_register_is_noop_stub() -> None:
-    """The regolith.model_packs entry point target is import-safe without regolith (FINV-3)."""
-    assert register(None) is None
+# `feldspar.pack` itself now requires regolith installed to import (it is
+# the `regolith.model_packs` entry point target, WO-09): unlike the WO-01
+# no-op stub, real registration needs regolith's `Model`/`ModelSignature`
+# types, so it is no longer import-safe in a bare (non-`regolith`-extra)
+# environment. Its coverage lives under the `regolith` marker in
+# `tests/regolith/` (06 "Boundary rules": everything OUTSIDE `pack/`
+# stays regolith-free, not `pack/` itself).

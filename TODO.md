@@ -74,8 +74,18 @@ progress.
 
 ## WO-05 planner search (Rust)
 
-- [ ] plan(), Route, RouteStep
-- [ ] PlanError variants
+- [x] plan(), Route, RouteStep
+- [x] PlanError variants (InvalidBudget, UnknownTarget,
+      NoApplicableSolver, BudgetUnreachable, CyclicPortEquivalence)
+- [x] label-correcting forward AND-graph search: Pareto dominance
+      pruning on (cost, inflated interval), frontier ordered by
+      (cost, solver_id, combo tie-key)
+- [x] PyO3 exposure: `_feldspar.plan`, `_PlanSolverInput`, `Route`,
+      `RouteStep`, `PlanErrorRaised`; `feldspar.plan.plan()` facade
+- [x] FINV-8 tier-blindness test (permuted tiers -> identical route
+      digest) + zero-step/tie-break/determinism/all-PlanError-variant
+      tests (crates/feldspar-core/src/search.rs,
+      tests/unit/test_plan.py)
 
 ## WO-06 solve facade: execute, reroute, cache
 

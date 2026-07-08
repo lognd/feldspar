@@ -11,7 +11,7 @@ here, in Python)."""
 
 import enum
 import json
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Callable, Iterable, Mapping, Optional
 
 from typani.error_set import ErrorSet
 from typani.result import Err, Ok, Result
@@ -41,7 +41,10 @@ __all__ = [
     "UnitError",
     "UnitSystem",
     "canonical_digest",
+    "corner_sweep",
     "format_f64",
+    "inflate",
+    "total_error",
 ]
 
 
@@ -265,3 +268,36 @@ def canonical_digest(obj: Any) -> str:
     Python set iteration order is hash-seed-dependent, not stable
     across processes -- see `_sort_key`)."""
     return _feldspar.canonical_digest(_to_jsonable(obj))
+
+
+def corner_sweep(
+    box: Mapping[str, Interval],
+    fn: Callable[[Mapping[str, float]], "Result[Mapping[str, float], Any]"],
+) -> "Result[Mapping[str, Interval], Any]":
+    """Evaluates `fn` at every deduplicated, sorted corner of `box` and
+    hulls the per-port results (01-interfaces WO-04; the ONE corner-sweep
+    implementation, FINV-4). `fn`'s own `Err` value -- whatever error type
+    the caller's callback uses -- passes through UNCHANGED as this
+    function's `Err`; the Rust side never inspects its shape (see
+    `_feldspar.propagation`'s `PropagationErrorRaised`).
+
+    Callers are responsible for inflating any CONSUMED intermediate
+    port's interval with `inflate` before calling this (02, audit A-1) --
+    `corner_sweep` itself has no notion of "upstream" or "producing step".
+    """
+    try:
+        return Ok(_feldspar.corner_sweep(dict(box), fn))
+    except _feldspar.PropagationErrorRaised as exc:
+        return Err(exc.args[0])
+
+
+#: `[lo - eps, hi + eps]`; THE accumulation primitive (01-interfaces
+#: WO-04, audit A-1). Never `Result`-wrapped: `eps` is a solver-declared
+#: non-negative model error, not untrusted literal data (same rationale
+#: as `Interval`'s direct-construction-raises precedent for computed
+#: values).
+inflate = _feldspar.inflate
+
+#: `half_width(out_hull) + model_eps`: the budget-checked total
+#: worst-case error at a route's target (01-interfaces WO-04).
+total_error = _feldspar.total_error

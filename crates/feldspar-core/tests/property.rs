@@ -1,10 +1,13 @@
-//! Property tests (WO-02 deliverable): interval ordering/finiteness,
-//! domain subset logic, digest stability across map insertion orders,
-//! unit round-trips.
+//! Property tests: WO-02 (interval ordering/finiteness, domain subset
+//! logic, digest stability across map insertion orders, unit
+//! round-trips) and WO-04 (corner_sweep hull/dedup correctness).
 
 use std::collections::BTreeMap;
 
-use feldspar_core::{canonical_digest, BuiltinUnitSystem, Domain, Interval, UnitSystem};
+use feldspar_core::{
+    canonical_digest, corner_sweep, enumerate_corners, BuiltinUnitSystem, Domain, Interval,
+    UnitSystem,
+};
 use proptest::prelude::*;
 
 proptest! {
@@ -93,5 +96,69 @@ proptest! {
         let si = sys.to_si(v, "degC").unwrap();
         let back = sys.from_si(si, "degC").unwrap();
         prop_assert!((back - v).abs() < 1e-9);
+    }
+
+    /// The swept hull always contains every individual corner's result
+    /// (a hull can never be narrower than any point it was built from).
+    #[test]
+    fn corner_sweep_hull_contains_all_corner_results(
+        a_lo in -1e3f64..1e3, a_pad in 0f64..1e3,
+        b_lo in -1e3f64..1e3, b_pad in 0f64..1e3,
+        gain in -10f64..10.0,
+    ) {
+        let mut box_ = BTreeMap::new();
+        box_.insert("a".to_string(), Interval::new(a_lo, a_lo + a_pad).unwrap());
+        box_.insert("b".to_string(), Interval::new(b_lo, b_lo + b_pad).unwrap());
+        let corners = enumerate_corners(&box_);
+
+        let hull = corner_sweep(&box_, |corner| {
+            let mut out = BTreeMap::new();
+            out.insert("y".to_string(), gain * corner["a"] + corner["b"]);
+            Ok::<_, ()>(out)
+        }).unwrap();
+
+        for corner in &corners {
+            let y = gain * corner["a"] + corner["b"];
+            prop_assert!(hull["y"].contains(y));
+        }
+    }
+
+    /// Dedup correctness: the number of enumerated corners is exactly
+    /// 2^(number of non-degenerate ports); a fully degenerate box always
+    /// enumerates to exactly one corner, matching a single evaluation.
+    #[test]
+    fn corner_sweep_dedup_matches_degenerate_port_count(
+        a_lo in -1e3f64..1e3, a_pad in 0f64..1e3,
+        b_lo in -1e3f64..1e3, b_pad in 0f64..1e3,
+        c_lo in -1e3f64..1e3,
+    ) {
+        let mut box_ = BTreeMap::new();
+        box_.insert("a".to_string(), Interval::new(a_lo, a_lo + a_pad).unwrap());
+        box_.insert("b".to_string(), Interval::new(b_lo, b_lo + b_pad).unwrap());
+        box_.insert("c".to_string(), Interval::new(c_lo, c_lo).unwrap()); // always degenerate
+
+        let non_degenerate = [a_pad, b_pad].iter().filter(|&&p| p > 0.0).count();
+        let expected = 1usize << non_degenerate;
+        prop_assert_eq!(enumerate_corners(&box_).len(), expected);
+    }
+
+    /// A box of only degenerate (point) intervals sweeps to exactly the
+    /// single evaluation at that point.
+    #[test]
+    fn corner_sweep_of_degenerate_box_equals_single_evaluation(
+        x in -1e6f64..1e6, y in -1e6f64..1e6
+    ) {
+        let mut box_ = BTreeMap::new();
+        box_.insert("x".to_string(), Interval::new(x, x).unwrap());
+        box_.insert("y".to_string(), Interval::new(y, y).unwrap());
+
+        let hull = corner_sweep(&box_, |corner| {
+            let mut out = BTreeMap::new();
+            out.insert("z".to_string(), corner["x"] + corner["y"]);
+            Ok::<_, ()>(out)
+        }).unwrap();
+
+        let direct = x + y;
+        prop_assert_eq!(hull["z"], Interval::point(direct).unwrap());
     }
 }

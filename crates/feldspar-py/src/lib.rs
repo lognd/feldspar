@@ -17,6 +17,7 @@ mod dimension;
 mod domain;
 mod errors;
 mod interval;
+mod propagation;
 mod rank;
 mod units;
 
@@ -25,6 +26,7 @@ use digest::{canonical_digest, format_f64};
 use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
+use propagation::{corner_sweep_py, inflate_py, total_error_py};
 use rank::{PyPortDecl, PyRank};
 use units::PyUnitSystem;
 
@@ -47,6 +49,9 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(canonical_digest, m)?)?;
     m.add_function(wrap_pyfunction!(format_f64, m)?)?;
     m.add_function(wrap_pyfunction!(exact_accuracy, m)?)?;
+    m.add_function(wrap_pyfunction!(corner_sweep_py, m)?)?;
+    m.add_function(wrap_pyfunction!(inflate_py, m)?)?;
+    m.add_function(wrap_pyfunction!(total_error_py, m)?)?;
 
     m.add_class::<PyInterval>()?;
     m.add_class::<PyAccuracy>()?;
@@ -67,6 +72,10 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "DomainViolationRaised",
         _py.get_type_bound::<errors::DomainViolationRaised>(),
+    )?;
+    m.add(
+        "PropagationErrorRaised",
+        _py.get_type_bound::<errors::PropagationErrorRaised>(),
     )?;
 
     Ok(())

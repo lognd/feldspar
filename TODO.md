@@ -51,15 +51,26 @@ progress.
       (01-interfaces uses `box`; WO-02 regression caught by examples/)
 - [x] tests/unit/test_registry.py: every RegistryError/SolveError variant,
       import-order permutation, citation floor, sugar==hand-built digest
-- [ ] KNOWN GAP: examples/solvers/*.py call `.unwrap()` on typani Result,
-      which the installed typani does not implement (only `.danger_ok`);
-      import succeeds for 00-04 and 06, register() plumbing verified
-      correct up to that `.unwrap()` call -- see WO-03 closing report
+- [x] `.unwrap()` -> `.danger_ok` fixed in examples/solvers/*.py by
+      coordinator (63afd0e)
 
 ## WO-04 propagation + error accumulation (Rust)
 
-- [ ] corner_sweep, inflate, total_error
-- [ ] eps-inflation accumulation (FINV-4, audit A-1)
+- [x] Propagation trait + Interval strategy (to_interval() identity)
+- [x] enumerate_corners: deduplicated, sorted, degenerate-collapsing
+      cartesian product over a box of named intervals
+- [x] corner_sweep: generic over any per-corner error type E; short-
+      circuits on first Err; hulls per-port results
+- [x] inflate(iv, eps), total_error(out_hull, model_eps) -- the ONE
+      accumulation-rule home (FINV-4, audit A-1); no eps summation
+      anywhere
+- [x] PyO3 exposure: corner_sweep/inflate/total_error in feldspar.core,
+      shared by WO-05 (planner) and WO-06 (executor)
+- [x] proptest: hull contains all corners, dedup count, degenerate ==
+      single evaluation
+- [x] gain-counterexample test (02-edge-cases WO-04): k=1000, e=0.1 ->
+      target error ~100, not ~0.1 (Rust unit test + Python integration
+      test, both pass)
 
 ## WO-05 planner search (Rust)
 

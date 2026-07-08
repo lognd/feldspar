@@ -12,6 +12,13 @@ use pyo3::PyErr;
 create_exception!(_feldspar, CoreErrorRaised, PyException);
 create_exception!(_feldspar, UnitErrorRaised, PyException);
 create_exception!(_feldspar, DomainViolationRaised, PyException);
+// `corner_sweep`'s per-corner callback (a Python `SolveFn`) already
+// returns a typani `Result`; when it's `Err`, this exception carries
+// the ORIGINAL Python `SolveError` object through untouched (single
+// arg, `.args[0]`) so `feldspar/core.py` can re-wrap it as
+// `Err(that_same_value)` -- unlike the other exceptions above, Rust
+// never interprets this payload's shape (WO-04, FINV-4).
+create_exception!(_feldspar, PropagationErrorRaised, PyException);
 
 pub fn core_error_to_py(e: feldspar_core::CoreError) -> PyErr {
     let variant = match e {

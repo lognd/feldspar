@@ -18,6 +18,7 @@ pub mod dimension;
 pub mod domain;
 pub mod error;
 pub mod interval;
+pub mod propagation;
 pub mod rank;
 pub mod units;
 
@@ -27,6 +28,7 @@ pub use dimension::Dimension;
 pub use domain::{Domain, DomainViolation};
 pub use error::{CoreError, UnitError};
 pub use interval::Interval;
+pub use propagation::{corner_sweep, enumerate_corners, inflate, total_error, Propagation};
 pub use rank::{PortDecl, Rank};
 pub use units::{BuiltinUnitSystem, UnitSystem};
 

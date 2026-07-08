@@ -1,4 +1,4 @@
-.PHONY: install build test lint format typecheck coverage check keys clean
+.PHONY: install build test regolith-test lint import-lint format typecheck coverage check keys clean
 
 install:
 	uv sync --all-extras
@@ -9,8 +9,14 @@ build:
 test:
 	uv run pytest tests/ -n auto -m "not regolith and not fea"
 
+regolith-test:
+	uv run pytest tests/regolith/ -m regolith
+
 lint:
 	uv run ruff check python/ tests/
+
+import-lint:
+	uv run lint-imports
 
 format:
 	uv run ruff format python/ tests/
@@ -22,7 +28,7 @@ coverage:
 	uv run pytest tests/ --cov=python --cov-report=term-missing --cov-report=html \
 		-m "not regolith and not fea"
 
-check: lint typecheck test
+check: lint import-lint typecheck test
 	cargo fmt --all -- --check
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo test --workspace

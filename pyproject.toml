@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Solution-path/FEA solver engine for the lithos toolchain"
 readme = "README.md"
 license = { text = "GPL-3.0-only" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",
     "typani",
@@ -16,11 +16,14 @@ dependencies = [
 
 [project.optional-dependencies]
 mesh = ["gmsh"]
-regolith = []
+regolith = ["regolith"]
 props = []
 
 [project.entry-points."regolith.model_packs"]
 feldspar = "feldspar.pack:register"
+
+[tool.uv.sources]
+regolith = { path = "../lithos", editable = true }
 
 [tool.maturin]
 manifest-path = "crates/feldspar-py/Cargo.toml"
@@ -48,6 +51,7 @@ dev = [
     "ty>=0.0.1a1",
     "maturin>=1.7,<2.0",
     "cryptography>=42",
+    "import-linter>=2.13",
 ]
 
 [tool.pytest.ini_options]
@@ -80,3 +84,20 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise Unreachable"]
+
+[tool.importlinter]
+root_package = "feldspar"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "regolith imports confined to feldspar.pack (FINV-3/10)"
+type = "forbidden"
+source_modules = [
+    "feldspar.core",
+    "feldspar.logging",
+    "feldspar.solve",
+    "feldspar.plan",
+    "feldspar.library",
+    "feldspar.fea",
+]
+forbidden_modules = ["regolith"]

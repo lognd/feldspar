@@ -96,6 +96,13 @@ class Solution(BaseModel):
     step_citations: Mapping[str, Tuple[Citation, ...]] = {}
     step_declared_domain: Mapping[str, Any] = {}  # feldspar.core.Domain
 
+    # WO-11 symbolic-derivation provenance (`SolverInfo.algebraic_form`/
+    # `.admission_predicate`), carried the same way -- keyed by
+    # `solver_id`, key omitted entirely for a hand-written (non-symbolic)
+    # step (`report.py`'s renderer treats a missing key as "not carried").
+    step_algebraic_form: Mapping[str, str] = {}
+    step_admission_predicate: Mapping[str, str] = {}
+
     # The caller's `eps_budget` for THIS solve, if known (`solve()`
     # stamps it; a bare `execute()` call has no budget context and
     # leaves this `None` -- `explain()` renders "no budget context"
@@ -215,6 +222,8 @@ def _execute_impl(
     step_eps_map: Dict[str, float] = {}
     step_citations_map: Dict[str, Tuple[Citation, ...]] = {}
     step_declared_domain_map: Dict[str, Any] = {}
+    step_algebraic_form_map: Dict[str, str] = {}
+    step_admission_predicate_map: Dict[str, str] = {}
     final_eps = 0.0
 
     if not route.steps:
@@ -268,6 +277,10 @@ def _execute_impl(
         step_eps_map[step.solver_id] = step_eps
         step_citations_map[step.solver_id] = info.citations
         step_declared_domain_map[step.solver_id] = info.domain
+        if info.algebraic_form is not None:
+            step_algebraic_form_map[step.solver_id] = info.algebraic_form
+        if info.admission_predicate is not None:
+            step_admission_predicate_map[step.solver_id] = info.admission_predicate
         final_eps = step_eps
 
     value = values[route.target]
@@ -283,6 +296,8 @@ def _execute_impl(
         step_eps=step_eps_map,
         step_citations=step_citations_map,
         step_declared_domain=step_declared_domain_map,
+        step_algebraic_form=step_algebraic_form_map,
+        step_admission_predicate=step_admission_predicate_map,
     )
     _log.info(
         "execute: succeeded target=%s eps=%s steps=%d",

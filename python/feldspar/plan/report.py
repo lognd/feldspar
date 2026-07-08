@@ -32,8 +32,7 @@ def _domain_dict(domain: Any) -> "Dict[str, Any]":
     the declared and realized domain renderings for one step."""
     return {
         "box": {
-            port: {"lo": iv.lo, "hi": iv.hi}
-            for port, iv in sorted(domain.box.items())
+            port: {"lo": iv.lo, "hi": iv.hi} for port, iv in sorted(domain.box.items())
         },
         "tags": sorted(domain.tags),
     }
@@ -70,6 +69,10 @@ def _step_records(solution: "Solution") -> "List[Dict[str, Any]]":
                 "predicted_eps": step.predicted_eps,
                 "charged_eps": solution.step_eps.get(step.solver_id),
                 "cost": step.cost,
+                "algebraic_form": solution.step_algebraic_form.get(step.solver_id),
+                "admission_predicate": solution.step_admission_predicate.get(
+                    step.solver_id
+                ),
             }
         )
     return records
@@ -172,6 +175,11 @@ def render_explain(solution: "Solution") -> str:
                 f"    predicted_eps={format_f64(rec['predicted_eps'])}"
                 f"  charged_eps={charged_s}"
                 f"  cost={format_f64(rec['cost'])}"
+            )
+            form = rec["algebraic_form"] or "(not carried -- hand-written direction)"
+            lines.append(f"    algebraic_form: {form}")
+            lines.append(
+                f"    admission_predicate: {rec['admission_predicate'] or '(none)'}"
             )
 
     if solution.attempts:

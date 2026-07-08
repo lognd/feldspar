@@ -112,5 +112,25 @@ progress.
 
 ## WO-10 explain() + acceptance close-out
 
-- [ ] Solution.explain(), Solution.to_dict()
-- [ ] M1 acceptance close-out against regolith WO-27's list
+- [x] Solution.explain(), Solution.to_dict() (`plan/report.py`; pure
+      rendering, no solver/registry calls -- `Solution` extended with
+      `step_eps`/`step_citations`/`step_declared_domain`/`eps_budget`
+      so the report never recomputes)
+- [x] explain() golden: toy registry (`tests/unit/test_report.py`,
+      byte-exact string golden + no-recomputation test) and a real FEA
+      solve (`tests/integration/test_report_fea.py`, `fea`-marked --
+      written per spec, NOT executed in this sandbox: no gmsh/ccx, same
+      as WO-08/WO-09)
+- [x] FINV audit checklist (`docs/implementation/FINV-audit.md`):
+      FINV-1..8/10/11 test-cited; FINV-9/12 recorded as scope cuts
+      (M5/M2, not yet applicable)
+- [x] README quickstart (install/register/solve/explain), run against
+      the real API before committing
+- [x] M1 acceptance close-out against regolith WO-27's list: `make
+      check`'s lint/import-lint/test/cargo stages verified green
+      locally; `ty check` blocked by a PRE-EXISTING tomli/tomllib
+      diagnostic in `_compat.py` unrelated to this WO (confirmed via
+      `git stash -u` against the pre-WO-10 tree); CI matrix and the
+      regolith conformance job cannot be verified from inside this
+      sandbox in the sense a real CI run would -- not claimed as met,
+      see WO-10's closing report

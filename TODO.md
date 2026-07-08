@@ -95,8 +95,8 @@ progress.
 
 ## WO-07 library/mech formulas + calib harness
 
-- [ ] feldspar-library mech namespace formulas + extern "C"
-- [ ] feldspar.calib: calibrate(), check_ceilings(), CalibRecord
+- [x] feldspar-library mech namespace formulas + extern "C"
+- [x] feldspar.calib: calibrate(), check_ceilings(), CalibRecord
 
 ## WO-08 FEA pipeline
 

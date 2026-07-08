@@ -1,6 +1,6 @@
 # WO-07: library/mech Phase 1 + calibration harness
 
-Status: todo
+Status: done
 Depends: WO-06
 Language: Rust formulas (`feldspar-library::mech`) + Python
 registration (`feldspar/library/mech.py`) + Python harness

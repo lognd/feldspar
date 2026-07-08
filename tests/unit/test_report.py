@@ -101,7 +101,9 @@ def test_explain_makes_no_solver_calls() -> None:
     text = solution.explain()
     as_dict = solution.to_dict()
 
-    assert len(calls) == calls_before  # explain()/to_dict() called the SolveFn zero more times
+    assert (
+        len(calls) == calls_before
+    )  # explain()/to_dict() called the SolveFn zero more times
     assert isinstance(text, str)
     assert isinstance(as_dict, dict)
 
@@ -149,11 +151,15 @@ def test_explain_golden_toy_registry() -> None:
     declared_domain: box=(ex.x=[0.0, 10.0]) tags=((none))
     realized_domain: box=(ex.x=[1.0, 2.0]) tags=((none))
     predicted_eps=0.5  charged_eps=0.5  cost=1.0
+    algebraic_form: (not carried -- hand-written direction)
+    admission_predicate: (none)
   step 2: solver='ex.increment'
     citation: handbook: test fixture -- a note
     declared_domain: box=(ex.y=[0.0, 100.0]) tags=((none))
     realized_domain: box=(ex.y=[0.5, 2.5]) tags=((none))
     predicted_eps=0.1  charged_eps=0.1  cost=1.0
+    algebraic_form: (not carried -- hand-written direction)
+    admission_predicate: (none)
   reroute trail: (none -- solved on the first attempt)""".format(
         settings_digest=solution.settings_digest, route_digest=solution.route.digest
     )
@@ -167,8 +173,12 @@ def test_explain_golden_is_stable_across_two_runs() -> None:
     registry/route/solution."""
     r1, r2 = _toy_registry(), _toy_registry()
     known = _toy_known()
-    s1 = execute(plan(r1, known, frozenset(), "ex.z", 10.0).danger_ok, r1, known).danger_ok
-    s2 = execute(plan(r2, known, frozenset(), "ex.z", 10.0).danger_ok, r2, known).danger_ok
+    s1 = execute(
+        plan(r1, known, frozenset(), "ex.z", 10.0).danger_ok, r1, known
+    ).danger_ok
+    s2 = execute(
+        plan(r2, known, frozenset(), "ex.z", 10.0).danger_ok, r2, known
+    ).danger_ok
     assert s1.explain() == s2.explain()
     assert s1.to_dict() == s2.to_dict()
 

@@ -106,9 +106,9 @@ progress.
 
 ## WO-09 regolith pack + conformance
 
-- [ ] feldspar.pack: real register() replacing WO-01 no-op stub
-- [ ] mech.static_stress / mech.static_deflection model registration
-- [ ] conformance suite against regolith WO-27
+- [x] feldspar.pack: real register() replacing WO-01 no-op stub
+- [x] mech.static_stress / mech.static_deflection model registration
+- [x] conformance suite against regolith WO-27
 
 ## WO-10 explain() + acceptance close-out
 

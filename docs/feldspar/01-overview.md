@@ -102,7 +102,7 @@ never make them harder:
 - **regolith** is the host toolchain: its harness defines Model,
   DischargeRequest, Prediction, Evidence, the registry, plugin
   discovery, and signing. feldspar consumes those as a normal
-  third-party pack (contract: `../cad/docs/implementation/`
+  third-party pack (contract: `../lithos/docs/implementation/`
   `20-solver-abstraction.md`, D-A..D-G).
 - **hematite/cuprite** never see feldspar directly; their claims reach
   it through regolith's model registry.

@@ -99,7 +99,7 @@ table                 interpolation table ref (property data)
 spectrum | profile | mask   regolith/02 sec. 5 time/frequency objects
 field                 discretized result field (nodal/element arrays)
 flownet               fluid-circuit topology (fluorite lowering,
-                      ../cad/docs/fluorite/03-lowering.md)
+                      ../lithos/docs/fluorite/03-lowering.md)
 plan                  manufacturing plan artifact (planner solvers,
                       10 sec. 5)
 ```

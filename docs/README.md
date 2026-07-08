@@ -93,6 +93,6 @@ examples/          target-API pressure tests (written before code;
   with its enforcement mechanism; new guarantees enter the table in the
   same change as their implementation.
 - External contracts are cited by their home: regolith design docs are
-  referenced as `../cad/docs/...` and never copied here (NO
+  referenced as `../lithos/docs/...` and never copied here (NO
   DUPLICATION); this repo documents only the feldspar side of each
   seam.

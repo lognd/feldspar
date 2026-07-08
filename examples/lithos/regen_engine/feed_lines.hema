@@ -1,9 +1,9 @@
 # Feed + cooling circuit -- WRITTEN TO FALL FLAT. This file attempts
 # the engine's fluid system in today's hematite and documents exactly
 # where the language runs out (G25). Kept as the reproduction case
-# for the lithos-side ask (../cad 20-solver-abstraction sec. 7
+# for the lithos-side ask (../lithos 20-solver-abstraction sec. 7
 # item 6). UPDATE 2026-07-07: a full draft answer now exists --
-# ../cad/docs/fluorite/ (the fluorite track: media, FluidPort,
+# ../lithos/docs/fluorite/ (the fluorite track: media, FluidPort,
 # flownet, the `flownet` payload); the strawman below became its
 # 02-language.md. This file stays as the motivating reproduction.
 

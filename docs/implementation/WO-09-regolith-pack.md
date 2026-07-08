@@ -36,5 +36,5 @@ models behind the entry point, conformant from the outside.
 ## Acceptance
 
 - CI regolith job: conformance + WO-27 acceptance green against a
-  checkout of ../cad; import-linter proves no `regolith.*` import
+  checkout of ../lithos; import-linter proves no `regolith.*` import
   outside `pack/` (FINV-3); regolith's own `make check` untouched.

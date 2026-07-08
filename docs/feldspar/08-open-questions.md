@@ -120,7 +120,7 @@ when the implementing WO lands; only their RESIDUAL is still open.
   by rule (02). Reconciled regolith-side: the ref-passing ask was
   generalized so ONE channel carries geometry refs, parametric
   descriptors, spectra, profiles, and masks
-  (`../cad/docs/implementation/20-solver-abstraction.md` sec. 7
+  (`../lithos/docs/implementation/20-solver-abstraction.md` sec. 7
   item 3). RESIDUAL CLOSED: the channel is D96 (see OPEN-2); engine-
   side implementation is 09 M6, gating Phase 3. Cycle 21 addendum
   (D102): temporal claim-form shapes split into two families --
@@ -260,7 +260,7 @@ none is open unless marked.
 
 ## Regolith work orders (regolith side, cycle 20-21; unblocks noted per item above)
 
-Normative text: `../cad/docs/implementation/20-solver-abstraction.md`
+Normative text: `../lithos/docs/implementation/20-solver-abstraction.md`
 sec. 8 and design-logs `2026-07-07-cycle-2{0,1}.md`.
 
 | WO | contents | unblocks feldspar |

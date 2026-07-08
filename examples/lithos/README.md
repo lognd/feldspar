@@ -2,7 +2,7 @@
 
 Three target-syntax lithos projects written to be discharged through
 feldspar, each annotated with `G-nn` friction anchors. These are
-feldspar-side fixtures (NOT part of ../cad's golden corpus); when the
+feldspar-side fixtures (NOT part of ../lithos's golden corpus); when the
 seam lands they become the conformance suite's realistic inputs.
 
 - `manifold.hema` -- the direct hit: thick-wall cylinder, fat + thin

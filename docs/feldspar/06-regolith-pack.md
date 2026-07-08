@@ -5,7 +5,7 @@ harness Model contract behind the `regolith.model_packs` entry point,
 producing deterministic, attributable, signable evidence -- the WO-27
 deliverable.
 
-Contract home: `../cad/docs/implementation/20-solver-abstraction.md`
+Contract home: `../lithos/docs/implementation/20-solver-abstraction.md`
 (D-A..D-G) and `WO-27-reference-fea-pack.md`. This doc records only
 the feldspar side; the regolith side is cited, not copied.
 
@@ -102,7 +102,7 @@ internal subprocess, so in-process registration is D-B-conformant):
   - `settings_digest` = the engine digest. This is the sanctioned
     INV-10 channel: a non-None `Prediction.settings_digest` OVERRIDES
     the request's digest inside the shared `Model.discharge`
-    (`../cad/python/regolith/harness/model.py`) -- no `discharge()`
+    (`../lithos/python/regolith/harness/model.py`) -- no `discharge()`
     override, no parallel margin rule (D-A).
 - Failures: missing/failed tools and out-of-domain corners map to
   regolith `DomainError` with the feldspar error message embedded --
@@ -150,7 +150,7 @@ internal subprocess, so in-process registration is D-B-conformant):
 ## Conformance (the actual point of WO-27)
 
 feldspar's test session runs regolith's pack-protocol suite from the
-OUTSIDE (`../cad/tests/packs/` `assert_pack_conforms` +
+OUTSIDE (`../lithos/tests/packs/` `assert_pack_conforms` +
 `registry_with_pack` helpers), marked `regolith` and skipped when
 regolith is not installed. Green conformance from a separate repo is
 the proof that the WO-20/21 contract holds for a real external

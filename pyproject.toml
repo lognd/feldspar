@@ -36,7 +36,7 @@ features = ["pyo3/extension-module"]
 # tool.hatch.version.path).
 
 [tool.setuptools.package-data]
-feldspar = ["py.typed", "logging/config.toml"]
+feldspar = ["py.typed", "logging/config.toml", "_feldspar.pyi"]
 
 [dependency-groups]
 dev = [
@@ -67,7 +67,11 @@ src = ["python", "tests"]
 select = ["E", "F", "I", "B", "W"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["E501"]
+# E402: house style puts `from __future__ import annotations` before the
+# module docstring (never after), which makes ruff treat the docstring as
+# a plain statement and flag every import that follows it.
+"tests/**" = ["E501", "E402"]
+"python/feldspar/core.py" = ["E402"]
 
 [tool.coverage.run]
 source = ["python"]

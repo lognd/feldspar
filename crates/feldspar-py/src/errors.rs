@@ -1,0 +1,64 @@
+//! Rust `Result`/`Err` -> Python exception marshalling (AD-1: feldspar-py
+//! is marshalling only). Each raised exception carries `(variant, ...)`
+//! so the Python-side `feldspar/core.py` shim can reconstruct a typani
+//! `Err(...)` value from it -- Rust-side `Result` becomes a Python
+//! exception at this boundary, then Python re-wraps it as the typani
+//! `Result` the 01-interfaces surface promises callers.
+
+use pyo3::create_exception;
+use pyo3::exceptions::PyException;
+use pyo3::PyErr;
+
+create_exception!(_feldspar, CoreErrorRaised, PyException);
+create_exception!(_feldspar, UnitErrorRaised, PyException);
+create_exception!(_feldspar, DomainViolationRaised, PyException);
+
+pub fn core_error_to_py(e: feldspar_core::CoreError) -> PyErr {
+    let variant = match e {
+        feldspar_core::CoreError::NonFiniteBound(_) => "NonFiniteBound",
+        feldspar_core::CoreError::InvertedInterval { .. } => "InvertedInterval",
+    };
+    CoreErrorRaised::new_err((variant, e.to_string()))
+}
+
+pub fn unit_error_to_py(e: feldspar_core::UnitError) -> PyErr {
+    let variant = match &e {
+        feldspar_core::UnitError::UnknownUnit(_) => "UnknownUnit",
+        feldspar_core::UnitError::IncompatibleDimensions { .. } => "IncompatibleDimensions",
+        feldspar_core::UnitError::OffsetInCompound(_) => "OffsetInCompound",
+    };
+    UnitErrorRaised::new_err((variant, e.to_string()))
+}
+
+#[allow(clippy::type_complexity)]
+pub fn domain_violation_to_py(v: feldspar_core::DomainViolation) -> PyErr {
+    use feldspar_core::DomainViolation::*;
+    let (kind, port, tag, lo, hi, box_lo, box_hi): (
+        &str,
+        Option<String>,
+        Option<String>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+    ) = match v {
+        MissingInput { port } => ("MissingInput", Some(port), None, None, None, None, None),
+        OutOfBox {
+            port,
+            lo,
+            hi,
+            box_lo,
+            box_hi,
+        } => (
+            "OutOfBox",
+            Some(port),
+            None,
+            Some(lo),
+            Some(hi),
+            Some(box_lo),
+            Some(box_hi),
+        ),
+        MissingTag { tag } => ("MissingTag", None, Some(tag), None, None, None, None),
+    };
+    DomainViolationRaised::new_err((kind, port, tag, lo, hi, box_lo, box_hi))
+}

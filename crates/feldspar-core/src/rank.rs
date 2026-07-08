@@ -4,8 +4,9 @@
 /// The shape of a port's uncertain value. `Payload` is reserved for M2
 /// (09 sec. 4 payload ports); the arm exists so registration code can
 /// match exhaustively today without a breaking enum change later.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Rank {
+    #[default]
     Scalar,
     Complex,
     Vector(u32),
@@ -14,12 +15,6 @@ pub enum Rank {
     /// reference content type. Not constructed or matched on elsewhere
     /// in M1.
     Payload(String),
-}
-
-impl Default for Rank {
-    fn default() -> Self {
-        Rank::Scalar
-    }
 }
 
 /// A namespaced port declaration: name, coherent-SI unit label, and rank

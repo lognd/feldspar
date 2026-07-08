@@ -24,9 +24,17 @@ progress.
 
 ## WO-02 quantity core (Rust)
 
-- [ ] Interval, Accuracy, Rank, PortDecl, Domain, Dimension, UnitSystem
-- [ ] canonical_digest, format_f64
-- [ ] CoreError, UnitError variants
+- [x] Interval, Accuracy, Rank, PortDecl, Domain, Dimension, UnitSystem
+- [x] canonical_digest, format_f64
+- [x] CoreError, UnitError, DomainViolation variants
+- [x] BuiltinUnitSystem seeded table (M1 port units + mm/MPa/kN/GPa/%
+      aliases + degC/degF/rpm/deg/s(Isp) edge cases + K/W compound)
+- [x] PyO3 exposure: frozen classes, __repr__/__hash__/equality
+- [x] feldspar/core.py: typani Result marshalling over the raising
+      _feldspar primitives (Interval.new/point, Domain.admits,
+      UnitSystem.dimension_of/to_si/from_si)
+- [x] proptest property tests (interval, domain subset, digest order,
+      unit round-trips) + Python smoke tests (tests/unit/test_core.py)
 
 ## WO-03 solver protocol + registry
 

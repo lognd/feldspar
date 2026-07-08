@@ -18,8 +18,11 @@ impl Dimension {
     /// Componentwise sum; the dimension of a product of two quantities.
     pub fn mul(&self, other: &Dimension) -> Dimension {
         let mut out = [0i8; 7];
-        for i in 0..7 {
-            out[i] = self.exponents[i] + other.exponents[i];
+        for (o, (a, b)) in out
+            .iter_mut()
+            .zip(self.exponents.iter().zip(other.exponents.iter()))
+        {
+            *o = a + b;
         }
         Dimension::new(out)
     }
@@ -27,8 +30,11 @@ impl Dimension {
     /// Componentwise difference; the dimension of a quotient.
     pub fn div(&self, other: &Dimension) -> Dimension {
         let mut out = [0i8; 7];
-        for i in 0..7 {
-            out[i] = self.exponents[i] - other.exponents[i];
+        for (o, (a, b)) in out
+            .iter_mut()
+            .zip(self.exponents.iter().zip(other.exponents.iter()))
+        {
+            *o = a - b;
         }
         Dimension::new(out)
     }

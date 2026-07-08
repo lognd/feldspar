@@ -21,6 +21,7 @@ mod library;
 mod propagation;
 mod rank;
 mod search;
+mod symbolic;
 mod units;
 
 use accuracy::{exact_accuracy, PyAccuracy};
@@ -36,6 +37,7 @@ use library::{
 use propagation::{corner_sweep_py, inflate_py, total_error_py};
 use rank::{PyPortDecl, PyRank};
 use search::{plan_py, PyRoute, PyRouteStep, PySolverInput};
+use symbolic::{invert_for_py, invertible_targets_py, predicate_to_box_py, PyExpr, PyPredicate};
 use units::PyUnitSystem;
 
 /// Runs `feldspar_core::emit_smoke_span` so the pyo3-log bridge can be
@@ -71,6 +73,9 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mech_lame_radial_stress_bore_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_von_mises_principal_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_bore_von_mises_py, m)?)?;
+    m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
+    m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
+    m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;
 
     m.add_class::<PyInterval>()?;
     m.add_class::<PyAccuracy>()?;
@@ -82,6 +87,8 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySolverInput>()?;
     m.add_class::<PyRoute>()?;
     m.add_class::<PyRouteStep>()?;
+    m.add_class::<PyExpr>()?;
+    m.add_class::<PyPredicate>()?;
 
     m.add(
         "CoreErrorRaised",
@@ -102,6 +109,14 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PlanErrorRaised",
         _py.get_type_bound::<errors::PlanErrorRaised>(),
+    )?;
+    m.add(
+        "EvalErrorRaised",
+        _py.get_type_bound::<errors::EvalErrorRaised>(),
+    )?;
+    m.add(
+        "SymbolicErrorRaised",
+        _py.get_type_bound::<errors::SymbolicErrorRaised>(),
     )?;
 
     Ok(())

@@ -23,6 +23,10 @@ create_exception!(_feldspar, PropagationErrorRaised, PyException);
 // 01-interfaces `PlanError`), marshalled the same `(variant, ...)` way
 // as `CoreErrorRaised`/`UnitErrorRaised` above.
 create_exception!(_feldspar, PlanErrorRaised, PyException);
+// `feldspar_core::symbolic`'s declaration-time algebra errors (WO-11, 11
+// sec. 2), marshalled the same `(variant, ...)` way as the errors above.
+create_exception!(_feldspar, EvalErrorRaised, PyException);
+create_exception!(_feldspar, SymbolicErrorRaised, PyException);
 
 pub fn plan_error_to_py(e: feldspar_core::PlanError) -> PyErr {
     use feldspar_core::PlanError::*;
@@ -83,4 +87,33 @@ pub fn domain_violation_to_py(v: feldspar_core::DomainViolation) -> PyErr {
         MissingTag { tag } => ("MissingTag", None, Some(tag), None, None, None, None),
     };
     DomainViolationRaised::new_err((kind, port, tag, lo, hi, box_lo, box_hi))
+}
+
+pub fn eval_error_to_py(e: feldspar_core::symbolic::EvalError) -> PyErr {
+    use feldspar_core::symbolic::EvalError::*;
+    match e {
+        MissingPort { port } => EvalErrorRaised::new_err(("MissingPort", port)),
+        DomainFault { detail } => EvalErrorRaised::new_err(("DomainFault", detail)),
+    }
+}
+
+pub fn symbolic_error_to_py(e: feldspar_core::symbolic::SymbolicError) -> PyErr {
+    use feldspar_core::symbolic::SymbolicError::*;
+    match e {
+        NonInvertible { variable, reason } => {
+            SymbolicErrorRaised::new_err(("NonInvertible", variable, reason.to_string()))
+        }
+        MultiBranch { variable, branches } => SymbolicErrorRaised::new_err((
+            "MultiBranch",
+            variable,
+            branches
+                .iter()
+                .map(|b| b.label().to_string())
+                .collect::<Vec<_>>(),
+        )),
+        UnboundablePredicate { predicate } => {
+            SymbolicErrorRaised::new_err(("UnboundablePredicate", predicate))
+        }
+        EmptyDomain { port } => SymbolicErrorRaised::new_err(("EmptyDomain", port)),
+    }
 }

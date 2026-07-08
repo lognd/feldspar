@@ -19,6 +19,21 @@ create_exception!(_feldspar, DomainViolationRaised, PyException);
 // `Err(that_same_value)` -- unlike the other exceptions above, Rust
 // never interprets this payload's shape (WO-04, FINV-4).
 create_exception!(_feldspar, PropagationErrorRaised, PyException);
+// `feldspar_core::search::plan`'s total `PlanError` union (WO-05,
+// 01-interfaces `PlanError`), marshalled the same `(variant, ...)` way
+// as `CoreErrorRaised`/`UnitErrorRaised` above.
+create_exception!(_feldspar, PlanErrorRaised, PyException);
+
+pub fn plan_error_to_py(e: feldspar_core::PlanError) -> PyErr {
+    use feldspar_core::PlanError::*;
+    match e {
+        InvalidBudget => PlanErrorRaised::new_err(("InvalidBudget",)),
+        UnknownTarget(target) => PlanErrorRaised::new_err(("UnknownTarget", target)),
+        NoApplicableSolver => PlanErrorRaised::new_err(("NoApplicableSolver",)),
+        BudgetUnreachable { best_eps } => PlanErrorRaised::new_err(("BudgetUnreachable", best_eps)),
+        CyclicPortEquivalence => PlanErrorRaised::new_err(("CyclicPortEquivalence",)),
+    }
+}
 
 pub fn core_error_to_py(e: feldspar_core::CoreError) -> PyErr {
     let variant = match e {

@@ -19,6 +19,7 @@ mod errors;
 mod interval;
 mod propagation;
 mod rank;
+mod search;
 mod units;
 
 use accuracy::{exact_accuracy, PyAccuracy};
@@ -28,6 +29,7 @@ use domain::PyDomain;
 use interval::PyInterval;
 use propagation::{corner_sweep_py, inflate_py, total_error_py};
 use rank::{PyPortDecl, PyRank};
+use search::{plan_py, PyRoute, PyRouteStep, PySolverInput};
 use units::PyUnitSystem;
 
 /// Runs `feldspar_core::emit_smoke_span` so the pyo3-log bridge can be
@@ -52,6 +54,7 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(corner_sweep_py, m)?)?;
     m.add_function(wrap_pyfunction!(inflate_py, m)?)?;
     m.add_function(wrap_pyfunction!(total_error_py, m)?)?;
+    m.add_function(wrap_pyfunction!(plan_py, m)?)?;
 
     m.add_class::<PyInterval>()?;
     m.add_class::<PyAccuracy>()?;
@@ -60,6 +63,9 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPortDecl>()?;
     m.add_class::<PyDomain>()?;
     m.add_class::<PyUnitSystem>()?;
+    m.add_class::<PySolverInput>()?;
+    m.add_class::<PyRoute>()?;
+    m.add_class::<PyRouteStep>()?;
 
     m.add(
         "CoreErrorRaised",
@@ -76,6 +82,10 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PropagationErrorRaised",
         _py.get_type_bound::<errors::PropagationErrorRaised>(),
+    )?;
+    m.add(
+        "PlanErrorRaised",
+        _py.get_type_bound::<errors::PlanErrorRaised>(),
     )?;
 
     Ok(())

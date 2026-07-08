@@ -89,9 +89,9 @@ progress.
 
 ## WO-06 solve facade: execute, reroute, cache
 
-- [ ] execute(), solve(), RoutePolicy
-- [ ] content-addressed cache under .feldspar/cache/ (AD-9, FINV-7)
-- [ ] SolveError variants
+- [x] execute(), solve(), RoutePolicy
+- [x] content-addressed cache under .feldspar/cache/ (AD-9, FINV-7)
+- [x] SolveError variants
 
 ## WO-07 library/mech formulas + calib harness
 

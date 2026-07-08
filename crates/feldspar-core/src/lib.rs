@@ -20,6 +20,7 @@ pub mod error;
 pub mod interval;
 pub mod propagation;
 pub mod rank;
+pub mod search;
 pub mod units;
 
 pub use accuracy::Accuracy;
@@ -30,6 +31,7 @@ pub use error::{CoreError, UnitError};
 pub use interval::Interval;
 pub use propagation::{corner_sweep, enumerate_corners, inflate, total_error, Propagation};
 pub use rank::{PortDecl, Rank};
+pub use search::{plan, PlanError, Route, RouteStep, Sense, SolverSummary};
 pub use units::{BuiltinUnitSystem, UnitSystem};
 
 /// Emits one tracing span and info event; WO-01 smoke test fixture proving

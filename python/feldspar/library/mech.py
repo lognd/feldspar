@@ -196,10 +196,10 @@ def bore_von_mises(x):
 
 def register(registry: SolverRegistry) -> None:
     """Registers every mech Phase 1 direction (WO-07)."""
-    result_a = registry.register(*rect_second_moment.solver_direction)
+    result_a = registry.register(*rect_second_moment.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = cantilever.register(registry)
     _ = result_b.danger_ok
-    result_c = registry.register(*bore_von_mises.solver_direction)
+    result_c = registry.register(*bore_von_mises.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_c.danger_ok
     _log.info("mech: registered %d solver directions", 3)

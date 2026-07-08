@@ -9,7 +9,17 @@ ergonomics"; 02-edge-cases WO-03: "sugar-built direction vs hand-built
 twin -> identical SolverInfo digest") -- there is exactly one lowering
 path, never a second registration route (AD-4 spirit extended to sugar)."""
 
-from typing import Any, Callable, Iterable, Literal, Mapping, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 from typani.result import Ok, Result
 
@@ -120,6 +130,11 @@ def build_solver_info_and_fn(
     conservative_for: Union[ClaimSenses, str] = ClaimSenses.BOTH,
     tags: Iterable[str] = (),
     raw_fn: Callable[..., Any],
+    algebraic_form: Optional[str] = None,
+    solved_for: Optional[str] = None,
+    branch: Optional[str] = None,
+    admission_predicate: Optional[str] = None,
+    derivation_digest: Optional[str] = None,
 ) -> Tuple[SolverInfo, SolveFn]:
     """The one lowering path from author-facing (sugared or raw)
     arguments to a registered `(SolverInfo, SolveFn)` pair."""
@@ -147,5 +162,10 @@ def build_solver_info_and_fn(
         corner_monotone=corner_monotone,
         conservative_for=conservative,
         settings_digest=settings_digest_value,
+        algebraic_form=algebraic_form,
+        solved_for=solved_for,
+        branch=branch,
+        admission_predicate=admission_predicate,
+        derivation_digest=derivation_digest,
     )
     return info, wrap_solve_fn(raw_fn, outputs_tuple)

@@ -21,11 +21,16 @@ from feldspar._feldspar import (
     Accuracy,
     Dimension,
     Domain,
+    Expr,
     Interval,
     PortDecl,
+    Predicate,
     Rank,
     UnitSystem,
     format_f64,
+    invert_for,
+    invertible_targets,
+    predicate_to_box,
 )
 
 __all__ = [
@@ -35,8 +40,10 @@ __all__ = [
     "Domain",
     "DomainViolation",
     "EXACT",
+    "Expr",
     "Interval",
     "PortDecl",
+    "Predicate",
     "Rank",
     "UnitError",
     "UnitSystem",
@@ -44,6 +51,9 @@ __all__ = [
     "corner_sweep",
     "format_f64",
     "inflate",
+    "invert_for",
+    "invertible_targets",
+    "predicate_to_box",
     "total_error",
 ]
 

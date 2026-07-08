@@ -8,15 +8,17 @@ Every builder here calls the SAME `_build.build_solver_info_and_fn` the
 path to the raw protocol, so a sugar-built direction is digest-equal to
 its hand-built twin by construction (02-edge-cases WO-03 row)."""
 
-from typing import Any, Callable, Literal, Optional, Sequence, Tuple
+from typing import Any, Callable, Literal, Mapping, Optional, Sequence, Tuple
 
-from typani.result import Ok, Result
+from typani.result import Err, Ok, Result
 
-from feldspar.core import Accuracy
+from feldspar import _feldspar
+from feldspar.core import Accuracy, Interval
 from feldspar.logging import get_logger
 from feldspar.solve import _build
 from feldspar.solve._models import EXACT, ClaimSenses, SolverInfo
-from feldspar.solve.errors import RegistryError
+from feldspar.solve.digest import canonical_digest
+from feldspar.solve.errors import RegistryError, SolveError
 from feldspar.solve.solver import SolveFn
 
 _log = get_logger(__name__)
@@ -29,6 +31,24 @@ __all__ = [
     "table_solver_1d",
     "table_solver_2d",
 ]
+
+
+def _symbolic_error_from_exc(exc: Exception) -> RegistryError:
+    """`_feldspar.SymbolicErrorRaised` -> `RegistryError` (WO-11): the
+    Python-boundary re-wrap for `feldspar_core::symbolic::SymbolicError`,
+    matching `feldspar/core.py`'s `_domain_violation_from_exc` pattern."""
+    variant: str = exc.args[0]
+    if variant == "NonInvertible":
+        _, variable, reason = exc.args
+        return RegistryError.NonInvertible(variable=variable, reason=reason)
+    if variant == "MultiBranch":
+        _, variable, branches = exc.args
+        return RegistryError.MultiBranch(variable=variable, branches=branches)
+    if variant == "UnboundablePredicate":
+        _, predicate = exc.args
+        return RegistryError.UnboundablePredicate(predicate=predicate)
+    _, port = exc.args
+    return RegistryError.EmptyDomain(port=port)
 
 
 def make_direction(
@@ -160,6 +180,124 @@ class Relation:
             return fn
 
         return deco
+
+    def law(
+        self,
+        *,
+        lhs: Any,
+        rhs: Any,
+        predicates: Any = (),
+        branches: Any = None,
+        declared_box: Any = None,
+    ) -> "Result[None, RegistryError]":
+        """Symbolic direction declaration (WO-11, 11 sec. 1-2): derives
+        EVERY invertible target of `lhs == rhs` and appends one
+        `(SolverInfo, SolveFn)` per target to `self._directions`, the
+        same list `.direction()` populates -- hand-written and derived
+        directions coexist under one `Relation`. Non-invertible
+        variables simply aren't in `_feldspar.invertible_targets`'s
+        result (by construction); if the author wants one anyway, they
+        write it by hand via `.direction()` beside this call."""
+        targets = _feldspar.invertible_targets(lhs, rhs)
+        explicit_predicates = tuple(predicates)
+        # `predicate_to_box` needs a declared box side for any port its
+        # predicates can't derive a bound for -- the Relation's own
+        # declared domain (if box-shaped) already has one for every
+        # port, so seed from that and let an explicit `declared_box=`
+        # override/extend it.
+        box_intervals: dict = dict(
+            getattr(_build.coerce_domain(self._domain), "box", {})
+        )
+        if declared_box is not None:
+            for k, v in dict(declared_box).items():
+                box_intervals[k] = (
+                    v if isinstance(v, Interval) else Interval(float(v[0]), float(v[1]))
+                )
+
+        for target in targets:
+            branch_choice = branches.get(target) if branches else None
+            try:
+                rhs_expr, branch_label, admission, form = _feldspar.invert_for(
+                    lhs, rhs, target, branch=branch_choice
+                )
+            except _feldspar.SymbolicErrorRaised as exc:
+                return Err(_symbolic_error_from_exc(exc))
+
+            # Only AUTHOR-DECLARED predicates (`predicates=`) feed box
+            # derivation (11 sec. 2: dispatch box derived from DECLARED
+            # predicates, with an author box for the sides they can't
+            # bound). Inversion's own ADMISSION predicates (e.g. a sqrt's
+            # `>= 0` range) are frequently multi-variable ratios that
+            # `predicate_to_box`'s v1 single-port-affine engine cannot
+            # (and must not silently pretend to) bound -- those ride into
+            # provenance/`explain()` only (WO-11 "Provenance + explain()"),
+            # never into the registered dispatch box. The Relation's own
+            # declared domain (or an explicit `domain=` override, not
+            # exposed on this path) remains the box when there are no
+            # explicit predicates to derive from.
+            if explicit_predicates:
+                try:
+                    domain_obj = _feldspar.predicate_to_box(
+                        list(explicit_predicates), dict(box_intervals), set(self._tags)
+                    )
+                except _feldspar.SymbolicErrorRaised as exc:
+                    return Err(_symbolic_error_from_exc(exc))
+            else:
+                domain_obj = self._domain
+
+            admission_predicate = (
+                "; ".join(p.canonical_string() for p in admission) or None
+            )
+            algebraic_form = form
+            derivation_digest = canonical_digest(
+                {
+                    "canon_version": 1,
+                    "form": algebraic_form,
+                    "solved_for": target,
+                    "branch": branch_label,
+                }
+            )
+
+            def _make_raw_fn(
+                rhs_expr: Any, target: str
+            ) -> Callable[[Mapping[str, float]], Any]:
+                def raw_fn(
+                    inputs: Mapping[str, float],
+                ) -> "Result[Mapping[str, float], SolveError]":
+                    try:
+                        return Ok({target: rhs_expr.eval(dict(inputs))})
+                    except _feldspar.EvalErrorRaised as exc:
+                        variant = exc.args[0]
+                        if variant == "MissingPort":
+                            return Err(SolveError.MissingOutput(port=exc.args[1]))
+                        return Err(SolveError.NonFinite(port=target))
+
+                return raw_fn
+
+            inputs_tuple = tuple(p for p in self._ports if p != target)
+            solver_id = f"{self._namespace}.solve_{target}"
+            info, wrapped = _build.build_solver_info_and_fn(
+                solver_id=solver_id,
+                namespace=self._namespace,
+                inputs=inputs_tuple,
+                outputs=(target,),
+                domain=domain_obj,
+                cost=self._cost,
+                accuracy=self._default_accuracy,
+                citations=self._citations,
+                version=self._version,
+                tier=self._tier,
+                settings=self._settings,
+                raw_fn=_make_raw_fn(rhs_expr, target),
+                algebraic_form=algebraic_form,
+                solved_for=target,
+                branch=branch_label,
+                admission_predicate=admission_predicate,
+                derivation_digest=derivation_digest,
+            )
+            self._directions.append((info, wrapped))
+
+        return Ok(None)
 
     def register(self, registry: Any) -> "Result[None, RegistryError]":
         for info, fn in self._directions:

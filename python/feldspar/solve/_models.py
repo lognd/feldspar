@@ -10,7 +10,7 @@ imports from `feldspar.solve`, never from this module."""
 import enum
 from typing import Any, Literal, Mapping, Optional, Tuple
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from feldspar.core import Accuracy
 
@@ -69,6 +69,18 @@ class SolverInfo(BaseModel):
     # these real types once budget-seeking search lands (WO-11+).
     eps_seeking: Optional[Any] = None
     cost_curve: Optional[Any] = None
+
+    # Symbolic-derivation provenance (WO-11, `Relation.law`): carried
+    # for `explain()`/`to_dict()` rendering only -- `exclude=True` so
+    # `model_dump()` (and therefore `canonical_digest`/`registry.digest()`,
+    # AD-5/FINV-7) drops them entirely. A symbolically-derived direction
+    # must digest byte-identically to a hand-built twin that never sets
+    # these (02-edge-cases WO-03 row extended to WO-11's symbolic path).
+    algebraic_form: Optional[str] = Field(default=None, exclude=True)
+    solved_for: Optional[str] = Field(default=None, exclude=True)
+    branch: Optional[str] = Field(default=None, exclude=True)
+    admission_predicate: Optional[str] = Field(default=None, exclude=True)
+    derivation_digest: Optional[str] = Field(default=None, exclude=True)
 
 
 class SolveOutput(BaseModel):

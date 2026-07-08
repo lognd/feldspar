@@ -90,6 +90,28 @@ class RegistryError(_TaggedError):
     def BadTable(cls, reason: str) -> "RegistryError":
         return cls("BadTable", reason=reason)
 
+    # Symbolic declaration-time failures (WO-11, `Relation.law`):
+    # `_feldspar.SymbolicErrorRaised` gets caught and re-wrapped into
+    # one of these four variants at the Python boundary, matching
+    # `feldspar_core::symbolic::SymbolicError`'s own four variants
+    # (crates/feldspar-py/src/errors.rs `symbolic_error_to_py`).
+
+    @classmethod
+    def NonInvertible(cls, variable: str, reason: str) -> "RegistryError":
+        return cls("NonInvertible", variable=variable, reason=reason)
+
+    @classmethod
+    def MultiBranch(cls, variable: str, branches: Any) -> "RegistryError":
+        return cls("MultiBranch", variable=variable, branches=branches)
+
+    @classmethod
+    def UnboundablePredicate(cls, predicate: str) -> "RegistryError":
+        return cls("UnboundablePredicate", predicate=predicate)
+
+    @classmethod
+    def EmptyDomain(cls, port: str) -> "RegistryError":
+        return cls("EmptyDomain", port=port)
+
 
 class SolveError(_TaggedError):
     """Solve/execution failures (01-interfaces `SolveError`); the

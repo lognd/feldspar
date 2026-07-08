@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+"""The ONE `Interval` converter pair, round-trip tested both directions
+(06 "Conversion at the boundary only ... one converter pair, round-trip
+tested")."""
+
+import pytest
+from regolith.harness.quantity import Interval as RegolithInterval
+
+from feldspar.core import Interval as FeldsparInterval
+from feldspar.pack.converters import to_feldspar_interval, to_regolith_interval
+
+pytestmark = pytest.mark.regolith
+
+
+def test_regolith_to_feldspar_round_trip() -> None:
+    """regolith -> feldspar -> regolith preserves lo/hi exactly."""
+    original = RegolithInterval(lo=1.5, hi=3.25)
+    feldspar_iv = to_feldspar_interval(original)
+    assert (feldspar_iv.lo, feldspar_iv.hi) == (1.5, 3.25)
+    back = to_regolith_interval(feldspar_iv)
+    assert back == original
+
+
+def test_feldspar_to_regolith_round_trip() -> None:
+    """feldspar -> regolith -> feldspar preserves lo/hi exactly."""
+    original = FeldsparInterval(-2.0, 4.0)
+    regolith_iv = to_regolith_interval(original)
+    assert (regolith_iv.lo, regolith_iv.hi) == (-2.0, 4.0)
+    back = to_feldspar_interval(regolith_iv)
+    assert (back.lo, back.hi) == (original.lo, original.hi)
+
+
+def test_degenerate_point_round_trips() -> None:
+    """A pinned (lo == hi) value survives both directions."""
+    original = RegolithInterval(lo=7.0, hi=7.0)
+    back = to_regolith_interval(to_feldspar_interval(original))
+    assert back == original

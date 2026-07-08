@@ -50,6 +50,13 @@ uncertainty through every step.
   namespace's formula tier) can be extracted and compiled standalone,
   including for microcontroller targets. Python is orchestration and
   interop; the computation homes are Rust.
+- **A symbolic core** (decided direction, 2026-07-08). Laws are data, not
+  only compiled function bodies: declare one symbolic equation and its
+  directions are derived at declaration time (digest-stable, citations
+  inherited, still the one solver protocol); validity domains are tracked
+  as symbolic predicates that dispatch boxes are derived from; rules that
+  are equations stay symbolic all the way into the justification report.
+  Spec: `docs/feldspar/11-symbolic.md`.
 
 ## Two personas, one codebase
 
@@ -101,20 +108,93 @@ without new dispatch paths:
 - nonlinear/dynamic FEA tiers,
 - a wire-format solver executable,
 - a growing capability map: mechanics -> thermal/fluids -> vibration ->
-  electrical -> controls.
+  electrical -> controls,
+- the symbolic core (M10): derived directions, symbolic domain
+  predicates, derivation-aware justification reports.
 
 ## Non-goals
 
-- Symbolic math or optimization: routing selects among declared solvers;
-  it does not derive new ones.
+- Optimization: routing selects among declared solvers and laws; it does
+  not search parameter spaces. (Symbolic math left this list on
+  2026-07-08 -- see the symbolic core above; derivation transforms
+  declared, cited laws and never invents one.)
 - Signing logic of its own: attestation is regolith consumer-side
   machinery.
+
+## Quickstart
+
+Install (editable dev install; builds the Rust extension via maturin):
+
+```bash
+make install   # uv sync --all-extras
+make build     # uv run maturin develop
+```
+
+Register a solver and solve for a target, then render the justification
+report -- this exact script runs against the current API:
+
+```python
+from feldspar.core import Accuracy, Domain, Interval
+from feldspar.solve import Citation, SolverRegistry, solver
+from feldspar.plan import solve
+
+registry = SolverRegistry()
+
+@solver(
+    namespace="thermo",
+    inputs=("thermo.pressure", "thermo.specific_volume"),
+    outputs=("thermo.temperature",),
+    domain=Domain(
+        box={
+            "thermo.pressure": Interval(1e3, 1e7),
+            "thermo.specific_volume": Interval(1e-3, 10.0),
+        },
+        tags=frozenset({"ideal_gas"}),
+    ),
+    cost=1e-6,
+    accuracy={"thermo.temperature": Accuracy(eps_abs=0.0, eps_rel=0.0)},
+    citations=(Citation(kind="handbook", ref="Cengel, Thermodynamics, ch.3"),),
+    version="1",
+)
+def ideal_gas_pv_to_t(x):
+    R = 287.0  # J/(kg K), air
+    return {"thermo.temperature": x["thermo.pressure"] * x["thermo.specific_volume"] / R}
+
+registry.register(*ideal_gas_pv_to_t.solver_direction)
+registry.freeze()
+
+known = {
+    "thermo.pressure": Interval(1.0e5, 1.01e5),
+    "thermo.specific_volume": Interval(0.80, 0.82),
+}
+
+result = solve(
+    registry,
+    known=known,
+    tags={"ideal_gas"},
+    target="thermo.temperature",
+    eps_budget=1000.0,  # loose: the planner budgets against the
+                        # SOLVER'S DECLARED domain, not the narrower
+                        # known interval, so tighten only after
+                        # checking `PlanError.BudgetUnreachable`'s
+                        # reported `best_eps`
+)
+solution = result.danger_ok  # typani Result: .danger_ok asserts Ok
+print(solution.explain())    # step-by-step justification report
+```
+
+`explain()` prints the route (one line per solver step), each step's
+method citations, the declared vs. realized domain, the predicted and
+charged model error, the running eps-vs-budget decomposition, any
+reroute trail, and cache provenance -- `solution.to_dict()` returns the
+same data as a JSON-safe dict for machine consumers.
 
 ## Documentation
 
 - `docs/feldspar/` -- the spec, numbered in reading order (overview,
   quantities and uncertainty, solvers, routing, FEA pipeline, regolith
-  pack, capability map, model integration, solver metamodel).
+  pack, capability map, model integration, solver metamodel, symbolic
+  core).
 - `docs/implementation/` -- normative architecture, interfaces, edge-case
   matrix, and the agent-executable work orders (WO-nn).
 

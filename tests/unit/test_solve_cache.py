@@ -65,6 +65,8 @@ def _patch_cache(monkeypatch, tmp_path) -> None:
 def test_solve_twice_identical_digest_second_served_from_cache(
     monkeypatch, tmp_path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """FINV-7: cache key == the full input tuple digest; a hit equals
+    a recompute (byte-identical Solution digest)."""
     _patch_cache(monkeypatch, tmp_path)
     registry = _registry_direct()
     known = {"sc.x": Interval(1.0, 2.0)}

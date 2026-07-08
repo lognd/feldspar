@@ -253,6 +253,8 @@ def test_cyclic_port_equivalence() -> None:
 
 
 def test_plan_twice_yields_identical_route_digest() -> None:
+    """FINV-1: same registry contents + same request => byte-identical
+    Route digest."""
     registry = _toy_registry()
     route1 = plan(registry, _known(), frozenset(), "toy.target", 1.0).danger_ok
     route2 = plan(registry, _known(), frozenset(), "toy.target", 1.0).danger_ok

@@ -17,6 +17,7 @@ from typani.result import Err, Ok, Result
 from feldspar.core import Interval, corner_sweep, inflate
 from feldspar.logging import get_logger
 from feldspar.plan.route import Route
+from feldspar.solve._models import Citation
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError
 
@@ -84,6 +85,38 @@ class Solution(BaseModel):
     solver_versions: Mapping[str, str]
     attempts: Tuple[AttemptRecord, ...] = ()
     cache_hit: bool = False
+
+    # WO-10 (`plan/report.py` `explain()`/`to_dict()`) rendering data:
+    # captured here at execution time (declared metadata copied off the
+    # frozen registry, never recomputed) so the justification report is
+    # a PURE RENDERING of what `Solution` carries, with no registry/
+    # solver access at render time (04-routing "Justification report").
+    # Keyed by `solver_id`, matching `solver_versions`'s convention.
+    step_eps: Mapping[str, float] = {}
+    step_citations: Mapping[str, Tuple[Citation, ...]] = {}
+    step_declared_domain: Mapping[str, Any] = {}  # feldspar.core.Domain
+
+    # The caller's `eps_budget` for THIS solve, if known (`solve()`
+    # stamps it; a bare `execute()` call has no budget context and
+    # leaves this `None` -- `explain()` renders "no budget context"
+    # rather than fabricating a decomposition, 04-routing "Execution").
+    eps_budget: Optional[float] = None
+
+    def explain(self) -> str:
+        """Renders the step-by-step justification report (04-routing
+        "Justification report"): PURE rendering of this `Solution`'s
+        already-carried data, no recomputation, no solver/registry
+        calls."""
+        from feldspar.plan.report import render_explain
+
+        return render_explain(self)
+
+    def to_dict(self) -> "Dict[str, Any]":
+        """Machine-readable twin of `explain()` -- same data, JSON-safe
+        shape."""
+        from feldspar.plan.report import render_to_dict
+
+        return render_to_dict(self)
 
 
 def route_settings_digest(route: Route, registry: "SolverRegistry") -> str:
@@ -179,6 +212,9 @@ def _execute_impl(
     values: Dict[str, Interval] = dict(known)
     eps_map: Dict[str, float] = {port: 0.0 for port in known}
     solver_versions: Dict[str, str] = {}
+    step_eps_map: Dict[str, float] = {}
+    step_citations_map: Dict[str, Tuple[Citation, ...]] = {}
+    step_declared_domain_map: Dict[str, Any] = {}
     final_eps = 0.0
 
     if not route.steps:
@@ -229,6 +265,9 @@ def _execute_impl(
             values[port] = iv
             eps_map[port] = step_eps
         solver_versions[step.solver_id] = info.version
+        step_eps_map[step.solver_id] = step_eps
+        step_citations_map[step.solver_id] = info.citations
+        step_declared_domain_map[step.solver_id] = info.domain
         final_eps = step_eps
 
     value = values[route.target]
@@ -241,6 +280,9 @@ def _execute_impl(
         solver_versions=solver_versions,
         attempts=(),
         cache_hit=False,
+        step_eps=step_eps_map,
+        step_citations=step_citations_map,
+        step_declared_domain=step_declared_domain_map,
     )
     _log.info(
         "execute: succeeded target=%s eps=%s steps=%d",

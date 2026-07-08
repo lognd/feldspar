@@ -186,7 +186,9 @@ def solve(
             )
             continue
 
-        solution = solution.model_copy(update={"attempts": tuple(attempts)})
+        solution = solution.model_copy(
+            update={"attempts": tuple(attempts), "eps_budget": eps_budget}
+        )
         if cache is not None and cacheable and cache_hit_key is not None:
             cache.put(cache_hit_key, solution)
         _log.info(

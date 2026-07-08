@@ -20,7 +20,7 @@ from feldspar.core import Domain, Interval
 from feldspar.logging import get_logger
 from feldspar.plan.execute import AttemptRecord, Solution, route_settings_digest
 from feldspar.plan.route import Route, RouteStep
-from feldspar.solve._models import ClaimSenses
+from feldspar.solve._models import Citation, ClaimSenses
 from feldspar.solve.digest import canonical_digest
 
 if TYPE_CHECKING:
@@ -177,12 +177,24 @@ def _attempt_from_json(data: Mapping[str, Any]) -> AttemptRecord:
     )
 
 
+def _citation_to_json(citation: Citation) -> Dict[str, Any]:
+    return {"kind": citation.kind, "ref": citation.ref, "note": citation.note}
+
+
+def _citation_from_json(data: Mapping[str, Any]) -> Citation:
+    return Citation(kind=data["kind"], ref=data["ref"], note=data["note"])
+
+
 def solution_to_jsonable(solution: Solution) -> Dict[str, Any]:
     """Manual (not `canonical_digest`) JSON lowering of a `Solution` --
     round-trippable, unlike `canonical_digest`'s one-way fold -- so the
     cache can store AND reconstruct the exact `Interval`/`Domain`/
     `Route` objects `Solution` carries (PyO3 frozen classes have no
-    pydantic JSON serializer, `feldspar.core._to_jsonable`'s doc note)."""
+    pydantic JSON serializer, `feldspar.core._to_jsonable`'s doc note).
+    Includes the WO-10 `explain()`/`to_dict()` rendering data
+    (`step_eps`/`step_citations`/`step_declared_domain`/`eps_budget`)
+    so a cache hit renders an identical justification report to a fresh
+    solve (FINV-7: a hit must equal a recompute)."""
     return {
         "target": solution.target,
         "value": _interval_to_json(solution.value),
@@ -192,6 +204,15 @@ def solution_to_jsonable(solution: Solution) -> Dict[str, Any]:
         "solver_versions": dict(solution.solver_versions),
         "attempts": [_attempt_to_json(a) for a in solution.attempts],
         "cache_hit": solution.cache_hit,
+        "step_eps": dict(solution.step_eps),
+        "step_citations": {
+            sid: [_citation_to_json(c) for c in cs]
+            for sid, cs in solution.step_citations.items()
+        },
+        "step_declared_domain": {
+            sid: _domain_to_json(d) for sid, d in solution.step_declared_domain.items()
+        },
+        "eps_budget": solution.eps_budget,
     }
 
 
@@ -205,6 +226,16 @@ def solution_from_jsonable(data: Mapping[str, Any]) -> Solution:
         solver_versions=dict(data["solver_versions"]),
         attempts=tuple(_attempt_from_json(a) for a in data["attempts"]),
         cache_hit=data["cache_hit"],
+        step_eps=dict(data.get("step_eps", {})),
+        step_citations={
+            sid: tuple(_citation_from_json(c) for c in cs)
+            for sid, cs in data.get("step_citations", {}).items()
+        },
+        step_declared_domain={
+            sid: _domain_from_json(d)
+            for sid, d in data.get("step_declared_domain", {}).items()
+        },
+        eps_budget=data.get("eps_budget"),
     )
 
 

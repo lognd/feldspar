@@ -1,6 +1,6 @@
 # Brake hydraulics -- fluorite customer #4 (G39): the master
 # cylinders are pressure IMPOSERS driven by a MECHANICAL input
-# (pedal_box.hem force through the bias bar) -- the first flownet
+# (pedal_box.hema force through the bias bar) -- the first flownet
 # whose imposer is another track's output. Exercises: imposer-from-
 # promise, compliance budgets (COPEN-5: hose swell + caliper flex +
 # mount flex all consume pedal travel), pedal-step transient, dual-
@@ -18,7 +18,7 @@ flownet BrakeCircuits(medium=Dot4):
                      p=pedal_force * ratio / area(19.05mm))
                      (reservoir -> mc_f_out)
                  # the imposer VALUE is a promise chain from
-                 # pedal_box.hem -- mech force in, pressure out;
+                 # pedal_box.hema -- mech force in, pressure out;
                  # cross-track analog of cuprite-commanded valves
         line_f:  Pipe(from=brake_lines.front_runs) (mc_f_out -> split_f)
         hose_fl: Hose(compliance=registry(hel_std_3an))
@@ -41,8 +41,8 @@ require Pressure:
 
 require Compliance:
     # COPEN-5 made mainstream: total fluid volume consumed by hose
-    # swell + caliper flex (promise from brake_corner.hem) + mount
-    # flex (promise from pedal_box.hem) must fit the master's
+    # swell + caliper flex (promise from brake_corner.hema) + mount
+    # flex (promise from pedal_box.hema) must fit the master's
     # displacement with the reserve-travel margin -- a BUDGET over
     # cross-track compliance promises.
     volume: fluids.volume_consumed(all_edges, at=80bar)
@@ -67,7 +67,7 @@ require Failure:
 
 require Thermal:
     # Fluid boil at the fade duty: WET boiling point column vs the
-    # caliper soak promise from brake_corner.hem -- the G38 coupled
+    # caliper soak promise from brake_corner.hema -- the G38 coupled
     # solve's output consumed across tracks.
     no_boil: thermo.temperature(cal_fl.fluid) <
                  fluids.boiling_point(Dot4, condition=wet) - 20K

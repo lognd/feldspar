@@ -40,7 +40,7 @@ assembly SteeringGeometry:
     parts:
         rack: SteeringRack
         rods: 2 x TieRod
-        corner: import("suspension_front.hem", FrontCorner)
+        corner: import("suspension_front.hema", FrontCorner)
 
     connect:
         inner: pairwise(rack.ends, rods) by RodEnd

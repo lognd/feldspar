@@ -46,7 +46,7 @@ part FuelFeedTube:
 # Consequences of the gap, recorded:
 # 1. Lowering cannot emit hydraulic obligations from geometry; every
 #    fluid claim's givens are hand-asserted (assume!-shaped design).
-# 2. The regen jacket's coolant side (chamber.hem's coupled group)
+# 2. The regen jacket's coolant side (chamber.hema's coupled group)
 #    gets its boundary conditions by fiat, not from the circuit.
 # 3. feldspar's fluids catalog (pipe flow, minor losses, networks,
 #    water hammer) has solvers with NO source of truth to consume --

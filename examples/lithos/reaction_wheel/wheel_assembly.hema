@@ -4,8 +4,8 @@
 # G8/OPEN-11 (modal), G21 (assembly-level obligations are regolith's;
 # feldspar sees only per-claim quantities).
 
-import Flywheel, WheelShaft, BearingCartridge (from flywheel.hem,
-                                               shaft_bearings.hem)
+import Flywheel, WheelShaft, BearingCartridge (from flywheel.hema,
+                                               shaft_bearings.hema)
 import WheelDriver (from driver.cupr)
 
 interface WheelMount:
@@ -46,7 +46,7 @@ part WheelHousing:
 
     require Pointing:
         # G21: torque ripple (elec, driver.cupr) x wheel inertia
-        # (mech, flywheel.hem) -> exported jitter. The CROSS-PART
+        # (mech, flywheel.hema) -> exported jitter. The CROSS-PART
         # obligation is regolith's orchestrator territory; feldspar
         # discharges each quantity claim; the assembly algebra never
         # enters the solver graph.

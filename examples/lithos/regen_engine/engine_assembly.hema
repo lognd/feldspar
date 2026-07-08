@@ -3,9 +3,9 @@
 # G30 (performance chain = pure cross-namespace routing), G31
 # (referenced units: Isp), G32 (proof-vs-operating claim pairs).
 
-import Liner (from chamber.hem)
-import InjectorHead (from injector.hem)
-import FuelFeedTube (from feed_lines.hem)
+import Liner (from chamber.hema)
+import InjectorHead (from injector.hema)
+import FuelFeedTube (from feed_lines.hema)
 import EngineController (from engine_controller.cupr)
 
 assembly RegenEngine:

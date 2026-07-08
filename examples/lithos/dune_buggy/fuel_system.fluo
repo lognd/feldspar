@@ -47,7 +47,7 @@ require VaporLock:
 
 require Slosh:
     # Pickup uncovering under sustained lateral g at low fill: the
-    # tank's baffle geometry (fuel_tank.hem) bounds the uncovered
+    # tank's baffle geometry (fuel_tank.hema) bounds the uncovered
     # duration; the pump's dry-run tolerance is a vendor record.
     starve: assume!(pickup_covered(FuelTank.baffles,
                 accel=3.5g_lat, fill=0.8L, duration=3s) == true,

@@ -26,7 +26,7 @@ block DashUnit:
         # G33 outside propulsion: `oil_low` is ONE event datum --
         # the sender threshold here, the ECU's spark-cut consumer in
         # efi_ecu.cupr, and the engine gallery quantity in
-        # engine_bottom_end.hem all bind the same ledger entry.
+        # engine_bottom_end.hema all bind the same ledger entry.
         # The latency chain crosses sensor lag + CAN scheduling +
         # display refresh: a timing budget over three files.
         oil_latency: timing(oil_low -> warn_shown) <= 500ms

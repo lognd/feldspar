@@ -5,7 +5,7 @@
 
 import std.mech.tube (TubeProfile, Bend)
 import std.mech.joining (Weld)
-import SpaceFrame (from frame.hem)
+import SpaceFrame (from frame.hema)
 
 part RollCage:
     pieces:

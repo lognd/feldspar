@@ -34,7 +34,7 @@ assembly FrontCorner:
     parts:
         lower: LowerWishbone
         upper: UpperWishbone
-        upright: import("upright_hub_front.hem", FrontUpright)
+        upright: import("upright_hub_front.hema", FrontUpright)
 
     connect:
         lo_in:  Pivot(a=lower.arm.inner, b=chassis.pickups) exposing theta_l

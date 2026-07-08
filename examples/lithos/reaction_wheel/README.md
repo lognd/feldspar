@@ -1,11 +1,11 @@
 # Reaction-wheel assembly -- the big mixed pressure test
 
 Four files, three languages' worth of claims, one solver backend:
-`flywheel.hem` (rotor: spin stress, burst, inertia, balance),
-`shaft_bearings.hem` (machine-design tier: DIN 743, press fit,
+`flywheel.hema` (rotor: spin stress, burst, inertia, balance),
+`shaft_bearings.hema` (machine-design tier: DIN 743, press fit,
 fatigue, bearing life, critical speed), `driver.cupr` (three-phase
 drive: losses, ripple, control loop, FET thermal), and
-`wheel_assembly.hem` (housing, random vib, cross-domain promise
+`wheel_assembly.hema` (housing, random vib, cross-domain promise
 chains, exported jitter). Exercises catalog areas: mech.materials,
 mech.design, mech.struct, vibration, dynamics, thermo/heat, elec,
 control, signal, mfg -- deliberately touching every committed phase.

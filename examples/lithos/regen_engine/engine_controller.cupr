@@ -2,7 +2,7 @@
 # abort chain. The elec side is the MATURE seam (buck/driver
 # precedents); included to close the loop: its timing claims consume
 # the SAME events the mech transients reference (G33: shared event
-# vocabulary across .hem/.cupr is load-bearing and already works).
+# vocabulary across .hema/.cupr is load-bearing and already works).
 
 import std.elec.power (HighSideSwitch, FlybackClamp)
 import std.elec.sense (BridgeAmp)
@@ -25,7 +25,7 @@ block EngineController:
     event overpressure: v(pc_in).crosses(4.2V)       # 1.25x pc scaled
 
     require Sequencing:
-        # G33: `startup` in engine_assembly.hem and these command
+        # G33: `startup` in engine_assembly.hema and these command
         # events must be ONE ledger -- cross-file event identity is
         # regolith's, and it already has the machinery (events are
         # datums). No new gap; the fixture pins it.

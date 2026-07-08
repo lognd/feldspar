@@ -22,7 +22,7 @@ Almost every trace below begins with one of these; the solve cache
   mech.material.{youngs_modulus, poisson, sigma_y, ...}`
   G5 discipline: material ports are outputs, never free givens.
   Gate: P1 solvers + the given-resolution contract (ASK-4) for
-  .hem-lowered flows; conformance fixtures pre-resolve by hand.
+  .hema-lowered flows; conformance fixtures pre-resolve by hand.
 - **PRELUDE-TERRAIN** (G35): `spectrum(whoops_psd) + vehicle.speed
   --[psd speed transform (pp/cf)]--> spectrum(hub_psd)`
   Payload in, payload out, content-addressed. Gate: M2 payload
@@ -34,7 +34,7 @@ Almost every trace below begins with one of these; the solve cache
   form is the ASK-7 extension. Gate: P3 (dynamics), M2 for curve
   payloads if adopted.
 
-## 1. frame.hem
+## 1. frame.hema
 
 - `rail_stress` (upper): PRELUDE-MAT ->
   `tube graph + loads --[matrix direct stiffness (r), mech.struct]-->
@@ -57,7 +57,7 @@ Almost every trace below begins with one of these; the solve cache
   (02 Normal/Quantile) is the honest form -- G40/G17 customer.
   Gate: post-v1 propagation mode, scheduled with mfg namespace.
 
-## 2. rollcage.hem
+## 2. rollcage.hema
 
 - `collapse` (LOWER): `tube layout + sigma_y --[plastic hinge
   mechanism enumeration (r), mech.struct]--> collapse load`.
@@ -74,7 +74,7 @@ Almost every trace below begins with one of these; the solve cache
   registry serves claim TRANSFORMS with zero new registration.
 - `survivable`: NO ROUTE by design (G37/G27): assume!/test ladder.
 
-## 3. suspension_front.hem / steering.hem (the kinematic cluster)
+## 3. suspension_front.hema / steering.hema (the kinematic cluster)
 
 - `camber_band`, `no_bind`, `ackermann`, `bump_steer`: PRELUDE-KIN
   swept over the config domain. The planner sees ONE solver
@@ -90,7 +90,7 @@ Almost every trace below begins with one of these; the solve cache
   regime keeps citations honest).
 - `static_camber` build claim: G40 quantile mode again.
 
-## 4. coilover.hem
+## 4. coilover.hema
 
 - `rate` (two-sided window): `wire_dia, od, coils
   --[helical spring rate (cf), EXACT (A-7)]--> rate`. eps 0; the
@@ -112,7 +112,7 @@ Almost every trace below begins with one of these; the solve cache
   cycle -- the loop closes across CLAIMS (orchestrator lazy loop),
   never inside the solver graph.
 
-## 5. wheel_tire.hem (G34 showcase)
+## 5. wheel_tire.hema (G34 showcase)
 
 - `grip`/`flotation`: `F_z, p_tire --[tire record: friction
   ellipse / MF fit (rec/Correlation)]--> traction` COMPETES with
@@ -234,7 +234,7 @@ Almost every trace below begins with one of these; the solve cache
 - `fet_t`, `lcd_temp`: G20-pattern envelope (cheap) or small
   CoupledGroup (check tier) -- the driver.cupr precedent verbatim.
 
-## 11. vehicle.hem (the roof)
+## 11. vehicle.hema (the roof)
 
 - `mass`/`cg_height`: entity-DB property claims (regolith WO-22
   territory); feldspar supplies section/solid property solvers

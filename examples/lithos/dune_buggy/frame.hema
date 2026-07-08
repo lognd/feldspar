@@ -30,7 +30,7 @@ part SpaceFrame:
     boundary:
         T_env: [-10degC, 55degC]
         structure: spectrum(whoops_psd)      # terrain PSD payload, from
-                                             # vehicle.hem boundary
+                                             # vehicle.hema boundary
 
     require Structural:
         # Reduced tier FIRST: matrix direct stiffness on the tube

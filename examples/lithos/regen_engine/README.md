@@ -19,7 +19,7 @@ coupling, distributed fields, fluid circuits, empirical stability,
   `SolveError.NoConvergence`, reroutable. The graph stays a DAG by
   construction; uncoupled cyclic registrations remain an error.
   Scheduled M8.
-- **G24 (DECIDED interim, chamber.hem): station marching is internal.**
+- **G24 (DECIDED interim, chamber.hema): station marching is internal.**
   1-D distributed solvers (regen marching) expose EXTREMAL boundary
   ports (`thermo.wall_temp.hot_side_max`, flux at throat) with the
   reduction inside, `conservative_for`-declared. Routable
@@ -56,7 +56,7 @@ coupling, distributed fields, fluid circuits, empirical stability,
   tank -> valve -> jacket -> injector) is not expressible, so
   hydraulic obligations cannot be LOWERED -- givens are hand-asserted
   and feldspar's entire fluids catalog has no source of truth to
-  consume. `feed_lines.hem` is the reproduction case + strawman
+  consume. `feed_lines.hema` is the reproduction case + strawman
   (`FluidPort` through/across pairs, `flownet` as the KCL-like
   fluids analog of `nets:`). Ask: sec. 7 item 6. THE biggest lithos
   gap this project found. UPDATE 2026-07-07: draft spec written --
@@ -74,7 +74,7 @@ coupling, distributed fields, fluid circuits, empirical stability,
   claims are operating claims under scaled givens** -- longhand
   duplication today; a claim-transform form would remove it. The
   solver graph serves both from the same registrations either way.
-- **G33 (confirms design): shared event vocabulary across .hem/.cupr
+- **G33 (confirms design): shared event vocabulary across .hema/.cupr
   files (startup vs valve commands) already has regolith machinery
   (events are datums); the fixture pins cross-file identity.
 

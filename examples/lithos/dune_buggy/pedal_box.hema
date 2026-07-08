@@ -48,7 +48,7 @@ part PedalBox:
         # Reserve travel with worn pads + hot fluid: the pedal must
         # not reach the tray floor -- consumes brake_hydraulics.fluo's
         # volume-consumption promise and pad-wear allowance from
-        # brake_corner.hem. Three files, one claim, zero new
+        # brake_corner.hema. Three files, one claim, zero new
         # mechanism (G18 chains).
         reserve: mech.travel_remaining(pedal, at=worn_hot_corner)
                      >= 25mm

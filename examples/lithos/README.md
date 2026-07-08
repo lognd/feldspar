@@ -5,9 +5,9 @@ feldspar, each annotated with `G-nn` friction anchors. These are
 feldspar-side fixtures (NOT part of ../cad's golden corpus); when the
 seam lands they become the conformance suite's realistic inputs.
 
-- `manifold.hem` -- the direct hit: thick-wall cylinder, fat + thin
+- `manifold.hema` -- the direct hit: thick-wall cylinder, fat + thin
   margin through ONE claim kind, material records, affine units.
-- `sensor_boom.hem` -- the geometry gauntlet: bent-flange cantilever
+- `sensor_boom.hema` -- the geometry gauntlet: bent-flange cantilever
   with a hole in the root region, interface loads at mid-span, a
   modal claim.
 - `psu_enclosure.cupr` -- cross-domain: dissipation -> enclosure air

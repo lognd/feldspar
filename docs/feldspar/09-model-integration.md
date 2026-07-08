@@ -125,9 +125,8 @@ Two consequences that pay for the mechanism:
 - **This is OPEN-2, OPEN-11, and OPEN-12's carrier in one design**:
   realized geometry, parametric descriptors, spectra/masks for
   time-domain claims, and result fields all cross the graph -- and
-  the regolith boundary, once the generalized ref channel lands
-  (`../cad/docs/implementation/20-solver-abstraction.md` sec. 7
-  item 3) -- as the same kind of thing.
+  the regolith boundary, on the D96 `DischargeRequest.payloads`
+  channel (WO-30) -- as the same kind of thing.
 
 ### 4a. Abstraction solvers (friction G1)
 
@@ -149,7 +148,7 @@ mech.geom.cantilever.*`). Three rules make it safe:
 - It is usually one-sided: declare `conservative_for` (03) so an
   envelope idealization can never serve the wrong claim sense.
 
-This is how `sensor_boom.hem`'s flange claim resolves cheaply when
+This is how `sensor_boom.hema`'s flange claim resolves cheaply when
 the geometry is clean and escapes to FEA when the hole invades the
 root region (fixture G7) -- with no claim naming any solver.
 
@@ -192,12 +191,13 @@ reference, it is a payload.
 
 ## 5. The pack seam (what 06 inherits from this plan)
 
-- **Claim kinds** (OPEN-6): target state is that feldspar's numeric
+- **Claim kinds** (OPEN-6, DECIDED D94/WO-30): feldspar's numeric
   models register under the SAME claim kinds as regolith's
   closed-form tier and compete purely on cost in the one best-path
-  graph (regolith D-A). The `claim_kind` constructor override is the
-  interim; the regolith ruling (kind naming + one model under two
-  kinds) is a recorded ask (sec. 7 regolith-side).
+  graph (regolith D-A) -- kinds are vocabulary-owned, one model may
+  register under multiple kinds (per-kind duplicate rule). The
+  `claim_kind` constructor override is the interim until WO-30 ships
+  and flips the default.
 - **Margin-driven adaptive refinement**: `DischargeRequest` carries
   the claim's limit, so the pack model translates the margin needed
   into an eps budget and drives a budget-seeking solver (sec. 3)
@@ -206,9 +206,11 @@ reference, it is a payload.
   achieved vs needed. Accuracy stays automatic (regolith/07 sec. 4:
   no fidelity knobs); the knob-turning is inside the model, driven by
   the margin, deterministically.
-- **Coverage** (OPEN-8): sweep results map onto regolith's coverage
-  vocabulary (`corners`, `grid(k)`, `analytic`) as soon as the schema
-  encodes it; until then corners + 1.0, the closed-form precedent.
+- **Coverage** (OPEN-8, DECIDED D95/WO-30): sweep results map onto
+  regolith's structured `Coverage { axes: [CoverageAxis], fraction }`
+  (per-axis `domain`/`method: corners | grid{k per axis} |
+  enumerated | analytic | monotone`); until WO-30 ships, corners +
+  bare `1.0`, the closed-form precedent.
 - **Tier reporting**: the pack maps `tier` metadata onto regolith's
   closed-form/reduced/full ladder in evidence, so regolith users read
   one vocabulary.
@@ -256,9 +258,9 @@ committed scope now (WO-27 / Phase 1).
   mesh-as-a-graph-step; per-rung solve caching.
 - **M3**: `eps_seeking` + cost curves; margin-driven adaptive
   refinement in the pack models.
-- **M4** (regolith-gated): claim-kind unification, coverage
-  encoding, generalized ref channel across the boundary (sec. 7
-  asks, regolith-side).
+- **M4** (regolith-gated, unblocked by WO-30/D94-D97): claim-kind
+  unification, structured coverage encoding, `DischargeRequest.
+  payloads` ref channel across the boundary.
 - **M5**: parallel corners/rungs per sec. 6; determinism suite runs
   serial and parallel paths.
 - **M6**: structured ports (spectrum/profile/mask payloads + ranked

@@ -25,12 +25,15 @@ when the implementing WO lands; only their RESIDUAL is still open.
   valid one; real geometry enters as additional solvers, never a
   separate dispatch path; regolith's declarative side should be able
   to point claims at cheaper parametric solvers, not only realized
-  geometry. RESIDUAL (regolith-blocked): the ref-passing channel --
-  `DischargeRequest.inputs` is scalar intervals; parametric
-  descriptors and WO-22 realized-geometry refs cannot cross yet. Ask
-  recorded regolith-side:
-  `../cad/docs/implementation/20-solver-abstraction.md` sec. 7.
-  feldspar's parametric families remain the v1 stand-in.
+  geometry. RESIDUAL CLOSED (D96, WO-30, cycle 20): the ref-passing
+  channel is `DischargeRequest.payloads: Mapping[str,
+  PayloadRef{kind, digest, origin}]`, with the kind vocabulary being
+  09 sec. 4's list verbatim (`geometry.parametric`,
+  `geometry.realized`, `mesh`, `table`, `spectrum`, `profile`,
+  `mask`, `field`, `flownet`, `plan`) -- not a restyled set, the
+  contract. `ModelSignature` gains required payload kinds; digest
+  resolution is an orchestrator-provided content-addressed store
+  handle (feldspar never does store IO). Unblocks 09 M4/M6.
 
 - **OPEN-3 wire executable / extraction**: DECIDED direction (owner,
   2026-07-07), spec homes 01 and 03. feldspar is both a standard
@@ -58,14 +61,16 @@ when the implementing WO lands; only their RESIDUAL is still open.
   Default ON in development, opt-out for deployment. RESIDUAL: none;
   awaiting implementation WO.
 
-- **OPEN-6 claim-kind tiering**: pack models register fea-specific
-  claim kinds; competing in one best-path graph with closed-form
-  models may require sharing their kinds (D-A). Constructor override
-  exists, and the target state (register under the SAME kinds,
-  compete on cost) is recorded in 09 sec. 5 / 06; needs a
-  regolith-side decision on kind naming + a duplicate-model-id
-  ruling for one model under two kinds. Ask recorded regolith-side:
-  `../cad/docs/implementation/20-solver-abstraction.md` sec. 7.
+- **OPEN-6 claim-kind tiering**: DECIDED (D94, WO-30, cycle 20).
+  Claim kinds are owned by the claim vocabulary --
+  `mech.fea.static_stress` was a bootstrap error; register under the
+  closed-form kinds (`mech.static_stress`, `mech.static_deflection`).
+  One model may register under MULTIPLE kinds (registry key is
+  `(claim_kind, model_id)`; duplicate-id is per-kind, not global). A
+  claim kind whose string contains a method/tool word is a
+  registration LINT ERROR once WO-30 lands -- flip the pack's
+  `claim_kind` constructor override default when it does (06/09
+  sec. 5 target state realized).
 
 - **OPEN-7 SPICE scope**: DECIDED (owner, 2026-07-07), spec homes 03
   and 07. feldspar is the one backend; each namespace is the
@@ -75,13 +80,15 @@ when the implementing WO lands; only their RESIDUAL is still open.
   ordinary solver edges. RESIDUAL: none; regolith/11's illustrative
   `spice.ngspice` naming flagged regolith-side (sec. 7 note).
 
-- **OPEN-8 coverage vocabulary**: regolith `Prediction.coverage` is a
-  bare float; grid(k) sweeps (regolith/07 sec. 2 names `corners`,
-  `grid(k)`, `analytic`) have no schema encoding. v1 sweeps corners
-  only and reports 1.0 (the closed-form precedent). Sweep semantics
-  fold into the fidelity-hierarchy direction (OPEN-2). Ask recorded
-  regolith-side:
-  `../cad/docs/implementation/20-solver-abstraction.md` sec. 7.
+- **OPEN-8 coverage vocabulary**: DECIDED (D95, WO-30, cycle 20).
+  Structured `Coverage { axes: [CoverageAxis], fraction }`, per-axis
+  `domain: Interval | {values: [...]}` and `method: corners |
+  grid{k per axis} | enumerated | analytic | monotone`; `fraction`
+  stays as the conservative collapse. feldspar's `grid(k x m)` sweeps
+  and discrete state axes (G29, G43/COPEN-7) are both first-class
+  under this schema -- no engine-side redesign, only the pack's
+  `estimate()` reporting a structured Coverage once WO-30 lands
+  instead of the v1 bare `1.0`.
 
 - **OPEN-9 parallel execution**: DECIDED (owner, 2026-07-07), spec
   homes 04 and 09 sec. 6. Parallelism is decoupled from expense: when
@@ -114,8 +121,15 @@ when the implementing WO lands; only their RESIDUAL is still open.
   generalized so ONE channel carries geometry refs, parametric
   descriptors, spectra, profiles, and masks
   (`../cad/docs/implementation/20-solver-abstraction.md` sec. 7
-  item 3). RESIDUAL: that regolith channel decision; engine-side
-  implementation is 09 M6, gating Phase 3.
+  item 3). RESIDUAL CLOSED: the channel is D96 (see OPEN-2); engine-
+  side implementation is 09 M6, gating Phase 3. Cycle 21 addendum
+  (D102): temporal claim-form shapes split into two families --
+  `peak`/`rms(band)`/`overshoot` REDUCE to a scalar and take an
+  EXTERNAL comparator (ordinary solver edges to ranked ports, as
+  already recorded here); `settles`/`stays_within` are self-contained
+  CONTAINMENTS (verdict-shaped, not edges to a ranked port). The
+  claim-form reduction edges above should mirror this split when
+  implemented.
 
 - **OPEN-13 given-resolution contract** (new 2026-07-07, friction G2
   from the lithos pressure tests, examples/lithos/README.md):
@@ -125,10 +139,22 @@ when the implementing WO lands; only their RESIDUAL is still open.
   evaluation over environment corners, envelope load extraction,
   shared port vocabulary) is unspecified regolith-side. feldspar's
   half is DECIDED and recorded in 06 (port vocabulary +
-  reject-unresolved rule). Ask recorded regolith-side:
-  `../cad/docs/implementation/20-solver-abstraction.md` sec. 7
-  item 4. Blocks nothing in M1 (conformance fixtures pre-resolve by
-  hand); blocks real `.hem`-to-evidence flows.
+  reject-unresolved rule). CLOSED regolith-side (D97, WO-30,
+  cycle 20): an orchestrator pass resolves names to intervals --
+  records evaluated over the environment box (worst corner via
+  declared per-axis monotonicity, else full-domain hull), envelope
+  loads via the contract IR, unresolved names become indeterminate
+  naming the given. feldspar's port-name vocabulary (06:
+  `mech.geom.<family>.<param>`, `mech.material.*`,
+  `mech.load.<case>`) is adopted as the single-homed shared registry;
+  the reject-unresolved rule is the contract's other half. Regime
+  tags (A-10) close alongside: `DischargeRequest.regimes: [str]`,
+  asserted by lowering from claim-kind construction / net discipline;
+  signatures declare `required_regimes`; missing tag = non-match
+  (honest `no_model`) -- feldspar's v1 interim (tags guaranteed by
+  kind construction) is the degenerate case and remains valid.
+  Blocks nothing in M1 (conformance fixtures pre-resolve by hand);
+  unblocks real `.hema`-to-evidence flows once WO-30 lands.
 
 - **OPEN-14 zone/station-indexed ports** (new 2026-07-07, friction
   G23/G24 from the regen-engine stress test,
@@ -137,11 +163,18 @@ when the implementing WO lands; only their RESIDUAL is still open.
   consumed as loads) are not routable ports. INTERIM DECIDED:
   marching solvers expose extremal boundary ports with internal,
   sense-declared reductions (09 sec. 4b); `field` payloads carry
-  full results between solvers (FEA thermal load). The REAL design
-  -- per-station/zone routable ports -- is coupled to regolith's
-  zone vocabulary (regolith/02 sec. 4) and the computed-zone-field
-  language ask (regolith sec. 7 item 7). Undesigned; blocks nothing
-  before Phase 2's distributed thermal work. EXTENDED 2026-07-07 by
+  full results between solvers (FEA thermal load). Source side now
+  DECIDED (D98, WO-33, cycle 20): `compute <name>: <kind> over
+  <zones | var in [lo,hi]>` lowers to one obligation producing a
+  `field` payload; consumers project (`max`, `at`, `slope`) through
+  the promise chain. feldspar's extremal-port interim stays the
+  discharging story until a field-producing model registers -- the
+  four-bar/marching solvers, once built, produce `field` payloads on
+  the D96 channel (OPEN-2); G36's slope-bound demand becomes
+  expressible then. Consumer-side per-station/zone routable ports
+  remain coupled to regolith's zone vocabulary (regolith/02 sec. 4);
+  undesigned engine-side, blocks nothing before Phase 2's distributed
+  thermal work. EXTENDED 2026-07-07 by
   the dune-buggy stress test (G36,
   examples/lithos/dune_buggy/README.md): the same shape appears
   with a CONFIG variable as the index axis instead of space --
@@ -217,7 +250,39 @@ none is open unless marked.
   frozenset tags, Interval ctor semantics (raising `__init__` for
   literals vs Result `.new` for untrusted data), example 04's
   nonexistent DischargeRequest fields -- all reconciled.
-- **A-10 (RECORDED, 06 + regolith sec. 7 item 4): regime tags have
+- **A-10 (CLOSED, 06 + OPEN-13, D97(d), WO-30): regime tags have
   no boundary channel.** v1 rule pinned in 06 (tags guaranteed by
-  claim-kind construction, folded into settings digest); the general
-  channel joins the given-resolution ask.
+  claim-kind construction, folded into settings digest) is the
+  degenerate case of the regolith-side channel: `DischargeRequest.
+  regimes: [str]`, asserted by lowering from claim-kind construction
+  / net discipline; signatures declare `required_regimes`; missing
+  tag = non-match (honest `no_model`).
+
+## Regolith work orders (regolith side, cycle 20-21; unblocks noted per item above)
+
+Normative text: `../cad/docs/implementation/20-solver-abstraction.md`
+sec. 8 and design-logs `2026-07-07-cycle-2{0,1}.md`.
+
+| WO | contents | unblocks feldspar |
+|---|---|---|
+| WO-30 | pack contract v2 (D94-D97, one schema bump) | kind re-key (OPEN-6), structured coverage (OPEN-8), payload ports (OPEN-2/11/12, M4/M6), given resolution + regime channel (OPEN-13/A-10) |
+| WO-31/32 | fluorite front end + lowering (`flownet` payload) | fluids/prop catalog gets a live source of truth |
+| WO-33 | computed fields (D98) | `field` payload producers/consumers (OPEN-14) |
+| WO-34 | routed runs (D99) | harness-length givens for elec claims (G42, cuprite `harness:`/`run`) |
+| WO-35 | elec pin-mux + real-KiCad gate | regolith-internal, no feldspar dependency |
+
+Dispatch order (D101): WO-29 remainder and WO-30 first (parallel);
+then WO-31 -> WO-32; WO-33/35 in the gaps; WO-34 last.
+
+Cycle 21 zero-shot sweep closed the remaining shapes: D102 (temporal
+claim-form split, folded into OPEN-11 above), D103 (expression givens
+resolve entity-field refs through the entity DB into `Given.refs`),
+D104 (name-keyed conformance bounds), D105 (sweep-domain claim lines
++ reduced-tier base API + plan payloads + waiver match-set diffs) --
+none of these require feldspar-side redesign beyond what is recorded
+above. Standalone affirmation (unchanged): nothing in cycles 20-21
+couples feldspar to lithos -- the pack adapter (06) stays one
+optional directory, FINV-3 and the OPEN-3 extraction direction are
+untouched, and the shared vocabulary (port names, payload kinds,
+claim kinds) costs non-lithos consumers nothing since feldspar's
+strings are the registry.

@@ -41,22 +41,33 @@ internal subprocess, so in-process registration is D-B-conformant):
 
 - Constructors take a `claim_kind` override so re-keying onto the
   closed-form claim kinds (for best-path tier competition in ONE
-  registry graph, D-A) is a one-line change in `pack.py` once the
-  regolith side confirms the kinds (OPEN-6). Target state (09
-  sec. 5): feldspar models register under the SAME kinds as
+  registry graph, D-A) is a one-line change in `pack.py`. DECIDED
+  (D94, WO-30, 08 OPEN-6): claim kinds are vocabulary-owned, not
+  method-owned -- `mech.fea.static_stress` was a bootstrap error;
+  register under `mech.static_stress` / `mech.static_deflection`.
+  One model may register under multiple kinds (registry key is
+  `(claim_kind, model_id)`, duplicate-id is per-kind); a method-named
+  kind is a registration lint error once WO-30 lands. Target state
+  (09 sec. 5): feldspar models register under the SAME kinds as
   regolith's closed-form tier and compete purely on cost; the
-  override is the interim, not the destination.
+  override flips to this default when WO-30 ships.
 - `signature.inputs` are the scalar ports of the parametric geometry,
   material, and load -- regolith's `DischargeRequest.inputs` is
   `Mapping[str, Interval]`, scalars only, which is exactly what the
   engine's corner sweep consumes. Geometry REFERENCES (WO-22 realized
-  records) cannot cross this boundary yet (OPEN-2).
+  records) cross via `DischargeRequest.payloads: Mapping[str,
+  PayloadRef{kind, digest, origin}]` once WO-30 lands (D96, closes
+  08 OPEN-2's residual); the kind vocabulary is 09 sec. 4 verbatim.
 - **Given-resolution contract** (friction G2, OPEN-13): obligations
   carry NAMES (`material: AISI_304`); the request carries scalar
   intervals. Resolution (record -> property intervals at the right
-  T_env corner) is regolith-side and currently unspecified (ask:
-  sec. 7 item 4). feldspar's half of the contract is this port
-  vocabulary, declared once here: `mech.geom.<family>.<param>`,
+  T_env corner) is DECIDED regolith-side (D97, WO-30, 08 OPEN-13):
+  an orchestrator pass evaluates records over the environment box
+  (worst corner via declared per-axis monotonicity, else full-domain
+  hull), extracts envelope loads via the contract IR, and turns
+  unresolved names into indeterminate naming the given. feldspar's
+  half of the contract is this port vocabulary, declared once here:
+  `mech.geom.<family>.<param>`,
   `mech.material.{youngs_modulus, poisson, sigma_y}`,
   `mech.load.<case>` (05 naming) -- signature inputs and engine ports
   are the same strings, and the pack rejects (DomainError, honest)
@@ -66,18 +77,17 @@ internal subprocess, so in-process registration is D-B-conformant):
   which filters `conservative_for` edges (03) -- a one-sided
   envelope edge can never discharge the wrong sense, and never
   appears mid-route (A-2).
-- **Regime tags do not cross the boundary yet** (audit A-10):
-  `DischargeRequest` carries no tag channel, and the models' engine
-  routes need regime tags (`linear_elastic`, `small_deflection`).
-  v1 rule: each pack model supplies exactly the tags its registered
-  claim kind's obligations GUARANTEE by construction (the WO-27
-  claim kinds are defined as linear-elastic small-deflection
-  statics; the model constructor pins the tag set and it folds into
-  the settings digest). A claim kind whose obligations cannot
-  guarantee a needed tag must not be registered for. The general
-  channel is part of the given-resolution ask
-  (`../cad/docs/implementation/20-solver-abstraction.md` sec. 7
-  item 4).
+- **Regime tags** (audit A-10, CLOSED D97(d)/WO-30): the general
+  channel is `DischargeRequest.regimes: [str]`, asserted by lowering
+  from claim-kind construction / net discipline; signatures declare
+  `required_regimes`; missing tag = non-match (honest `no_model`).
+  v1 rule remains valid as the degenerate case until WO-30 lands:
+  each pack model supplies exactly the tags its registered claim
+  kind's obligations GUARANTEE by construction (the WO-27 claim
+  kinds are defined as linear-elastic small-deflection statics; the
+  model constructor pins the tag set and it folds into the settings
+  digest). A claim kind whose obligations cannot guarantee a needed
+  tag must not be registered for.
 - `cost` declares the honest relative expense (FEA is the expensive
   tier; the cheaper closed-form tier must keep winning fat-margin
   selections -- WO-27 acceptance).
@@ -109,10 +119,10 @@ internal subprocess, so in-process registration is D-B-conformant):
   inside the model, driven by the margin, deterministically.
 - Planned (09 M4, regolith-gated): richer inputs (parametric
   descriptors, WO-22 realized-geometry refs, spectra/masks) cross as
-  hash-pinned payloads once the generalized ref channel lands
-  (`../cad/docs/implementation/20-solver-abstraction.md` sec. 7
-  item 3); engine-side they are payload ports (09 sec. 4), so the
-  pack adapter stays a converter, never a second dispatch path.
+  hash-pinned payloads on the D96 `DischargeRequest.payloads` channel
+  once WO-30 lands; engine-side they are payload ports (09 sec. 4),
+  so the pack adapter stays a converter, never a second dispatch
+  path.
 - Tier reporting: `SolverInfo.tier` (09 sec. 1) maps onto regolith's
   closed-form/reduced/full ladder in evidence, so regolith users read
   one tier vocabulary.

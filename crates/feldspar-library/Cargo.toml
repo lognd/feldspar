@@ -1,0 +1,18 @@
+[package]
+name = "feldspar-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "feldspar_library"
+crate-type = ["rlib"]
+
+[dependencies]
+feldspar-core = { path = "../feldspar-core" }
+tracing = "0.1"
+thiserror = "1"
+libm = "0.2"
+
+[lints]
+workspace = true

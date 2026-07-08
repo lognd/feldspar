@@ -1,0 +1,78 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "feldspar"
+dynamic = ["version"]
+description = "Solution-path/FEA solver engine for the lithos toolchain"
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2",
+    "typani",
+]
+
+[project.optional-dependencies]
+mesh = ["gmsh"]
+regolith = []
+props = []
+
+[project.entry-points."regolith.model_packs"]
+feldspar = "feldspar.pack:register"
+
+[tool.maturin]
+manifest-path = "crates/feldspar-py/Cargo.toml"
+module-name = "feldspar._feldspar"
+python-source = "python"
+features = ["pyo3/extension-module"]
+# maturin's `dynamic = ["version"]` above sources the wheel version from
+# crates/feldspar-py's Cargo.toml (workspace version); __about__.py is kept
+# byte-for-byte in sync and is the version Python code imports/reads at
+# runtime (AD-11). test_package.py::test_version_single_sourced enforces
+# the two never drift (WO-01 deviation -- see final report: maturin has no
+# native "read version from a .py file" hook, unlike hatchling's
+# tool.hatch.version.path).
+
+[tool.setuptools.package-data]
+feldspar = ["py.typed", "logging/config.toml"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-xdist>=3",
+    "pytest-cov>=5",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "ty>=0.0.1a1",
+    "maturin>=1.7,<2.0",
+    "cryptography>=42",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "fea: requires ccx and gmsh installed (AD-12e)",
+    "regolith: requires ../lithos regolith installed (AD-12d, FINV-3)",
+    "slow: long-running test, excluded from the default fast loop",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["python", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
+
+[tool.coverage.run]
+source = ["python"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise Unreachable"]

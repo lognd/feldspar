@@ -1,0 +1,88 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  # AD-12a: make check (ruff, ty, pytest sans regolith/fea markers)
+  make-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --all-extras
+      - run: uv run maturin develop
+      - run: make check
+
+  # AD-12b: cargo fmt/clippy/test
+  cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  # AD-12c: determinism twice-run, serial AND parallel (FINV-1/9)
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --all-extras
+      - run: uv run maturin develop
+      - name: run twice serial (threads=1), compare digests
+        run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
+      - name: run twice serial (threads=1), compare digests (rerun)
+        run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
+
+  # AD-12d: regolith extra job; can't pass until WO-09 lands
+  regolith:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --all-extras --extra regolith
+      - run: uv run maturin develop
+      - run: uv run pytest tests/ -m regolith
+
+  # AD-12e: fea job with ccx+gmsh; can't pass until WO-08 lands
+  fea:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --all-extras --extra mesh
+      - run: uv run maturin develop
+      - name: install ccx (best-effort; job is continue-on-error until WO-08)
+        run: sudo apt-get update && sudo apt-get install -y calculix-ccx || true
+      - run: uv run pytest tests/ -m fea

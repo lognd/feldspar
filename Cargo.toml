@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/feldspar-core",
+    "crates/feldspar-library",
+    "crates/feldspar-py",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "deny"

@@ -29,5 +29,11 @@ FROBLEMS.md
 # Secrets
 .env
 
+# feldspar
+.feldspar/
+keys/*
+!keys/*.pub
+!keys/.gitkeep
+
 # IDE
 .idea/

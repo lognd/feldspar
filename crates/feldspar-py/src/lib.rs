@@ -17,6 +17,7 @@ mod dimension;
 mod domain;
 mod errors;
 mod interval;
+mod library;
 mod propagation;
 mod rank;
 mod search;
@@ -27,6 +28,11 @@ use digest::{canonical_digest, format_f64};
 use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
+use library::{
+    mech_bore_von_mises_py, mech_cantilever_required_youngs_modulus_py,
+    mech_cantilever_tip_deflection_py, mech_lame_hoop_stress_bore_py,
+    mech_lame_radial_stress_bore_py, mech_rect_second_moment_py, mech_von_mises_principal_py,
+};
 use propagation::{corner_sweep_py, inflate_py, total_error_py};
 use rank::{PyPortDecl, PyRank};
 use search::{plan_py, PyRoute, PyRouteStep, PySolverInput};
@@ -55,6 +61,16 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(inflate_py, m)?)?;
     m.add_function(wrap_pyfunction!(total_error_py, m)?)?;
     m.add_function(wrap_pyfunction!(plan_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_rect_second_moment_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_cantilever_tip_deflection_py, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        mech_cantilever_required_youngs_modulus_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(mech_lame_hoop_stress_bore_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_lame_radial_stress_bore_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_von_mises_principal_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_bore_von_mises_py, m)?)?;
 
     m.add_class::<PyInterval>()?;
     m.add_class::<PyAccuracy>()?;

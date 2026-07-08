@@ -100,9 +100,9 @@ progress.
 
 ## WO-08 FEA pipeline
 
-- [ ] geometry, mesh, deck, ccx, results, richardson
-- [ ] find_ccx(), run_ccx()
-- [ ] fea.solver.register(registry)
+- [x] geometry, mesh, deck, ccx, results, richardson
+- [x] find_ccx(), run_ccx()
+- [x] fea.solver.register(registry)
 
 ## WO-09 regolith pack + conformance
 

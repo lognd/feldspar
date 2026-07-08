@@ -1,6 +1,6 @@
 # WO-08: FEA pipeline
 
-Status: todo
+Status: done
 Depends: WO-07
 Language: Python (`feldspar/fea/`), gmsh via `mesh` extra, ccx binary
 Spec: 05 (all stages), 03 (external interfacing), FINV-2/5

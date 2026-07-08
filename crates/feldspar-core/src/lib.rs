@@ -21,6 +21,7 @@ pub mod interval;
 pub mod propagation;
 pub mod rank;
 pub mod search;
+pub mod symbolic;
 pub mod units;
 
 pub use accuracy::Accuracy;

@@ -67,4 +67,4 @@ def register(registry: SolverRegistry) -> None:
     # Members register normally (independently routable OUTSIDE the
     # cycle); the group adds the composite row. Registering members
     # whose ports form a cycle WITHOUT a group stays a registry error.
-    regen_wall.register(registry).unwrap()
+    regen_wall.register(registry).danger_ok

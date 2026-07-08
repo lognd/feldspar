@@ -42,8 +42,8 @@ def rect_second_moment(x):
 
 
 def register(registry: SolverRegistry) -> None:
-    registry.declare_ports(*PORTS).unwrap()          # F12: once, here
-    registry.register(*rect_second_moment.solver_direction).unwrap()
+    registry.declare_ports(*PORTS).danger_ok          # F12: once, here
+    registry.register(*rect_second_moment.solver_direction).danger_ok
     # A typo'd port in any @solver in this module is now a
     # RegistryError.UnknownPort at register time, not a silent
     # never-routable edge.

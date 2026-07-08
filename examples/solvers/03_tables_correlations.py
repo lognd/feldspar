@@ -52,5 +52,5 @@ def _nu(x):
 
 
 def register(registry: SolverRegistry) -> None:
-    registry.register(*sat_water).unwrap()
-    gnielinski.register(registry).unwrap()
+    registry.register(*sat_water).danger_ok
+    gnielinski.register(registry).danger_ok

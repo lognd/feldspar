@@ -85,6 +85,39 @@ def test_digest_stable_across_map_insertion_orders() -> None:
     assert core.canonical_digest(a) == core.canonical_digest(b)
 
 
+def test_digest_of_nested_pyo3_frozen_instances() -> None:
+    """canonical_digest must not choke on core frozen classes nested
+    inside plain dict/set containers (WO-03's SolverInfo digest depends
+    on exactly this -- CoreError/UnitError digest ambiguity flagged in
+    the WO-02 report, resolved here)."""
+    d1 = {
+        "box": {"x": core.Interval.new(0.0, 1.0).danger_ok},
+        "tags": frozenset({"a", "b"}),
+    }
+    d2 = {
+        "tags": frozenset({"b", "a"}),
+        "box": {"x": core.Interval.new(0.0, 1.0).danger_ok},
+    }
+    assert core.canonical_digest(d1) == core.canonical_digest(d2)
+
+
+def test_digest_of_domain_shaped_payload_is_order_independent() -> None:
+    domain = core.Domain(
+        {
+            "mech.load.tip_force": core.Interval(0.0, 100.0),
+            "mech.material.poisson": core.Interval(0.0, 0.5),
+        },
+        {"linear_elastic", "small_deflection"},
+    )
+    port = core.PortDecl("mech.load.tip_force", "N", core.Rank.vector(3))
+    accuracy = core.Accuracy(0.01, 0.02)
+    dim = core.Dimension((1, 0, 0, 0, 0, 0, 0))
+
+    payload_a = {"domain": domain, "accuracy": accuracy, "port": port, "dim": dim}
+    payload_b = {"port": port, "dim": dim, "accuracy": accuracy, "domain": domain}
+    assert core.canonical_digest(payload_a) == core.canonical_digest(payload_b)
+
+
 def test_registering_port_table_sample_and_mpa_to_pa() -> None:
     """Acceptance: 'registering the 02 port-table sample and converting a
     MPa ingest to Pa works; a dimension mismatch is an Err value.'"""
@@ -113,7 +146,9 @@ def test_domain_admits_out_of_box_and_missing_tag() -> None:
     assert out_of_box.is_err
     assert out_of_box.err.kind == "OutOfBox"
 
-    missing_tag = domain.admits({"mech.load.tip_force": core.Interval(10.0, 20.0)}, set())
+    missing_tag = domain.admits(
+        {"mech.load.tip_force": core.Interval(10.0, 20.0)}, set()
+    )
     assert missing_tag.is_err
     assert missing_tag.err.kind == "MissingTag"
 

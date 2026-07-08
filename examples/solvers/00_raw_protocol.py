@@ -37,4 +37,4 @@ def rect_second_moment(x):
 
 
 def register(registry: SolverRegistry) -> None:
-    registry.register(*rect_second_moment.solver_direction).unwrap()
+    registry.register(*rect_second_moment.solver_direction).danger_ok

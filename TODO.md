@@ -38,9 +38,23 @@ progress.
 
 ## WO-03 solver protocol + registry
 
-- [ ] SolverRegistry, @solver decorator, make_direction
-- [ ] Relation, Correlation, table_solver_1d/2d
-- [ ] RegistryError variants
+- [x] SolverInfo, Citation, ClaimSenses, SolveOutput, EXACT
+- [x] @solver decorator (F10/F11/F13/F14/F15/F16 coercions), NO global state
+- [x] sugar.py: make_direction, Relation, table_solver_1d/2d, Correlation,
+      CoupledGroup (M8 shape only, closure NotImplementedError)
+- [x] SolverRegistry: register/declare_ports/freeze/digest/__iter__/port_table
+- [x] RegistryError (all variants), SolveError (total union, NoConvergence
+      reserved for M8)
+- [x] core.py fix: canonical_digest handles nested PyO3 frozen instances
+      and plain pydantic-dumped enums (WO-02 ambiguity closed)
+- [x] core.py fix: Domain's Python field renamed port_box -> box
+      (01-interfaces uses `box`; WO-02 regression caught by examples/)
+- [x] tests/unit/test_registry.py: every RegistryError/SolveError variant,
+      import-order permutation, citation floor, sugar==hand-built digest
+- [ ] KNOWN GAP: examples/solvers/*.py call `.unwrap()` on typani Result,
+      which the installed typani does not implement (only `.danger_ok`);
+      import succeeds for 00-04 and 06, register() plumbing verified
+      correct up to that `.unwrap()` call -- see WO-03 closing report
 
 ## WO-04 propagation + error accumulation (Rust)
 

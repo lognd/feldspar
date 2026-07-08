@@ -1,4 +1,10 @@
 //! PyO3 wrapper for `feldspar_core::Domain` (01-interfaces `Domain`).
+//!
+//! 01-interfaces names the field `box` (a reserved keyword in Rust);
+//! `r#box` is Rust's raw-identifier escape for using a keyword as a
+//! plain identifier -- Python sees the identifier text itself, `box`,
+//! with no `r#` artifact (examples/solvers/00_raw_protocol.py:
+//! `Domain(box={...}, tags=frozenset())`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,18 +22,18 @@ pub struct PyDomain(pub feldspar_core::Domain);
 #[pymethods]
 impl PyDomain {
     #[new]
-    #[pyo3(signature = (port_box, tags=None))]
-    fn py_new(port_box: BTreeMap<String, PyInterval>, tags: Option<BTreeSet<String>>) -> Self {
+    #[pyo3(signature = (r#box, tags=None))]
+    fn py_new(r#box: BTreeMap<String, PyInterval>, tags: Option<BTreeSet<String>>) -> Self {
         let core_box: BTreeMap<String, feldspar_core::Interval> =
-            port_box.into_iter().map(|(k, v)| (k, v.0)).collect();
+            r#box.into_iter().map(|(k, v)| (k, v.0)).collect();
         PyDomain(feldspar_core::Domain::new(
             core_box,
             tags.unwrap_or_default(),
         ))
     }
 
-    #[getter(port_box)]
-    fn port_box(&self) -> BTreeMap<String, PyInterval> {
+    #[getter(r#box)]
+    fn get_box(&self) -> BTreeMap<String, PyInterval> {
         self.0
             .port_box
             .iter()
@@ -57,7 +63,7 @@ impl PyDomain {
 
     fn __repr__(&self) -> String {
         format!(
-            "Domain(port_box={{{} ports}}, tags={:?})",
+            "Domain(box={{{} ports}}, tags={:?})",
             self.0.port_box.len(),
             self.0.tags
         )

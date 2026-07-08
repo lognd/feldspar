@@ -9,7 +9,9 @@ the Python surface (feldspar-py is marshalling-only, AD-1 -- and typani
 itself has no Rust binding, so that last conversion step has to happen
 here, in Python)."""
 
-from typing import Iterable, Mapping, Optional
+import enum
+import json
+from typing import Any, Iterable, Mapping, Optional
 
 from typani.error_set import ErrorSet
 from typani.result import Err, Ok, Result
@@ -23,7 +25,6 @@ from feldspar._feldspar import (
     PortDecl,
     Rank,
     UnitSystem,
-    canonical_digest,
     format_f64,
 )
 
@@ -93,9 +94,7 @@ class DomainViolation:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, DomainViolation):
             return NotImplemented
-        return all(
-            getattr(self, f) == getattr(other, f) for f in self.__slots__
-        )
+        return all(getattr(self, f) == getattr(other, f) for f in self.__slots__)
 
 
 def _core_error_from_exc(exc: Exception) -> CoreError:
@@ -186,3 +185,83 @@ UnitSystem.from_si = _unit_system_from_si
 
 #: `Accuracy(0.0, 0.0)`; the EXACT constant (01-interfaces).
 EXACT: Accuracy = _feldspar.exact_accuracy()
+
+
+def _sort_key(obj: Any) -> str:
+    """A stable, content-derived sort key for set/frozenset elements.
+
+    Python's `set`/`frozenset` iteration order depends on hash
+    randomization (`PYTHONHASHSEED`) for strings, so it is NOT
+    deterministic across processes -- unlike a `dict`, whose keys we can
+    lean on `serde_json`'s `BTreeMap`-backed object ordering for. Any set
+    reaching `canonical_digest` must be turned into an explicitly sorted
+    list before it does (FINV-1: byte-identical digests across
+    platforms/runs), which is what `_to_jsonable` uses this for.
+    """
+    return json.dumps(obj, sort_keys=True, default=str)
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """Recursively lowers core frozen classes (and pydantic models, once
+    WO-03 introduces them) into plain JSON-safe values, so
+    `canonical_digest` can digest anything built out of them -- not just
+    flat dicts/lists/scalars. `pythonize` (the Rust-side Python->
+    serde_json bridge `_feldspar.canonical_digest` uses) only understands
+    Python's own JSON-shaped types; it raises on an opaque PyO3 class
+    like `Interval`, so that lowering has to happen here, in Python,
+    before the value crosses into Rust.
+    """
+    if isinstance(obj, Interval):
+        return {"lo": obj.lo, "hi": obj.hi}
+    if isinstance(obj, Accuracy):
+        return {"eps_abs": obj.eps_abs, "eps_rel": obj.eps_rel}
+    if isinstance(obj, Dimension):
+        return {"exponents": list(obj.exponents)}
+    if isinstance(obj, Rank):
+        return {
+            "kind": obj.kind,
+            "n": obj.n,
+            "m": obj.m,
+            "payload_kind": obj.payload_kind,
+        }
+    if isinstance(obj, PortDecl):
+        return {
+            "name": obj.name,
+            "unit": obj.unit,
+            "rank": _to_jsonable(obj.rank),
+        }
+    if isinstance(obj, Domain):
+        return {
+            "box": {k: _to_jsonable(v) for k, v in sorted(obj.box.items())},
+            "tags": sorted(obj.tags),
+        }
+    if hasattr(obj, "model_dump"):
+        # pydantic v2 BaseModel (WO-03+): "json" mode would be the
+        # obvious choice for a JSON-safe dump, but it RAISES on any
+        # arbitrary_types_allowed field pydantic has no serializer for
+        # (SolverInfo.domain: Domain, accuracy: Mapping[str, Accuracy]),
+        # instead of passing it through. Default "python" mode leaves
+        # both those AND plain enums (ClaimSenses) as live objects, so
+        # keep walking afterwards -- the isinstance branches above/below
+        # handle the frozen classes, and the enum.Enum branch below
+        # handles ClaimSenses.
+        return _to_jsonable(obj.model_dump())
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    if isinstance(obj, Mapping):
+        return {k: _to_jsonable(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, (set, frozenset)):
+        return sorted((_to_jsonable(v) for v in obj), key=_sort_key)
+    if isinstance(obj, (list, tuple)):
+        return [_to_jsonable(v) for v in obj]
+    return obj
+
+
+def canonical_digest(obj: Any) -> str:
+    """Canonical-JSON -> blake3 digest of any value built from core
+    frozen classes, pydantic models, and/or plain JSON-safe Python data
+    (AD-5). Order-independent for dict keys (`serde_json`'s `BTreeMap`
+    object type) and for set/frozenset contents (sorted here, since
+    Python set iteration order is hash-seed-dependent, not stable
+    across processes -- see `_sort_key`)."""
+    return _feldspar.canonical_digest(_to_jsonable(obj))

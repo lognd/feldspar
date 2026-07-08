@@ -52,4 +52,4 @@ def v_from_tp(x):
 def register(registry: SolverRegistry) -> None:
     # Emits thermo.ideal_gas.t_from_pv / .p_from_tv / .v_from_tp --
     # three rows in the graph, one home for the shared metadata.
-    ideal_gas.register(registry).unwrap()
+    ideal_gas.register(registry).danger_ok

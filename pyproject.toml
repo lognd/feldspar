@@ -71,7 +71,7 @@ select = ["E", "F", "I", "B", "W"]
 # module docstring (never after), which makes ruff treat the docstring as
 # a plain statement and flag every import that follows it.
 "tests/**" = ["E501", "E402"]
-"python/feldspar/core.py" = ["E402"]
+"python/feldspar/**" = ["E402"]
 
 [tool.coverage.run]
 source = ["python"]

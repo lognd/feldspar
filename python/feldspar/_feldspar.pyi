@@ -91,16 +91,14 @@ class PortDecl:
 class Domain:
     def __init__(
         self,
-        port_box: Dict[str, Interval],
+        box: Dict[str, Interval],
         tags: Optional[Set[str]] = ...,
     ) -> None: ...
     @property
-    def port_box(self) -> Dict[str, Interval]: ...
+    def box(self) -> Dict[str, Interval]: ...
     @property
     def tags(self) -> Set[str]: ...
-    def _admits_checked(
-        self, inputs: Dict[str, Interval], tags: Set[str]
-    ) -> None: ...
+    def _admits_checked(self, inputs: Dict[str, Interval], tags: Set[str]) -> None: ...
     # Monkey-patched by feldspar/core.py (01-interfaces `Domain.admits`).
     def admits(
         self, inputs: Mapping[str, Interval], tags: Iterable[str]

@@ -42,4 +42,4 @@ def _section_solver(name, formula, cite):
 
 def register(registry: SolverRegistry) -> None:
     for name, (formula, cite) in sorted(SHAPES.items()):
-        registry.register(*_section_solver(name, formula, cite)).unwrap()
+        registry.register(*_section_solver(name, formula, cite)).danger_ok

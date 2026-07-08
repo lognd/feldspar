@@ -134,3 +134,58 @@ progress.
       regolith conformance job cannot be verified from inside this
       sandbox in the sense a real CI run would -- not claimed as met,
       see WO-10's closing report
+
+## WO-11 symbolic core (M10 phase 1)
+
+- [x] `crates/feldspar-core/src/symbolic.rs`: canonical `Expr` AST
+      (Var/Lit/Neg/Add/Mul/Pow/Unary), `CANON_VERSION`, `canonicalize`
+      (R2 pinned rules), `canonical_string` (digest/provenance form),
+      `eval` (compiled numeric eval, not CAS), `invert_for`/
+      `invertible_targets` (R3 pinned peeling algorithm, named
+      `NonInvertible`/`MultiBranch` errors), `predicate_to_box`
+      (single-port-affine bounding, `UnboundablePredicate`/
+      `EmptyDomain`); 7 Rust unit tests
+- [x] `crates/feldspar-py/src/symbolic.rs`: `Expr`/`Predicate` PyO3
+      classes, `invert_for`/`invertible_targets`/`predicate_to_box`
+      free functions, `EvalErrorRaised`/`SymbolicErrorRaised`
+      exceptions (`errors.rs`); `_feldspar.pyi` updated to match
+- [x] `python/feldspar/solve/errors.py`: `RegistryError.NonInvertible`/
+      `.MultiBranch`/`.UnboundablePredicate`/`.EmptyDomain`
+- [x] `python/feldspar/solve/_models.py`: `SolverInfo` gains 5
+      `exclude=True` provenance fields (`algebraic_form`,
+      `solved_for`, `branch`, `admission_predicate`,
+      `derivation_digest`) -- digest-invisible by construction, the
+      twin-equality vs. folds-into-digest reconciliation (see WO-11's
+      closing report)
+- [x] `python/feldspar/solve/_build.py`: threads the 5 provenance
+      kwargs through the ONE lowering path (default `None`, existing
+      call sites unaffected)
+- [x] `python/feldspar/solve/sugar.py`: `Relation.law(lhs, rhs,
+      predicates=(), branches=None, declared_box=None)` -- derives
+      every invertible target, appends to the same `_directions` list
+      `.direction()` populates (hand-written + derived coexist)
+- [x] `python/feldspar/core.py`: re-exports `Expr`/`Predicate`/
+      `invert_for`/`invertible_targets`/`predicate_to_box`
+- [x] `python/feldspar/plan/execute.py`: `Solution.step_algebraic_form`/
+      `.step_admission_predicate` (populated only when carried)
+- [x] `python/feldspar/plan/report.py`: `explain()`/`to_dict()` render
+      the two new fields per step, pure rendering, no recomputation
+- [x] `tests/unit/test_symbolic.py`: 15 tests -- digest-equality
+      golden (F-series), all-5-directions registration, non-
+      invertible/multi-branch named-error declarations, boundable/
+      unboundable predicate-to-box, determinism (single-sandbox),
+      mixed derived+hand-written `explain()` golden, eval-domain-
+      fault-as-recoverable-`SolveError`
+- [x] `tests/unit/test_report.py`: existing golden updated for the
+      two new rendered lines
+- [x] `make check`: cargo fmt/clippy/test, ruff check/format,
+      lint-imports, ty check, pytest tests/unit -- all green (152
+      Python tests, 69 Rust tests); "conformance kit extended checks"
+      reported as N/A (WO-11 is engine-side only, regolith's pack/
+      surface never touches symbolic declarations, FINV-3/10 kept)
+- [x] docs: WO-11 Status flipped to done with closing report
+      (R2/R3 resolution, the digest-equality reconciliation, the
+      predicate-to-box scope decision found during implementation);
+      03/08-open-questions/10/11 amendment notes flipped to cite the
+      landed form; `02-edge-cases.md` rows added for non-invertible/
+      multi-branch/unboundable-predicate declarations

@@ -65,6 +65,11 @@ docs/
                                   plug-and-play solver packs +
                                   conformance kit, generated tooling,
                                   CAM/manufacturability seam
+    11-symbolic.md                the symbolic core (owner-decided
+                                  direction, 2026-07-08 / OPEN-15):
+                                  equations as data, derived
+                                  directions, symbolic domain
+                                  predicates, residual list
 
   implementation/  architecture + work orders (M1; WO-11+ appended
                    per 09 sec. 8 milestones when scheduled)
@@ -75,9 +80,10 @@ docs/
                                   (signatures + error variants)
     02-edge-cases.md              NORMATIVE: required-test matrix,
                                   rows keyed by WO
-    WO-01..WO-10                  agent-executable work orders;
+    WO-01..WO-11                  agent-executable work orders;
                                   conventions + dependency graph in
-                                  the README
+                                  the README (WO-11 symbolic core is
+                                  owner-gated on 11 R1)
 
 examples/          target-API pressure tests (written before code;
                    friction log -> spec changes in its README)

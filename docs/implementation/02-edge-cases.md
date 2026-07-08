@@ -131,3 +131,20 @@ enumeration of the numeric surface.
 | explain on cached Solution | renders cache provenance; zero solver calls (mock-asserted) |
 | explain after reroute | full attempt trail rendered |
 | golden stability | byte-identical across runs and platforms |
+
+## Symbolic core (WO-11)
+
+| case | required behavior |
+|---|---|
+| symbolic declaration, digest vs. hand-built twin | derived direction's `SolverInfo` digest-equal to a hand-built twin (5 provenance fields are `exclude=True`, digest-invisible) |
+| symbolic declaration, all invertible targets | one `law()` call registers one direction per port with exactly one occurrence in the equation |
+| non-invertible variable (0 or >1 occurrences) | `Err(RegistryError.NonInvertible)` naming the variable at declaration time; never a silent partial registration |
+| multi-branch inversion (even-power target), no declared branch | `Err(RegistryError.MultiBranch)` naming the variable and listing branches (`+`/`-`); never a guessed branch |
+| multi-branch inversion, branch declared | registers successfully with the chosen branch's closed form |
+| domain predicate, boundable (single-port affine) | dispatch box derived, narrowing/matching the declared box side |
+| domain predicate, unboundable (nonlinear/multi-var) without a compatible declared box | `Err(RegistryError.UnboundablePredicate)`, never a silently-wrong hull |
+| declared box + predicates intersect to nothing | `Err(RegistryError.EmptyDomain)` |
+| inversion admission predicate (e.g. sqrt range) is multi-variable | carried as `SolverInfo.admission_predicate` provenance only, rendered by `explain()`, never fed into box derivation |
+| canonicalization determinism | two independently-built, structurally-equal `Expr` trees canonicalize to the same `canonical_string()`/`derivation_digest` (verified single-sandbox; cross-platform claimed by design, not independently re-verified here) |
+| `eval()` domain fault (negative sqrt argument) at solve time | derived `SolveFn` returns `Err(SolveError...)`, never raises |
+| `explain()` on a mixed derived + hand-written route | derived step renders `algebraic_form`/`admission_predicate`; hand-written step renders `"(not carried -- hand-written direction)"` |

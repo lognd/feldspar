@@ -94,6 +94,10 @@ hash-pinned payload rather than a number. Declared payload kinds:
 ```
 geometry.parametric   frozen pydantic family params (05 geometry.py)
 geometry.realized     STEP ref + topology summary (regolith WO-22 record)
+layout.realized       elec placed/routed board content: board outline
+                      ref, placements, routed segments, copper summary,
+                      .kicad_pcb content hash (regolith WO-24/WO-42
+                      record, AD-25)
 mesh                  MeshData digest (05 mesh.py output)
 table                 interpolation table ref (property data)
 spectrum | profile | mask   regolith/02 sec. 5 time/frequency objects
@@ -277,3 +281,8 @@ committed scope now (WO-27 / Phase 1).
   `feldspar.testing.assert_solverpack_conforms`, namespace
   etiquette checks; acceptance = an out-of-repo toy pack passing
   the kit from its own CI.
+- **M10** (owner-decided direction 2026-07-08, spec home 11 /
+  OPEN-15): the symbolic core -- symbolic Relation declarations
+  with derived directions, symbolic domain predicates (boxes
+  derived, predicates carried), derivation-aware `explain()`;
+  WO-11, dispatch gated on the engine-home residual (11 R1).

@@ -49,5 +49,10 @@ regolith WO-27's acceptance list.
 
 Later milestones (M2 payload ports, M3 budget-seeking, M4
 regolith-gated boundary, M5 parallelism, M6 structured ports, M7
-ngspice) get WO-11+ appended here when scheduled; their designs are
+ngspice) get WO-12+ appended here when scheduled; their designs are
 already normative in `../feldspar/09-model-integration.md`.
+
+WO-11 (symbolic core, M10) was scheduled out of order by owner
+decision (2026-07-08, `../feldspar/11-symbolic.md` / OPEN-15). It
+depends on WO-03/WO-06 and is OWNER-GATED: do not dispatch until the
+engine-home residual (11 sec. 4 R1) carries an owner decision.

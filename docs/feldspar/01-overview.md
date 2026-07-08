@@ -89,11 +89,21 @@ never make them harder:
   adapter serves both when regolith's Phase E split lands (03).
 - Unit conversion beyond the boundary: storage is coherent SI forever;
   the conversion table grows with the port table (02).
+- The symbolic core (owner, 2026-07-08): equations as declarable
+  data, derived directions, symbolic domain predicates -- decided
+  direction, spec home 11 (OPEN-15); lands as M10/WO-11 after the
+  engine-home residual is decided.
 
 ## Non-goals
 
-- Symbolic math or optimization: routing selects among declared
-  solvers; it does not derive new ones.
+- Optimization: routing selects among declared solvers and laws; it
+  does not search parameter spaces. (AMENDED 2026-07-08, owner: the
+  original bullet also excluded symbolic math -- that half is
+  REVERSED. feldspar gains a symbolic core: equations declarable as
+  data with derived directions, validity domains tracked as symbolic
+  predicates, rules symbolic where they are equations. Spec home 11;
+  ledger OPEN-15. Symbolic derivation transforms declared, cited
+  laws; it still never invents one.)
 - Signing logic of its own: attestation is regolith consumer-side
   machinery (06).
 

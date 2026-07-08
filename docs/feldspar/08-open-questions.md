@@ -196,6 +196,38 @@ when the implementing WO lands; only their RESIDUAL is still open.
   is intentionally not adopted engine-side yet -- zones stay a
   regolith-side concept until a claim needs them to cross.
 
+- **OPEN-15 the symbolic core** (new 2026-07-08): DECIDED direction
+  (owner, 2026-07-08), spec home 11. feldspar gains symbolic
+  capabilities: equations declarable as data (`Relation` given one
+  symbolic equation; directions DERIVED at declaration time, lowering
+  to the one raw protocol, digest-stable, citations inherited),
+  validity domains tracked as symbolic predicates (dispatch boxes
+  DERIVED from them; predicates carried for composition and
+  `explain()`), and rules represented symbolically wherever they are
+  equations/inequalities (accuracy models, regime guards). AMENDS the
+  01 non-goal (now optimization-only) and 03's Relation parenthetical
+  (symbolic-inversion rejection reversed) -- both files carry the
+  amendment notes. Constraints unchanged: one-protocol rule, digest
+  determinism, citation floor, no solve-time CAS, no invented
+  physics. R1 engine home DECIDED (owner, 2026-07-08): native Rust
+  kernel in `feldspar-core`, with an optional sympy conversion
+  interface Python-side -- WO-11 dispatch unblocked.
+
+  WO-11 LANDED 2026-07-08. R2 canonical-simplification pinning:
+  RESOLVED -- a fixed total order + flatten/fold/identity-elimination
+  rewrite to a fixed point, `CANON_VERSION`-gated, digested via a
+  dedicated canonical S-expression string (never `serde_json` of the
+  AST). R3 explicit branch selection: RESOLVED -- structural
+  peeling with an occurrence gate (`NonInvertible` for 0/>1
+  occurrences), even-power targets returning a named `MultiBranch`
+  listing branches unless the author declares one, never guessed.
+  Full resolution detail, including the digest-equality-vs-folds-
+  into-digest reconciliation and the predicate-to-box scope decision
+  found during implementation: `docs/implementation/
+  WO-11-symbolic-core.md` closing report. R4 symbolic delta-method
+  propagation and R5 calibration policy for derived directions
+  remain FUTURE, unchanged, tracked here.
+
 ## Audit ledger (2026-07-07 full-spec audit, A-nn)
 
 Findings from the pre-implementation spec audit. FIXED items are

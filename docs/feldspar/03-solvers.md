@@ -109,7 +109,21 @@ second registration path.
 - `Relation`: one law, N directions -- shared
   domain/citations/version declared once, each direction an explicit
   small function, ids auto-suffixed. (Rejected: N independent
-  decorators -- metadata drift; symbolic inversion -- magic.)
+  decorators -- metadata drift.) The original rejection here of
+  symbolic inversion as "magic" is REVERSED (owner, 2026-07-08,
+  spec home 11 / OPEN-15) and LANDED (WO-11, 2026-07-08):
+  `Relation.law(lhs, rhs, ...)` declares one symbolic equation
+  (`feldspar.core.Expr`) whose directions are DERIVED at declaration
+  time via closed-form inversion -- lowering through the same
+  `_build.build_solver_info_and_fn` path as `.direction()`,
+  digest-equal to a hand-built twin (5 provenance fields are
+  `Field(exclude=True)`, invisible to the digest), citations
+  inherited, non-invertible variables an `Err(RegistryError.
+  NonInvertible)` naming them (hand-write those directions beside
+  the derived ones via `.direction()`), and multi-branch inversions
+  an `Err(RegistryError.MultiBranch)` until the author passes
+  `branches={var: "+"|"-"}`. Details: `docs/implementation/
+  WO-11-symbolic-core.md` closing report.
 - `table_solver_1d/2d`: domain box auto = data extent; interpolation
   eps EXPLICIT and cited, never auto-derived.
 - `Correlation`: published formula + published validity box +

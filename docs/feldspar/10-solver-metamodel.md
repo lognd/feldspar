@@ -55,6 +55,19 @@ solver**. The pattern list is closed by review, not by accident: a
 solver that fits no pattern triggers a metamodel discussion, not a
 bespoke registration path.
 
+The symbolic core (11, owner 2026-07-08; LANDED WO-11, 2026-07-08)
+adds an authoring FORM, not a tenth pattern: `Relation.law(...)`
+derives its directions at declaration time and lowers them into
+pattern-1 (Relation) entries via the same `_build` path as every
+other sugar -- digest-equal to hand-built twins, the one-protocol
+rule untouched. Symbolic domain predicates enrich the `domain`
+field for AUTHOR-DECLARED predicates only (boxes derived where
+single-port-affine-boundable); inversion's own admission predicates
+(e.g. a `sqrt`'s range) ride as `SolverInfo` provenance rendered by
+`explain()`, not as box-narrowing input -- the anatomy is otherwise
+untouched: the nine fields stand. Details: `docs/implementation/
+WO-11-symbolic-core.md`.
+
 ## 3. Plug-and-play: solver packs (DECIDED 2026-07-07)
 
 feldspar itself becomes a host, one level below regolith's pattern

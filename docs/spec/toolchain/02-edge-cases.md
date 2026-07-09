@@ -197,3 +197,17 @@ enumeration of the numeric surface.
 | `mech.vibe.first_mode_freq` claim, beam direction's domain admits the box | closed-form beam direction wins on cost (FINV-8 tier-blind) |
 | `mech.vibe.first_mode_freq` claim, beam direction's domain does NOT admit the box (e.g. density outside its declared range) | planner routes through `fea.mesh.cantilever -> fea.modal.cantilever_from_mesh` instead (fea-marked; ccx/gmsh required to execute) |
 | `explain()` on a mixed derived + hand-written route | derived step renders `algebraic_form`/`admission_predicate`; hand-written step renders `"(not carried -- hand-written direction)"` |
+
+## Coupled groups (WO-18)
+
+| case | required behavior |
+|---|---|
+| `CoupledGroup(accuracy=EXACT, ...)` | raises `ValueError` at construction (EXACT forbidden for a composite, 09 sec. 4b) |
+| `CoupledGroup.register()` | composite `SolverInfo.tier == "coupled"`, inputs/outputs are ONLY the declared boundary ports -- no internal member port ever appears, so the planner's graph stays a DAG |
+| closure reaches `tol` within `max_iter` | `Ok(SolveOutput)`; `values` cover exactly `boundary_outputs`; `measured_eps = accuracy.eps_rel + residual` (closure residual charged into the realized eps, never derived from member `Accuracy`) |
+| closure exhausts `max_iter` without `tol` | `Err(SolveError.NoConvergence(iterations=max_iter, residual=...))` -- a value; fallback rerouting (04) applies unchanged |
+| same boundary inputs, two calls | identical `values` and `measured_eps` (fixed iteration order, fixed damping, no randomness -- determinism acceptance row) |
+| a member solver's `SolveFn` returns `Err` mid-loop | propagates AS-IS (the member's own `SolveError` variant), never relabeled `NoConvergence` |
+| a declared member id is not registered in the same registry at solve time | `RuntimeError` (catalog configuration bug, not a recoverable input -- composite `register()` cannot validate this eagerly since AD-4 registration order is arbitrary) |
+| composite `SolveFn` run through `plan/execute.py`'s corner sweep | no group-specific code path -- the closure is an ordinary `(x, eps_budget) -> Result[SolveOutput, SolveError]`, so the existing per-corner call machinery applies unchanged |
+| ordinary (non-`CoupledGroup`) solvers whose ports form a cycle, registered without a group | still `RegistryError`/planner `PlanError.CyclicPortEquivalence` -- unchanged by this WO (WO-05's cycle check is untouched, `tests/unit/test_plan.py`) |

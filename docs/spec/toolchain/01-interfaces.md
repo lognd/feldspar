@@ -304,8 +304,12 @@ and `DanglingDigest(digest)` (a ref the resolver's store has no
 content for). WO-13 adds `LadderExhausted(best_eps, budget,
 rungs_tried)` (09 sec. 3: a budget-seeking solver's refinement ladder
 ran out of rungs without meeting the caller's remaining budget --
-honest indeterminate carrying the best eps achieved).
-(`NoConvergence` is reserved for M8 coupled groups, 09 sec. 4b.)
+honest indeterminate carrying the best eps achieved). WO-18 adds
+`NoConvergence(iterations, residual)` (09 sec. 4b): a `CoupledGroup`'s
+damped fixed-point closure ran its declared `max_iter` without the
+largest relative iterate change (`residual`) dropping under `tol` --
+a value like every other variant here, so fallback rerouting applies
+unchanged.
 
 ## feldspar.fea (WO-08) and feldspar.pack (WO-09)
 

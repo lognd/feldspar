@@ -93,10 +93,12 @@ class RegolithResolverAdapter:
 
     ``resolve`` enforces D154's wire-format contract before handing
     bytes onward: the resolved bytes must be the schema-versioned JSON
-    `regolith._schema` publishes, and a MAJOR schema-version mismatch
-    between what the payload declares and what this build understands
-    is an honest `SolveError.ParseFailed`, naming both versions -- never
-    a silent parse of a shape this build was not built to read."""
+    `regolith._schema` publishes, and ANY schema-version inequality
+    (not just a major-version mismatch -- exact-equality is the actual
+    policy today, no minor/patch tolerance is implemented) between what
+    the payload declares and what this build understands is an honest
+    `SolveError.ParseFailed`, naming both versions -- never a silent
+    parse of a shape this build was not built to read."""
 
     __slots__ = ("_resolve",)
 

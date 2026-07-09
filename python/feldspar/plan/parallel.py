@@ -17,11 +17,22 @@ Determinism (FINV-9): corners are enumerated ONCE, in `enumerate_corners`
 order; results are folded via `hull_from_results` in THAT SAME order
 regardless of which worker finished a given corner first (a thread
 pool's `map` preserves input order in its output, independent of
-completion order) -- so the assembled hull is bit-identical to the
+completion order) -- so the RETURNED VALUE is bit-identical to the
 serial path at any `thread_count`. The FIRST corner (in enumeration
 order, never arrival order) to report an `Err` is authoritative, exactly
 matching `corner_sweep`'s short-circuit-on-first-corner-err contract
-(02-edge-cases WO-04)."""
+(02-edge-cases WO-04).
+
+This identical-return-value guarantee does NOT extend to `fn`'s SIDE
+EFFECTS (L3, cycle-29 audit): corner solves may write to
+`PayloadStepCache` or shell out to ccx/gmsh, and once a corner's work
+is handed to the thread pool it cannot be un-run. `thread_count > 1`
+best-effort avoids dispatching corners still queued once an earlier
+(in enumeration order) corner's `Err` is already known -- futures not
+yet started are cancelled -- but corners already RUNNING when the
+`Err` is discovered still complete their side effects. Only
+`thread_count <= 1` gives the serial path's true short-circuit (zero
+extra side effects)."""
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Mapping, TypeVar
@@ -72,18 +83,23 @@ def parallel_corner_sweep(
             thread_count,
         )
         with ThreadPoolExecutor(max_workers=thread_count) as executor:
-            # `Executor.map` yields results in the SAME order as the
-            # input iterable (`corners`), independent of which worker
-            # finishes first -- this is what keeps the fold order
-            # identical to the serial path (FINV-9). Unlike the serial
-            # path, ALL corners are dispatched eagerly (no short-circuit
-            # mid-flight is possible once work is handed to the pool);
-            # the value returned is still the FIRST-in-enumeration-order
-            # `Err`, identical to the serial path's outcome.
-            results = list(executor.map(fn, corners))
-            for result in results:
+            # Submit all corners up front, then block on each future IN
+            # ENUMERATION ORDER (matching the serial path's fold order,
+            # FINV-9) -- as soon as an `Err` is discovered, cancel every
+            # later future not yet started. `Future.cancel()`
+            # is a no-op once a worker has picked the task up, so this
+            # is best-effort, not a true short-circuit (L3, cycle-29
+            # audit): it stops corners still queued behind the failing
+            # one, it cannot stop ones already mid-flight.
+            futures = [executor.submit(fn, corner) for corner in corners]
+            results = []
+            for idx, future in enumerate(futures):
+                result = future.result()
                 if result.is_err:
+                    for later in futures[idx + 1 :]:
+                        later.cancel()
                     return Err(result.danger_err)
+                results.append(result)
 
     outputs = [result.danger_ok for result in results]
     return Ok(hull_from_results(outputs))

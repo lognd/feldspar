@@ -503,28 +503,184 @@ def test_table_solver_2d_registers_and_interpolates() -> None:
     assert result.danger_ok.values["thermo.enthalpy"] == pytest.approx(150.0)
 
 
-def test_coupled_group_registers_and_closure_not_implemented() -> None:
-    group = CoupledGroup(
-        group_id="heat.regen_wall_loop",
+def _register_toy_loop(registry: "SolverRegistry", **group_kwargs: object) -> None:
+    """A 2-member loop simple enough to hand-verify the fixed point:
+    `heat.a` computes `y = 0.5 * (x + z)` (z from the loop's other
+    member, defaulting to 0.0 on the first pass); `heat.b` computes
+    `z = y` verbatim. Starting from `x`, the true fixed point is
+    `y = z = x` -- exact, so convergence and the residual are both
+    easy to reason about by hand."""
+
+    def a_fn(inputs: dict) -> dict:
+        return {"heat.y": 0.5 * (inputs["heat.x"] + inputs["heat.z"])}
+
+    def b_fn(inputs: dict) -> dict:
+        return {"heat.z": inputs["heat.y"]}
+
+    info_a, fn_a = make_direction(
+        solver_id="heat.a",
+        fn=a_fn,
         namespace="heat",
-        members=("heat.bartz_hot_side",),
-        boundary_inputs=("prop.chamber_pressure",),
-        boundary_outputs=("thermo.wall_temp.hot_side_max",),
-        closure="damped_fixed_point",
-        settings=dict(damping=0.5, tol=1e-4, max_iter=200),
-        accuracy=Accuracy(0.0, 0.12),
-        citations=("paper: Bartz 1957 -- +-25% band",),
-        conservative_for="upper",
-        cost=0.3,
+        inputs=("heat.x", "heat.z"),
+        outputs=("heat.y",),
+        domain={"heat.x": (-1e6, 1e6), "heat.z": (-1e6, 1e6)},
+        cost=1e-6,
+        accuracy=EXACT,
+        citations=("paper: ref",),
         version="1",
     )
-    registry = SolverRegistry()
-    result = group.register(registry)
-    assert result.is_ok
+    info_b, fn_b = make_direction(
+        solver_id="heat.b",
+        fn=b_fn,
+        namespace="heat",
+        inputs=("heat.y",),
+        outputs=("heat.z",),
+        domain={"heat.y": (-1e6, 1e6)},
+        cost=1e-6,
+        accuracy=EXACT,
+        citations=("paper: ref",),
+        version="1",
+    )
+    assert registry.register(info_a, fn_a).is_ok
+    assert registry.register(info_b, fn_b).is_ok
 
-    _info, fn = next(iter(registry))
-    with pytest.raises(NotImplementedError):
-        fn({"prop.chamber_pressure": 1e6})
+    defaults: dict = dict(
+        group_id="heat.toy_loop",
+        namespace="heat",
+        members=("heat.a", "heat.b"),
+        boundary_inputs=("heat.x",),
+        boundary_outputs=("heat.y", "heat.z"),
+        closure="damped_fixed_point",
+        settings=dict(damping=0.5, tol=1e-6, max_iter=200),
+        accuracy=Accuracy(0.0, 0.05),
+        citations=("paper: ref -- toy loop",),
+        conservative_for="both",
+        cost=0.1,
+        version="1",
+    )
+    defaults.update(group_kwargs)
+    group = CoupledGroup(**defaults)
+    assert group.register(registry).is_ok
+
+
+def test_coupled_group_registers_and_closure_converges() -> None:
+    registry = SolverRegistry()
+    _register_toy_loop(registry)
+    pair = registry.get("heat.toy_loop")
+    assert pair is not None
+    _info, fn = pair
+
+    result = fn({"heat.x": 10.0})
+    assert result.is_ok
+    output = result.danger_ok
+    assert output.values["heat.y"] == pytest.approx(10.0, abs=1e-4)
+    assert output.values["heat.z"] == pytest.approx(10.0, abs=1e-4)
+    # Composite accuracy calibrated as a unit, never derived from
+    # member eps (both members above are EXACT): the realized eps is
+    # the group's own declared eps_rel plus the converged residual.
+    assert output.measured_eps is not None
+    assert output.measured_eps >= 0.05
+
+
+def test_coupled_group_closure_deterministic() -> None:
+    registry = SolverRegistry()
+    _register_toy_loop(registry)
+    _info, fn = registry.get("heat.toy_loop")
+
+    first = fn({"heat.x": 3.25}).danger_ok
+    second = fn({"heat.x": 3.25}).danger_ok
+    assert first.values == second.values
+    assert first.measured_eps == second.measured_eps
+
+
+def test_coupled_group_no_convergence_is_a_value_error() -> None:
+    registry = SolverRegistry()
+    _register_toy_loop(registry, settings=dict(damping=0.5, tol=1e-12, max_iter=1))
+    _info, fn = registry.get("heat.toy_loop")
+
+    result = fn({"heat.x": 10.0})
+    assert result.is_err
+    err = result.danger_err
+    assert err.kind == "NoConvergence"
+    assert err.iterations == 1
+
+
+def test_coupled_group_member_error_propagates_unrelabeled() -> None:
+    def failing_fn(inputs: dict) -> "Err":
+        return Err(SolveError.NonFinite(port="heat.y"))
+
+    registry = SolverRegistry()
+    info_a, _fn_a = make_direction(
+        solver_id="heat.a",
+        fn=failing_fn,
+        namespace="heat",
+        inputs=("heat.x", "heat.z"),
+        outputs=("heat.y",),
+        domain={"heat.x": (-1e6, 1e6), "heat.z": (-1e6, 1e6)},
+        cost=1e-6,
+        accuracy=EXACT,
+        citations=("paper: ref",),
+        version="1",
+    )
+    assert registry.register(info_a, _fn_a).is_ok
+
+    def b_fn(inputs: dict) -> dict:
+        return {"heat.z": inputs["heat.y"]}
+
+    info_b, fn_b = make_direction(
+        solver_id="heat.b",
+        fn=b_fn,
+        namespace="heat",
+        inputs=("heat.y",),
+        outputs=("heat.z",),
+        domain={"heat.y": (-1e6, 1e6)},
+        cost=1e-6,
+        accuracy=EXACT,
+        citations=("paper: ref",),
+        version="1",
+    )
+    assert registry.register(info_b, fn_b).is_ok
+
+    group = CoupledGroup(
+        group_id="heat.toy_loop",
+        namespace="heat",
+        members=("heat.a", "heat.b"),
+        boundary_inputs=("heat.x",),
+        boundary_outputs=("heat.y", "heat.z"),
+        closure="damped_fixed_point",
+        settings=dict(damping=0.5, tol=1e-6, max_iter=200),
+        accuracy=Accuracy(0.0, 0.05),
+        citations=("paper: ref -- toy loop",),
+        cost=0.1,
+        version="1",
+    )
+    assert group.register(registry).is_ok
+    _info, fn = registry.get("heat.toy_loop")
+
+    result = fn({"heat.x": 10.0})
+    assert result.is_err
+    assert result.danger_err.kind == "NonFinite"
+
+
+def test_coupled_group_missing_member_raises() -> None:
+    registry = SolverRegistry()
+    group = CoupledGroup(
+        group_id="heat.orphan_loop",
+        namespace="heat",
+        members=("heat.nonexistent",),
+        boundary_inputs=("heat.x",),
+        boundary_outputs=("heat.y",),
+        closure="damped_fixed_point",
+        settings=dict(damping=0.5, tol=1e-6, max_iter=10),
+        accuracy=Accuracy(0.0, 0.05),
+        citations=("paper: ref",),
+        cost=0.1,
+        version="1",
+    )
+    assert group.register(registry).is_ok
+    _info, fn = registry.get("heat.orphan_loop")
+    with pytest.raises(RuntimeError):
+        fn({"heat.x": 1.0})
 
 
 def test_coupled_group_forbids_exact_accuracy() -> None:

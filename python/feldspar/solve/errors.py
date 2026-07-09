@@ -135,8 +135,11 @@ class SolveError(_TaggedError):
     """Solve/execution failures (01-interfaces `SolveError`); the
     executor (WO-04/WO-06) is what actually raises most of these --
     WO-03 only needs the union to exist and be total (FINV-5).
-    `NoConvergence` is reserved for M8 coupled groups (09 sec. 4b) and
-    intentionally has no constructor yet."""
+    `NoConvergence` (WO-18, 09 sec. 4b) is `CoupledGroup`'s honest
+    indeterminate: the damped fixed-point closure ran its declared
+    `max_iter` without the residual dropping under `tol` -- a value,
+    like every other variant here, so fallback rerouting (04) applies
+    unchanged."""
 
     @classmethod
     def ToolMissing(cls, tool: str, guidance: str) -> "SolveError":
@@ -222,6 +225,17 @@ class SolveError(_TaggedError):
             budget=budget,
             rungs_tried=rungs_tried,
         )
+
+    @classmethod
+    def NoConvergence(cls, iterations: int, residual: float) -> "SolveError":
+        """WO-18 (09 sec. 4b): a `CoupledGroup`'s damped fixed-point
+        closure exhausted `settings["max_iter"]` iterations without
+        `residual` (the largest relative change between the last two
+        iterates) dropping under `settings["tol"]`. `iterations` is
+        always the group's declared `max_iter` -- a real exhaustion,
+        never a partial count -- matching `LadderExhausted`'s honest-
+        indeterminate shape."""
+        return cls("NoConvergence", iterations=iterations, residual=residual)
 
     @classmethod
     def DanglingDigest(cls, digest: str) -> "SolveError":

@@ -16,6 +16,7 @@
 use std::collections::BTreeMap;
 
 use crate::interval::Interval;
+use crate::symbolic::{differentiate, EvalError, Expr};
 
 /// One propagation protocol behind every uncertainty representation (02
 /// "Values are uncertain"): `Interval` (v1, the only strategy
@@ -153,6 +154,128 @@ pub fn total_error(out_hull: Interval, model_eps: f64) -> f64 {
     out_hull.half_width() + model_eps
 }
 
+/// The `Normal` (mean + standard deviation) uncertainty representation
+/// (02 "Values are uncertain": "Normal ... first-order (delta-method)
+/// propagation ... Planned, not v1"; landed here, WO-22, R4). Frozen,
+/// `stddev >= 0`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Normal {
+    pub mean: f64,
+    pub stddev: f64,
+}
+
+/// The conservative multiplier `Normal::to_interval` widens by (02:
+/// "Each MUST implement a conservative `to_interval()` collapse ...
+/// explicit in the API and logged when it happens"). 3 standard
+/// deviations is the documented, fixed choice -- changing it is a
+/// visible, versioned event exactly like a `CANON_VERSION` bump, not a
+/// silent tuning knob.
+pub const NORMAL_TO_INTERVAL_SIGMA: f64 = 3.0;
+
+impl Propagation for Normal {
+    /// `[mean - k*stddev, mean + k*stddev]` (k = `NORMAL_TO_INTERVAL_SIGMA`):
+    /// the one lossy, explicit collapse every representation must offer
+    /// (02) so the pack boundary and margin rule always see an interval.
+    fn to_interval(&self) -> Interval {
+        let half = NORMAL_TO_INTERVAL_SIGMA * self.stddev;
+        Interval {
+            lo: self.mean - half,
+            hi: self.mean + half,
+        }
+    }
+}
+
+/// A numeric step evaluation callback: `inputs -> Result<f64, EvalError>`
+/// (named per clippy `type_complexity` -- this exact shape recurs across
+/// `DerivativeMode::Numeric` and its callers).
+pub type NumericEval<'a> = dyn Fn(&BTreeMap<String, f64>) -> Result<f64, EvalError> + 'a;
+
+/// Which source a step's partial derivative comes from (11 sec. 4 R4):
+/// `Symbolic` when the step's law is a symbolic `Relation` (kernel
+/// differentiation over the canonical AST), `Numeric` otherwise
+/// (deterministic central finite difference over the step's compiled
+/// eval). Chosen PER STEP, never per solve -- the one `Propagation`
+/// protocol, not a second dispatch path.
+pub enum DerivativeMode<'a> {
+    /// Differentiate `expr` symbolically and evaluate the derivative at
+    /// `inputs` (exact, up to the underlying law's own accuracy band).
+    Symbolic { expr: &'a Expr },
+    /// Deterministic central finite difference of `eval` around
+    /// `inputs`, step size `h` (the pre-existing numeric path: no
+    /// symbolic law is declared for this step).
+    Numeric { eval: &'a NumericEval<'a>, h: f64 },
+}
+
+/// One input port's contribution to a delta-method propagation: its
+/// `Normal` uncertainty and which derivative source to use for it.
+pub struct DeltaInput<'a> {
+    pub port: String,
+    pub value: Normal,
+    pub mode: DerivativeMode<'a>,
+}
+
+/// The partial derivative of one step w.r.t. one input port (11 sec. 4
+/// R4): symbolic (kernel `differentiate` + `eval`) or numeric (central
+/// finite difference), per the caller's chosen `DerivativeMode` for
+/// that port. Both branches share the exact same `inputs` point so the
+/// two modes are directly comparable (the determinism/agreement suite,
+/// WO-22 acceptance).
+fn partial_derivative(
+    mode: &DerivativeMode<'_>,
+    port: &str,
+    inputs: &BTreeMap<String, f64>,
+) -> Result<f64, EvalError> {
+    match mode {
+        DerivativeMode::Symbolic { expr } => {
+            let d_expr = differentiate(expr, port);
+            d_expr.eval(inputs)
+        }
+        DerivativeMode::Numeric { eval, h } => {
+            let mut plus = inputs.clone();
+            let mut minus = inputs.clone();
+            *plus.get_mut(port).expect("port present in inputs") += h;
+            *minus.get_mut(port).expect("port present in inputs") -= h;
+            let f_plus = eval(&plus)?;
+            let f_minus = eval(&minus)?;
+            Ok((f_plus - f_minus) / (2.0 * h))
+        }
+    }
+}
+
+/// First-order (delta-method) `Normal` propagation through one step (02
+/// "Normal ... first-order (delta-method) propagation via
+/// differentiation of the solver"; 11 sec. 4 R4). The output mean is
+/// `eval` at the input means; the output standard deviation is the
+/// standard linearized combination `sqrt(sum((d(step)/d(port) *
+/// stddev_port)^2))` over every `DeltaInput`, each port's partial taken
+/// via ITS OWN chosen `DerivativeMode` (symbolic where the step's law is
+/// a `Relation`, numeric otherwise -- mixed per step is fine; the
+/// combination formula does not care which source produced a given
+/// partial). `eval` computes the step's OWN output (used for the mean);
+/// callers needing a symbolic mean should pass an `eval` that simply
+/// calls `Expr::eval`.
+pub fn delta_propagate(
+    inputs: &[DeltaInput<'_>],
+    eval: impl Fn(&BTreeMap<String, f64>) -> Result<f64, EvalError>,
+) -> Result<Normal, EvalError> {
+    let mean_point: BTreeMap<String, f64> = inputs
+        .iter()
+        .map(|i| (i.port.clone(), i.value.mean))
+        .collect();
+    let mean = eval(&mean_point)?;
+
+    let mut variance = 0.0_f64;
+    for input in inputs {
+        let partial = partial_derivative(&input.mode, &input.port, &mean_point)?;
+        let term = partial * input.value.stddev;
+        variance += term * term;
+    }
+    Ok(Normal {
+        mean,
+        stddev: variance.sqrt(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +407,201 @@ mod tests {
         // ~k*e, emphatically not ~e:
         assert!((target_error - k * e).abs() < 1e-9);
         assert!((target_error - e).abs() > 1.0); // nowhere near the unsound ~e answer
+    }
+
+    fn orifice_rhs() -> Expr {
+        // Q = C_d * A * sqrt(2 * dp / rho).
+        Expr::Mul(vec![
+            Expr::Var("C_d".into()),
+            Expr::Var("A".into()),
+            Expr::Unary(
+                crate::symbolic::UnaryFn::Sqrt,
+                Box::new(Expr::Mul(vec![
+                    Expr::Lit(2.0),
+                    Expr::Var("dp".into()),
+                    Expr::Pow(Box::new(Expr::Var("rho".into())), Box::new(Expr::Lit(-1.0))),
+                ])),
+            ),
+        ])
+    }
+
+    fn orifice_inputs(rhs: &Expr) -> Vec<DeltaInput<'_>> {
+        vec![
+            DeltaInput {
+                port: "C_d".to_string(),
+                value: Normal {
+                    mean: 0.62,
+                    stddev: 0.01,
+                },
+                mode: DerivativeMode::Symbolic { expr: rhs },
+            },
+            DeltaInput {
+                port: "A".to_string(),
+                value: Normal {
+                    mean: 0.002,
+                    stddev: 0.0001,
+                },
+                mode: DerivativeMode::Symbolic { expr: rhs },
+            },
+            DeltaInput {
+                port: "dp".to_string(),
+                value: Normal {
+                    mean: 5000.0,
+                    stddev: 50.0,
+                },
+                mode: DerivativeMode::Symbolic { expr: rhs },
+            },
+            DeltaInput {
+                port: "rho".to_string(),
+                value: Normal {
+                    mean: 1000.0,
+                    stddev: 2.0,
+                },
+                mode: DerivativeMode::Symbolic { expr: rhs },
+            },
+        ]
+    }
+
+    #[test]
+    fn normal_to_interval_is_conservative_three_sigma() {
+        let n = Normal {
+            mean: 10.0,
+            stddev: 2.0,
+        };
+        let iv = n.to_interval();
+        assert_eq!(iv, Interval::new(4.0, 16.0).unwrap());
+    }
+
+    #[test]
+    fn delta_propagate_symbolic_mode_is_deterministic() {
+        let rhs = orifice_rhs();
+        let inputs = orifice_inputs(&rhs);
+        let eval_fn = |pt: &BTreeMap<String, f64>| rhs.eval(pt);
+
+        let run1 = delta_propagate(&inputs, eval_fn).unwrap();
+        let inputs2 = orifice_inputs(&rhs);
+        let run2 = delta_propagate(&inputs2, eval_fn).unwrap();
+
+        assert_eq!(run1.mean, run2.mean);
+        assert_eq!(run1.stddev, run2.stddev);
+    }
+
+    #[test]
+    fn delta_propagate_symbolic_and_numeric_modes_agree() {
+        let rhs = orifice_rhs();
+        let eval_fn = |pt: &BTreeMap<String, f64>| rhs.eval(pt);
+
+        let symbolic_inputs = orifice_inputs(&rhs);
+        let symbolic = delta_propagate(&symbolic_inputs, eval_fn).unwrap();
+
+        let numeric_inputs = vec![
+            DeltaInput {
+                port: "C_d".to_string(),
+                value: Normal {
+                    mean: 0.62,
+                    stddev: 0.01,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-5,
+                },
+            },
+            DeltaInput {
+                port: "A".to_string(),
+                value: Normal {
+                    mean: 0.002,
+                    stddev: 0.0001,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-7,
+                },
+            },
+            DeltaInput {
+                port: "dp".to_string(),
+                value: Normal {
+                    mean: 5000.0,
+                    stddev: 50.0,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-2,
+                },
+            },
+            DeltaInput {
+                port: "rho".to_string(),
+                value: Normal {
+                    mean: 1000.0,
+                    stddev: 2.0,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-2,
+                },
+            },
+        ];
+        let numeric = delta_propagate(&numeric_inputs, eval_fn).unwrap();
+
+        assert_eq!(symbolic.mean, numeric.mean); // same mean eval either way
+        let rel_diff = (symbolic.stddev - numeric.stddev).abs() / symbolic.stddev;
+        assert!(
+            rel_diff < 1e-4,
+            "symbolic stddev={} numeric stddev={}",
+            symbolic.stddev,
+            numeric.stddev
+        );
+    }
+
+    #[test]
+    fn delta_propagate_mixed_modes_per_input() {
+        // A step may pick symbolic for one port and numeric for another
+        // (11 sec. 4: "mode chosen per step" -- per-input here is the
+        // finer-grained analogue, and the combination formula does not
+        // care which source produced a given partial).
+        let rhs = orifice_rhs();
+        let eval_fn = |pt: &BTreeMap<String, f64>| rhs.eval(pt);
+        let inputs = vec![
+            DeltaInput {
+                port: "C_d".to_string(),
+                value: Normal {
+                    mean: 0.62,
+                    stddev: 0.01,
+                },
+                mode: DerivativeMode::Symbolic { expr: &rhs },
+            },
+            DeltaInput {
+                port: "A".to_string(),
+                value: Normal {
+                    mean: 0.002,
+                    stddev: 0.0001,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-7,
+                },
+            },
+            DeltaInput {
+                port: "dp".to_string(),
+                value: Normal {
+                    mean: 5000.0,
+                    stddev: 50.0,
+                },
+                mode: DerivativeMode::Symbolic { expr: &rhs },
+            },
+            DeltaInput {
+                port: "rho".to_string(),
+                value: Normal {
+                    mean: 1000.0,
+                    stddev: 2.0,
+                },
+                mode: DerivativeMode::Numeric {
+                    eval: &eval_fn,
+                    h: 1e-2,
+                },
+            },
+        ];
+        let result = delta_propagate(&inputs, eval_fn).unwrap();
+        assert!(result.stddev > 0.0);
+        assert!(result.mean.is_finite());
     }
 }

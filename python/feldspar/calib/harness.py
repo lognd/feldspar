@@ -11,13 +11,13 @@ no dependency on any specific solver catalog."""
 
 import random
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 from typani.result import Err, Ok, Result
 
 from feldspar.calib._models import CalibRecord
 from feldspar.calib.errors import CalibError
-from feldspar.calib.store import read_record
+from feldspar.calib.store import read_record, write_record
 from feldspar.logging_setup import get_logger
 from feldspar.solve._models import EXACT, SolverInfo
 from feldspar.solve.digest import canonical_digest
@@ -26,7 +26,12 @@ from feldspar.solve.solver import SolveFn
 if TYPE_CHECKING:
     from feldspar.solve.registry import SolverRegistry
 
-__all__ = ["calibrate", "check_ceilings"]
+__all__ = [
+    "calibrate",
+    "check_ceilings",
+    "resweep_derived",
+    "resweep_all_derived",
+]
 
 _log = get_logger(__name__)
 
@@ -190,6 +195,166 @@ def calibrate(
     return Ok(record)
 
 
+def _is_derived(info: SolverInfo) -> bool:
+    """A direction is DERIVED (11 sec. 1, WO-11) iff `Relation.law()`
+    built it -- carried as `SolverInfo.solved_for` (non-`None` only on
+    that path, `exclude=True` provenance)."""
+    return info.solved_for is not None
+
+
+def resweep_derived(
+    info: SolverInfo,
+    fn: SolveFn,
+    n_samples: int = 256,
+    seed: int = 0,
+) -> "Result[CalibRecord, CalibError]":
+    """The R5 automatic re-sweep (11 sec. 4, WO-22): for a DERIVED
+    direction (`info.solved_for` set by `Relation.law()`, `info.law_lhs`/
+    `info.law_rhs` carrying the ORIGINAL declared equation), samples
+    `n_samples` deterministic (seeded) points over `info.domain.box`
+    (the direction's own -- possibly nonlinearly mapped -- dispatch
+    domain) and checks the algebraic identity `lhs == rhs` at each
+    sampled point with the derived direction's OWN computed value
+    substituted in. This is the "honest floor" the spec calls for: the
+    inversion is exact by construction, but floating-point evaluation
+    of a nonlinearly-mapped domain corner is not free, so the residual
+    IS the calibration evidence (rather than comparing against a
+    separate reference solver, which a freshly-derived direction may
+    not have one of)."""
+    if info.law_lhs is None or info.law_rhs is None:
+        _log.warning(
+            "resweep_derived: %s has no law_lhs/law_rhs (not a `.law()`-derived "
+            "direction); nothing to re-sweep",
+            info.solver_id,
+        )
+        return Err(CalibError.UnknownSolver(solver_id=info.solver_id))
+
+    box = info.domain.box
+    ports = sorted(box.keys())
+    if not ports:
+        _log.warning(
+            "resweep_derived: %s has an empty domain box; nothing to sample",
+            info.solver_id,
+        )
+        return Err(
+            CalibError.DomainMismatch(
+                solver_id=info.solver_id, reference_id=f"{info.solver_id}::law_residual"
+            )
+        )
+
+    target = info.solved_for
+    rng = random.Random(seed)
+    worst_abs_error = 0.0
+    worst_rel_error = 0.0
+    n_valid = 0
+
+    for _ in range(n_samples):
+        point: Dict[str, float] = {}
+        for port in ports:
+            iv = box[port]
+            point[port] = rng.uniform(iv.lo, iv.hi)
+
+        cand_inputs = {p: v for p, v in point.items() if p in info.inputs}
+        result = fn(cand_inputs)
+        if result.is_err:
+            _log.debug(
+                "resweep_derived: %s skipping sample (solve err=%r)",
+                info.solver_id,
+                result.err,
+            )
+            continue
+        out = result.danger_ok
+        if target not in out.values:
+            continue
+
+        full_point = dict(cand_inputs)
+        full_point[target] = out.values[target]
+        try:
+            lhs_v = info.law_lhs.eval(full_point)
+            rhs_v = info.law_rhs.eval(full_point)
+        except Exception:  # noqa: BLE001 -- eval's own errors are logged, sample skipped
+            _log.debug(
+                "resweep_derived: %s residual eval failed at %r",
+                info.solver_id,
+                full_point,
+            )
+            continue
+
+        residual = abs(lhs_v - rhs_v)
+        worst_abs_error = max(worst_abs_error, residual)
+        scale = max(abs(lhs_v), abs(rhs_v))
+        if scale != 0.0:
+            worst_rel_error = max(worst_rel_error, residual / scale)
+        n_valid += 1
+
+    if n_valid == 0:
+        _log.warning(
+            "resweep_derived: %s produced zero valid residual samples (n_samples=%d)",
+            info.solver_id,
+            n_samples,
+        )
+        return Err(
+            CalibError.DomainMismatch(
+                solver_id=info.solver_id, reference_id=f"{info.solver_id}::law_residual"
+            )
+        )
+
+    payload = {
+        "solver_id": info.solver_id,
+        "reference_id": f"{info.solver_id}::law_residual",
+        "n_samples": n_samples,
+        "seed": seed,
+        "worst_abs_error": worst_abs_error,
+        "worst_rel_error": worst_rel_error,
+    }
+    digest = canonical_digest(payload)
+    record = CalibRecord(digest=digest, **payload)
+    _log.info(
+        "resweep_derived: solver_id=%s n_samples=%d worst_abs_error=%s "
+        "worst_rel_error=%s digest=%s",
+        info.solver_id,
+        n_samples,
+        worst_abs_error,
+        worst_rel_error,
+        digest,
+    )
+    return Ok(record)
+
+
+def resweep_all_derived(
+    registry: "SolverRegistry",
+    records_dir: Path,
+    n_samples: int = 256,
+    seed: int = 0,
+) -> "Result[List[CalibRecord], CalibError]":
+    """Enqueues and runs the R5 automatic re-sweep (11 sec. 4, WO-22) for
+    every DERIVED, non-EXACT direction in `registry` (`Accuracy(0,0)`
+    laws are exempt, A-7: nothing to measure), writing each resulting
+    `CalibRecord` to `records_dir` (AD-9). Iterates in the registry's
+    natural sorted order (FINV-1); fails loudly on the first sweep that
+    cannot produce evidence (an empty/degenerate domain), matching
+    `calibrate`'s and `check_ceilings`'s existing fail-fast contract."""
+    records: List[CalibRecord] = []
+    for info, fn in registry:
+        if not _is_derived(info):
+            continue
+        non_exact = any(acc != EXACT for acc in info.accuracy.values())
+        if not non_exact:
+            continue
+
+        result = resweep_derived(info, fn, n_samples=n_samples, seed=seed)
+        if result.is_err:
+            return result.swap_ok(list)
+        record = result.danger_ok
+        write_record(records_dir, record)
+        records.append(record)
+
+    _log.info(
+        "resweep_all_derived: wrote %d re-swept calibration record(s)", len(records)
+    )
+    return Ok(records)
+
+
 def check_ceilings(
     registry: "SolverRegistry", records_dir: Path
 ) -> "Result[None, CalibError]":
@@ -199,13 +364,75 @@ def check_ceilings(
     the record's digest, AD-9), and that the declared ceiling is no
     tighter than that record's observed worst error. Iterates in the
     registry's natural sorted order (FINV-1) and fails loudly on the
-    first violation."""
-    for info, _fn in registry:
+    first violation.
+
+    R5 (11 sec. 4, WO-22): a DERIVED direction (`info.solved_for` set)
+    that has not yet had `resweep_all_derived` run for it carries no
+    calibration citation at all (`Relation.law()` drops the parent's
+    calibration evidence) -- that is reported as UNCALIBRATED (a log
+    line, not a blocking `Err`), matching the decided policy: "a
+    derived direction whose re-sweep has not run reports its ceiling
+    as UNCALIBRATED (honest, blocks nothing at community tier)". A
+    hand-written (non-derived) solver missing its record is still the
+    pre-existing hard `NoRecord` error -- WO-07's contract is
+    unchanged for that path."""
+    for info, fn in registry:
         non_exact_ports = [port for port, acc in info.accuracy.items() if acc != EXACT]
         if not non_exact_ports:
             continue
 
         calib_citations = [c for c in info.citations if c.kind == "calibration"]
+        if not calib_citations and _is_derived(info):
+            # R5: no inherited calibration evidence (dropped by
+            # `Relation.law()` on purpose) -- the automatic re-sweep IS
+            # the evidence source for a derived direction, run live
+            # here (cheap: the law is closed-form by construction) and
+            # checked against the SAME ceiling rule as any other
+            # evidence. A re-sweep that cannot even produce evidence
+            # (e.g. an empty domain) reports UNCALIBRATED and does not
+            # block -- the decided "honest, blocks nothing at
+            # community tier" policy.
+            resweep = resweep_derived(info, fn)
+            if resweep.is_err:
+                _log.warning(
+                    "check_ceilings: solver_id=%s is UNCALIBRATED (derived "
+                    "direction, re-sweep produced no evidence: %r); this does "
+                    "not block registration or community-tier use",
+                    info.solver_id,
+                    resweep.err,
+                )
+                continue
+            record = resweep.danger_ok
+            for port in non_exact_ports:
+                acc = info.accuracy[port]
+                _log.info(
+                    "check_ceilings (re-swept): solver_id=%s port=%s "
+                    "declared_abs=%s declared_rel=%s observed_abs=%s observed_rel=%s",
+                    info.solver_id,
+                    port,
+                    acc.eps_abs,
+                    acc.eps_rel,
+                    record.worst_abs_error,
+                    record.worst_rel_error,
+                )
+                if acc.eps_abs < record.worst_abs_error:
+                    return Err(
+                        CalibError.CeilingBusted(
+                            solver_id=info.solver_id,
+                            declared=acc.eps_abs,
+                            observed=record.worst_abs_error,
+                        )
+                    )
+                if acc.eps_rel < record.worst_rel_error:
+                    return Err(
+                        CalibError.CeilingBusted(
+                            solver_id=info.solver_id,
+                            declared=acc.eps_rel,
+                            observed=record.worst_rel_error,
+                        )
+                    )
+            continue
+
         for citation in calib_citations:
             record = read_record(records_dir, citation.ref)
             if record is None:

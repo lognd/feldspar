@@ -681,6 +681,94 @@ fn peel(
     }
 }
 
+/// Symbolic differentiation over the canonical `Expr` AST (11 sec. 4,
+/// R4): `d/d(var)` by the standard sum/product/chain/power rules over
+/// the existing node set. Returns `Lit(0.0)` for any subtree not
+/// containing `var` (checked structurally via `count_var`, matching
+/// `invert_for`'s occurrence-gate style) rather than walking the whole
+/// tree symbolically term-by-term -- cheaper and exactly as correct
+/// since a constant's derivative is 0 by definition. The result is
+/// `canonicalize`d before returning: differentiation itself does not
+/// change the canonical-form RULES (no new total order, no new
+/// flatten/fold behavior), so it is NOT a `CANON_VERSION` bump; it is
+/// simply a new operation whose OUTPUT passes through the existing
+/// pinned canonicalizer like any other derived `Expr` (11 sec. 4 "R2
+/// RESOLVED" is untouched by this addition).
+pub fn differentiate(expr: &Expr, var: &str) -> Expr {
+    if expr.count_var(var) == 0 {
+        return Expr::Lit(0.0);
+    }
+    let raw = match expr {
+        Expr::Var(name) => {
+            if name == var {
+                Expr::Lit(1.0)
+            } else {
+                Expr::Lit(0.0)
+            }
+        }
+        Expr::Lit(_) => Expr::Lit(0.0),
+        Expr::Neg(inner) => Expr::Neg(Box::new(differentiate(inner, var))),
+        Expr::Add(operands) => {
+            Expr::Add(operands.iter().map(|op| differentiate(op, var)).collect())
+        }
+        Expr::Mul(operands) => {
+            // Generalized product rule: sum over i of (d(operand_i)) *
+            // (product of all other operands).
+            let mut terms = Vec::with_capacity(operands.len());
+            for i in 0..operands.len() {
+                let d_i = differentiate(&operands[i], var);
+                let others: Vec<Expr> = operands
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(j, op)| if j == i { None } else { Some(op.clone()) })
+                    .collect();
+                let term = if others.is_empty() {
+                    d_i
+                } else {
+                    Expr::Mul(std::iter::once(d_i).chain(others).collect())
+                };
+                terms.push(term);
+            }
+            Expr::Add(terms)
+        }
+        Expr::Pow(base, exp) => {
+            // Only literal exponents are supported (mirrors `invert_for`'s
+            // v1 restriction): d/dx[base^n] = n * base^(n-1) * d(base).
+            // `var` in the exponent (not just the base) has no v1 closed-
+            // form derivative here; callers needing that combination are
+            // out of R4's decided scope (11 sec. 3 "no invented physics" --
+            // extending to a full generalized power rule is a future
+            // residual, not silently guessed).
+            match exp.as_ref() {
+                Expr::Lit(n) => {
+                    let d_base = differentiate(base, var);
+                    Expr::Mul(vec![
+                        Expr::Lit(*n),
+                        Expr::Pow(base.clone(), Box::new(Expr::Lit(n - 1.0))),
+                        d_base,
+                    ])
+                }
+                _ => Expr::Lit(0.0),
+            }
+        }
+        Expr::Unary(UnaryFn::Sqrt, inner) => {
+            // d/dx[sqrt(u)] = u' / (2*sqrt(u)).
+            let d_inner = differentiate(inner, var);
+            Expr::Mul(vec![
+                d_inner,
+                Expr::Pow(
+                    Box::new(Expr::Mul(vec![
+                        Expr::Lit(2.0),
+                        Expr::Unary(UnaryFn::Sqrt, inner.clone()),
+                    ])),
+                    Box::new(Expr::Lit(-1.0)),
+                ),
+            ])
+        }
+    };
+    raw.canonicalize()
+}
+
 /// The ports a law can solve for: every `Var` that occurs EXACTLY once in
 /// the (canonicalized) equation `lhs - rhs`. The Python sugar loops over
 /// these to derive one direction each; multi-occurrence vars are reported
@@ -994,5 +1082,83 @@ mod tests {
         let e = Expr::Unary(UnaryFn::Sqrt, Box::new(Expr::Lit(-1.0)));
         let result = e.eval(&BTreeMap::new());
         assert!(matches!(result, Err(EvalError::DomainFault { .. })));
+    }
+
+    /// Central finite difference, used ONLY here as the numeric oracle to
+    /// check `differentiate`'s symbolic result against (11 sec. 4 R4:
+    /// "symbolic vs numeric derivative agreement within tolerance").
+    fn central_difference(expr: &Expr, var: &str, inputs: &BTreeMap<String, f64>, h: f64) -> f64 {
+        let mut plus = inputs.clone();
+        let mut minus = inputs.clone();
+        *plus.get_mut(var).unwrap() += h;
+        *minus.get_mut(var).unwrap() -= h;
+        let f_plus = expr.eval(&plus).unwrap();
+        let f_minus = expr.eval(&minus).unwrap();
+        (f_plus - f_minus) / (2.0 * h)
+    }
+
+    #[test]
+    fn differentiate_matches_numeric_on_orifice_equation() {
+        // Q = C_d * A * sqrt(2 * dp / rho); differentiate the rhs w.r.t.
+        // each variable and compare against central differencing at a
+        // handful of interior points.
+        let (_lhs, rhs) = orifice_equation();
+        let points: Vec<BTreeMap<String, f64>> = vec![
+            [
+                ("C_d".to_string(), 0.62),
+                ("A".to_string(), 0.002),
+                ("dp".to_string(), 5000.0),
+                ("rho".to_string(), 1000.0),
+            ]
+            .into_iter()
+            .collect(),
+            [
+                ("C_d".to_string(), 0.8),
+                ("A".to_string(), 0.01),
+                ("dp".to_string(), 20000.0),
+                ("rho".to_string(), 998.0),
+            ]
+            .into_iter()
+            .collect(),
+        ];
+
+        for point in &points {
+            for var in ["C_d", "A", "dp", "rho"] {
+                let d_expr = differentiate(&rhs, var);
+                let symbolic = d_expr.eval(point).unwrap();
+                let numeric = central_difference(&rhs, var, point, 1e-4);
+                let scale = symbolic.abs().max(numeric.abs()).max(1.0);
+                assert!(
+                    (symbolic - numeric).abs() / scale < 1e-4,
+                    "var={var} symbolic={symbolic} numeric={numeric} at {point:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn differentiate_of_var_not_present_is_zero() {
+        let e = Expr::Var("x".into());
+        let d = differentiate(&e, "y");
+        assert_eq!(d, Expr::Lit(0.0));
+    }
+
+    #[test]
+    fn differentiate_power_rule() {
+        // d/dx[x^3] = 3*x^2.
+        let e = Expr::Pow(Box::new(Expr::Var("x".into())), Box::new(Expr::Lit(3.0)));
+        let d = differentiate(&e, "x");
+        let mut inputs = BTreeMap::new();
+        inputs.insert("x".to_string(), 2.0);
+        assert_eq!(d.eval(&inputs).unwrap(), 12.0); // 3 * 2^2
+    }
+
+    #[test]
+    fn differentiate_is_deterministic_across_calls() {
+        let (_lhs, rhs) = orifice_equation();
+        let d1 = differentiate(&rhs, "dp");
+        let d2 = differentiate(&rhs, "dp");
+        assert_eq!(d1, d2);
+        assert_eq!(d1.canonical_string(), d2.canonical_string());
     }
 }

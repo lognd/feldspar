@@ -118,7 +118,21 @@ carry amendment notes pointing here. Ledger entry: OPEN-15 (08).
   existing path) -- one Propagation protocol, mode chosen per step,
   never per solve. `CANON_VERSION` folds into every digest the
   symbolic mode touches (a canonicalization change re-keys exactly
-  the affected results). Scheduled: WO-22.
+  the affected results). RESOLVED (WO-22, landed 2026-07-08):
+  `feldspar_core::symbolic::differentiate` (product/chain/power
+  rules over the existing node set, canonicalized output) and
+  `feldspar_core::propagation::{Normal, DerivativeMode,
+  delta_propagate}` (first-order delta-method combination, per-input
+  symbolic/numeric mode). `CANON_VERSION` is now exposed Python-side
+  (`feldspar.core.CANON_VERSION`) and folds into `Relation.law()`'s
+  derivation digest (fixing a prior hardcoded-literal gap). SCOPE
+  NOTE: wiring `Normal` propagation into the executor/planner's
+  route-level representation choice (`execute()`/`plan()`) remains
+  an explicit, not-yet-scheduled residual for a future milestone WO
+  -- doc 02 marks `Normal` "Planned, not v1" and no milestone WO in
+  `docs/workflow/README.md`'s dependency graph schedules that
+  integration; WO-22 lands the protocol-level building blocks only.
+  Detail: `WO-22-symbolic-followups.md` closing report.
 - **R5 -- calibration interplay. DECIDED (owner closure directive,
   2026-07-08, same ledger):** a DERIVED direction inherits the
   declared law's CITATIONS but never its calibration EVIDENCE; the
@@ -126,8 +140,16 @@ carry amendment notes pointing here. Ledger entry: OPEN-15 (08).
   domain automatically (the inversion is exact, but domain corners
   map nonlinearly, so the sweep is the honest floor -- and it is
   cheap: the law is closed-form by construction). `Accuracy(0,0)`
-  exact laws are exempt (nothing to measure; the A-7 rule).
-  Scheduled: WO-22.
+  exact laws are exempt (nothing to measure; the A-7 rule). RESOLVED
+  (WO-22, landed 2026-07-08): `Relation.law()` drops
+  `kind="calibration"` citations on every derived direction while
+  keeping all other kinds; `feldspar.calib.harness.resweep_derived`/
+  `resweep_all_derived` supply the re-sweep evidence (an algebraic-
+  identity residual check over the derived direction's own domain);
+  `check_ceilings` re-sweeps a derived direction with no calibration
+  citation live and reports UNCALIBRATED (non-blocking) only if the
+  re-sweep itself cannot produce evidence. Detail:
+  `WO-22-symbolic-followups.md` closing report.
 
 ## 5. Implementation
 
@@ -137,5 +159,5 @@ above are now backed by a real `feldspar-core::symbolic` kernel,
 `feldspar.solve.sugar.Relation.law(...)`, and
 `Solution.explain()`/`to_dict()` rendering of the algebraic form and
 admission predicate per step. R4 (symbolic propagation) and R5
-(calibration interplay) are DECIDED (sec. 4, 2026-07-08) and
-scheduled as WO-22; OPEN-15 (08) records the closure.
+(calibration interplay) are RESOLVED (sec. 4, WO-22, landed
+2026-07-08); OPEN-15 (08) records the closure.

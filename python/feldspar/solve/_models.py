@@ -82,6 +82,15 @@ class SolverInfo(BaseModel):
     admission_predicate: Optional[str] = Field(default=None, exclude=True)
     derivation_digest: Optional[str] = Field(default=None, exclude=True)
 
+    # R5 re-sweep provenance (11 sec. 4, WO-22): the declared law's two
+    # sides, carried ONLY so `feldspar.calib.harness.resweep_derived`
+    # can verify the derived direction's closed form against the
+    # ORIGINAL equation over its (possibly nonlinearly mapped) domain --
+    # never used for dispatch or `explain()` rendering, and `exclude=True`
+    # for the same digest-equality reason as the provenance fields above.
+    law_lhs: Optional[Any] = Field(default=None, exclude=True)
+    law_rhs: Optional[Any] = Field(default=None, exclude=True)
+
 
 class SolveOutput(BaseModel):
     """A solver's raw solve result (01-interfaces `SolveOutput`,

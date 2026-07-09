@@ -130,6 +130,38 @@ pub fn corner_sweep<E>(
     Ok(hull)
 }
 
+/// WO-15 (09 sec. 6): the fold-only half of `corner_sweep`, split out so
+/// a caller can evaluate `enumerate_corners(box_)` OFF the hot fold path
+/// -- in particular, in parallel (rayon, a thread pool, or a Python-side
+/// `concurrent.futures` dispatch when `eval` is a GIL-bound callback,
+/// see `feldspar.plan.parallel`) -- and then hull the results here.
+///
+/// `results` MUST be the per-corner outputs in the SAME order as
+/// `enumerate_corners(box_)` produced them (the caller's responsibility;
+/// this function has no `box_` to re-derive that order from). Determinism
+/// (FINV-9) holds independent of how `results` was PRODUCED (any thread
+/// count, any completion order) because the fold itself is `Interval::hull`
+/// (elementwise min/max), which is commutative and associative over a
+/// FIXED finite multiset of finite values -- only the multiset (not the
+/// arrival order) can affect the outcome, and `results`'s order here is
+/// always the same corner order regardless of how it was computed.
+///
+/// Panics under the same caller contract as `corner_sweep`: every value
+/// in `results` is assumed finite.
+pub fn hull_from_results(results: &[BTreeMap<String, f64>]) -> BTreeMap<String, Interval> {
+    let mut hull: BTreeMap<String, Interval> = BTreeMap::new();
+    for outputs in results {
+        for (port, value) in outputs {
+            let point = Interval::point(*value)
+                .expect("hull_from_results's caller contract: values are always finite");
+            hull.entry(port.clone())
+                .and_modify(|existing| *existing = existing.hull(&point))
+                .or_insert(point);
+        }
+    }
+    hull
+}
+
 /// `[lo - eps, hi + eps]`; THE accumulation primitive (02, audit A-1),
 /// applied to every consumed intermediate port before the consuming
 /// step's sweep and domain checks (02-edge-cases WO-04: "inflate() then
@@ -353,6 +385,44 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result["y"], iv(6.0, 15.0));
+    }
+
+    #[test]
+    fn hull_from_results_matches_corner_sweep_regardless_of_result_order() {
+        // WO-15 (09 sec. 6) determinism proof: `hull_from_results` folding
+        // the SAME per-corner outputs in a SHUFFLED order (standing in for
+        // "any thread count/completion order") must still match
+        // `corner_sweep`'s serial, corner-ordered result byte-for-byte --
+        // the fold (elementwise min/max) is commutative/associative over a
+        // fixed finite multiset of finite values.
+        let mut box_ = BTreeMap::new();
+        box_.insert("a".to_string(), iv(0.0, 1.0));
+        box_.insert("b".to_string(), iv(-2.0, 3.0));
+
+        let serial = corner_sweep(&box_, |corner| {
+            let mut out = BTreeMap::new();
+            out.insert("y".to_string(), corner["a"] + corner["b"]);
+            out.insert("z".to_string(), corner["a"] * corner["b"]);
+            Ok::<_, ()>(out)
+        })
+        .unwrap();
+
+        let corners = enumerate_corners(&box_);
+        let mut results: Vec<BTreeMap<String, f64>> = corners
+            .iter()
+            .map(|corner| {
+                let mut out = BTreeMap::new();
+                out.insert("y".to_string(), corner["a"] + corner["b"]);
+                out.insert("z".to_string(), corner["a"] * corner["b"]);
+                out
+            })
+            .collect();
+        // Reverse to simulate arrival in a different (e.g. worker-thread
+        // completion) order than `enumerate_corners` produced them.
+        results.reverse();
+        let parallel_like = hull_from_results(&results);
+
+        assert_eq!(serial, parallel_like);
     }
 
     #[test]

@@ -7,9 +7,9 @@ wrong, not the file.
 
 import logging
 
-from feldspar.core import Accuracy, Citation, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval
 from feldspar.plan import RoutePolicy, solve
-from feldspar.solve import SolverRegistry, solver
+from feldspar.solve import Citation, SolverRegistry, solver
 
 logging.basicConfig(level=logging.INFO)
 
@@ -35,12 +35,14 @@ R_AIR = 287.05  # J/(kg K), dry air
     version="1",
 )
 def ideal_gas_pv_to_t(x):
-    return {"thermo.temperature": x["thermo.pressure"] * x["thermo.specific_volume"] / R_AIR}
+    pv = x["thermo.pressure"] * x["thermo.specific_volume"]
+    return {"thermo.temperature": pv / R_AIR}
 
 
 def main() -> None:
     registry = SolverRegistry()
-    registry.register(*ideal_gas_pv_to_t.solver_direction).unwrap()
+    registration = registry.register(*ideal_gas_pv_to_t.solver_direction)
+    assert registration.is_ok, registration.err
     registry.freeze()
 
     result = solve(
@@ -51,10 +53,14 @@ def main() -> None:
         },
         tags={"ideal_gas"},
         target="thermo.temperature",
-        eps_budget=5.0,  # K, absolute in target units (FRICTION F4)
+        eps_budget=1_000.0,  # K, absolute in target units (FRICTION F4);
+        # generous because the planner's a priori sum-surrogate bounds
+        # propagated INPUT interval width too, not just solver
+        # accuracy -- the realized eps (printed below) is what actually
+        # matters and is tight since this direction is exact.
         policy=RoutePolicy(),
     )
-    solution = result.unwrap()
+    solution = result.danger_ok
     print(solution.value)  # Interval around ~295 K, width from input spread
     print(solution.explain())
 

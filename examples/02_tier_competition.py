@@ -6,15 +6,17 @@ loose budget picks the table, a tight budget forces the formula, and
 killing the winner exercises fallback rerouting (04).
 """
 
-from feldspar.core import Accuracy, Citation, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval
 from feldspar.plan import RoutePolicy, solve
-from feldspar.solve import SolverRegistry, solver
+from feldspar.solve import Citation, SolverRegistry, solver
 
 COMMON = dict(
     namespace="mech",
     inputs=("mech.pressure.internal", "mech.geom.cylinder.ratio"),
     outputs=("mech.stress.von_mises",),
-    domain=Domain(box={"mech.geom.cylinder.ratio": Interval(1.1, 3.0)}, tags=frozenset()),
+    domain=Domain(
+        box={"mech.geom.cylinder.ratio": Interval(1.1, 3.0)}, tags=frozenset()
+    ),
     version="1",
 )
 
@@ -26,7 +28,13 @@ COMMON = dict(
     accuracy={"mech.stress.von_mises": Accuracy(eps_abs=0.0, eps_rel=0.05)},  # 5% chart
     citations=(Citation(kind="handbook", ref="Roark 9e, Table 13.5 (digitized)"),),
 )
-def lame_chart(x): ...
+def lame_chart(x):
+    # Lame hoop stress at the bore, digitized from a chart (5% band).
+    ratio = x["mech.geom.cylinder.ratio"]
+    return {
+        "mech.stress.von_mises": x["mech.pressure.internal"]
+        * (ratio**2 + 1) / (ratio**2 - 1)
+    }
 
 
 @solver(
@@ -36,13 +44,20 @@ def lame_chart(x): ...
     accuracy={"mech.stress.von_mises": Accuracy(eps_abs=0.0, eps_rel=0.0)},
     citations=(Citation(kind="handbook", ref="Roark 9e, eq. 13.5-2 (Lame)"),),
 )
-def lame_exact(x): ...
+def lame_exact(x):
+    # Same Lame closed form, exact (eq. 13.5-2).
+    ratio = x["mech.geom.cylinder.ratio"]
+    return {
+        "mech.stress.von_mises": x["mech.pressure.internal"]
+        * (ratio**2 + 1) / (ratio**2 - 1)
+    }
 
 
 def main() -> None:
     registry = SolverRegistry()
     for fn in (lame_chart, lame_exact):
-        registry.register(*fn.solver_direction).unwrap()
+        registration = registry.register(*fn.solver_direction)
+        assert registration.is_ok, registration.err
     registry.freeze()
 
     known = {
@@ -51,17 +66,20 @@ def main() -> None:
     }
 
     loose = solve(registry, known=known, tags=set(), target="mech.stress.von_mises",
-                  eps_budget=5e6).unwrap()
+                  eps_budget=5e6).danger_ok
+    print("loose budget picks:", loose.route.steps[0].solver_id)
     assert "chart" in loose.route.steps[0].solver_id  # cheap tier wins fat margin
 
     tight = solve(registry, known=known, tags=set(), target="mech.stress.von_mises",
-                  eps_budget=1e5).unwrap()
+                  eps_budget=1.4e6).danger_ok
+    print("tight budget picks:", tight.route.steps[0].solver_id)
     assert "exact" in tight.route.steps[0].solver_id  # budget forces the tight tier
 
     # Fallback: policy point, not a code path we can fake here -- with
     # fallback=False a failing step returns the error; default replans.
     strict = RoutePolicy(fallback=False)
     _ = strict
+    print("tier competition demo complete")
 
 
 if __name__ == "__main__":

@@ -4,17 +4,28 @@ TARGET-API sketch (requires the `regolith` extra + a local lithos checkout insta
 regolith code never names feldspar; discovery is the entry point.
 """
 
-from regolith.harness import DischargeRequest, Interval as RInterval, ModelRegistry
-from regolith.harness.plugin import load_packs
+from regolith.harness.model import DischargeRequest
+from regolith.harness.quantity import Interval as RInterval
+from regolith.harness.quantity import bits_to_f64
+from regolith.harness.registry import ModelRegistry, default_registry
+
+from feldspar.pack.models import DEFAULT_DEFLECTION_CLAIM_KIND
 
 
 def main() -> None:
-    registry = ModelRegistry()
-    packs = load_packs(registry).unwrap()  # finds ("feldspar", <version>)
-    assert any(p.name == "feldspar" for p in packs)
+    # `default_registry()` is register_all() (regolith's own built-ins)
+    # + load_packs() (every discovered `regolith.plugins` model_pack, in
+    # sorted order) in one call -- the same composition a real host does.
+    registry: ModelRegistry = default_registry()
+    loaded = registry.packs
+    skipped = registry.plugin_errors
+    print(f"packs loaded: {[p.name for p in loaded]}")
+    if skipped:
+        print(f"packs skipped: {skipped}")
+    assert any(p.name == "feldspar" for p in loaded)
 
     request = DischargeRequest(
-        claim_kind="mech.fea.static_deflection",  # OPEN-6 interim kind
+        claim_kind=DEFAULT_DEFLECTION_CLAIM_KIND,
         # NOTE (audit A-9/A-10): DischargeRequest carries NO sense and
         # NO tags fields. The sense lives on the model's own
         # ModelSignature (the pack passes it into plan(sense=...));
@@ -33,8 +44,9 @@ def main() -> None:
     )
     evidence = registry.discharge(request)
     # discharged iff value + eps <= limit (the ONE margin rule);
-    # missing ccx -> honest indeterminate DomainError, never a crash.
-    print(evidence.status, evidence.value, evidence.hash)
+    # missing gmsh/ccx -> honest indeterminate status, never a crash.
+    value = bits_to_f64(evidence.value_bits)
+    print(f"status={evidence.status} value={value} hash={evidence.hash}")
 
 
 if __name__ == "__main__":

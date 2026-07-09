@@ -11,12 +11,15 @@ planner cannot tell tiers apart):
   (Payload ports land in M2; this file is the M2 target shape.)
 """
 
-from feldspar.core import Accuracy
-from feldspar.fea import MeshSettings
-from feldspar.solve import ClaimSenses, SolverRegistry, solver
-from typani import Err, Ok
+from typani import Ok
 
-MESH = MeshSettings(char_length=2e-3, element="C3D20", seed=7)
+from feldspar.core import Accuracy
+from feldspar.fea.mesh import MeshSettings
+from feldspar.solve import ClaimSenses, solver
+
+MESH = MeshSettings(
+    family="cantilever", element_type="C3D20", char_length=2e-3, seed=7
+)
 
 
 @solver(

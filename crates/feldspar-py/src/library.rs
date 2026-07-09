@@ -237,6 +237,32 @@ pub fn heat_cylindrical_wall_resistance_py(
         inner_radius,
         outer_radius,
         conductivity,
+/// See `feldspar_library::mech::sdof_first_mode` for the formula and
+/// citation (Rao, *Mechanical Vibrations*, SDOF undamped natural
+/// frequency).
+#[pyfunction]
+#[pyo3(name = "mech_sdof_first_mode")]
+pub fn mech_sdof_first_mode_py(stiffness: f64, mass: f64) -> f64 {
+    feldspar_library::mech::sdof_first_mode(stiffness, mass)
+}
+
+/// See `feldspar_library::mech::beam_cantilever_first_mode` for the
+/// formula and citation (Blevins, *Formulas for Natural Frequency and
+/// Mode Shape*, Table 8-1).
+#[pyfunction]
+#[pyo3(name = "mech_beam_cantilever_first_mode")]
+pub fn mech_beam_cantilever_first_mode_py(
+    youngs_modulus: f64,
+    second_moment: f64,
+    density: f64,
+    area: f64,
+    length: f64,
+) -> f64 {
+    feldspar_library::mech::beam_cantilever_first_mode(
+        youngs_modulus,
+        second_moment,
+        density,
+        area,
         length,
     )
 }
@@ -273,4 +299,11 @@ pub fn heat_coefficient_from_nusselt_py(
     diameter: f64,
 ) -> f64 {
     feldspar_library::heat::heat_coefficient_from_nusselt(nusselt, fluid_conductivity, diameter)
+/// See `feldspar_library::mech::miles_grms` for the formula and
+/// citation (Steinberg, *Vibration Analysis for Electronic Equipment*,
+/// ch. 2, Miles' equation).
+#[pyfunction]
+#[pyo3(name = "mech_miles_grms")]
+pub fn mech_miles_grms_py(fn_hz: f64, q: f64, asd: f64) -> f64 {
+    feldspar_library::mech::miles_grms(fn_hz, q, asd)
 }

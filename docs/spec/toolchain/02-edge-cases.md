@@ -183,4 +183,17 @@ enumeration of the numeric surface.
 | inversion admission predicate (e.g. sqrt range) is multi-variable | carried as `SolverInfo.admission_predicate` provenance only, rendered by `explain()`, never fed into box derivation |
 | canonicalization determinism | two independently-built, structurally-equal `Expr` trees canonicalize to the same `canonical_string()`/`derivation_digest` (verified single-sandbox; cross-platform claimed by design, not independently re-verified here) |
 | `eval()` domain fault (negative sqrt argument) at solve time | derived `SolveFn` returns `Err(SolveError...)`, never raises |
+
+## Structured ports + vibration tier (WO-16)
+
+| case | required behavior |
+|---|---|
+| same port declared scalar then vector (or vice versa) | `Err(RegistryError.PortRankConflict)` -- covers the WO-03 rank-mismatch row for a REAL ranked port, `mech.vibe.spectrum` |
+| `mech.vibe.grms` claim's `first_mode_freq` outside the supplied spectrum payload's `freq_hz` domain | `Err(SolveError.OutOfDomain)` naming the violation -- honest error, never extrapolated/clipped |
+| `first_mode_freq` exactly at a spectrum grid endpoint | looked up directly, no interpolation division-by-zero |
+| mask-containment profile/mask `t` grids differ in length or values | `Err(SolveError.OutOfDomain)` (domain misalignment) -- never an implicit resample |
+| profile stays within mask at every sample | `mech.vibe.mask_containment` reports `1.0` |
+| profile exceeds mask at any sample | `mech.vibe.mask_containment` reports `0.0` |
+| `mech.vibe.first_mode_freq` claim, beam direction's domain admits the box | closed-form beam direction wins on cost (FINV-8 tier-blind) |
+| `mech.vibe.first_mode_freq` claim, beam direction's domain does NOT admit the box (e.g. density outside its declared range) | planner routes through `fea.mesh.cantilever -> fea.modal.cantilever_from_mesh` instead (fea-marked; ccx/gmsh required to execute) |
 | `explain()` on a mixed derived + hand-written route | derived step renders `algebraic_form`/`admission_predicate`; hand-written step renders `"(not carried -- hand-written direction)"` |

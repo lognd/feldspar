@@ -42,7 +42,11 @@ from feldspar.logging_setup import get_logger
 
 _log = get_logger(__name__)
 
-__all__ = ["build_cantilever_deck", "build_cylinder_deck"]
+__all__ = [
+    "build_cantilever_deck",
+    "build_cylinder_deck",
+    "build_cantilever_modal_deck",
+]
 
 _MAX_ITEMS_PER_LINE = 8  # ccx/Abaqus keyword-format line-length convention
 
@@ -101,6 +105,68 @@ def _material_block(material: Material) -> str:
         "*ELASTIC\n"
         f"{format_f64(material.youngs_modulus)},{format_f64(material.poisson)}"
     )
+
+
+def _material_block_with_density(material: Material) -> str:
+    """`*MATERIAL`/`*ELASTIC`/`*DENSITY` block (WO-16 modal tier):
+    identical to `_material_block` plus the `*DENSITY` card ccx's
+    `*FREQUENCY` eigenvalue solve needs for the mass matrix -- static
+    decks never need mass, so the plain block stays density-free
+    (NO DUPLICATION would otherwise mean either threading an unused
+    density through every static deck, or this separate block; the
+    latter keeps the static path's deck byte-identical to its pre-WO-16
+    golden)."""
+
+    return (
+        "*MATERIAL, NAME=MAT1\n"
+        "*ELASTIC\n"
+        f"{format_f64(material.youngs_modulus)},{format_f64(material.poisson)}\n"
+        "*DENSITY\n"
+        f"{format_f64(material.density)}"
+    )
+
+
+def _modal_step_block(num_modes: int) -> str:
+    """`*STEP`/`*FREQUENCY` block requesting the lowest `num_modes`
+    eigenvalues; ccx prints the mode table (mode no, eigenvalue,
+    freq rad/time, freq cycles/time) to the .dat file automatically for
+    a `*FREQUENCY` step, no explicit `*NODE PRINT`/`*EL PRINT` needed."""
+
+    return f"*STEP\n*FREQUENCY\n{num_modes}\n*END STEP"
+
+
+def build_cantilever_modal_deck(
+    mesh: MeshData, material: Material, num_modes: int = 1
+) -> str:
+    """Render a full ccx .inp modal deck for one cantilever mesh
+    (WO-16, 07 vibration Phase 3): fixed FIXED set (DOFs 1-3, matching
+    the closed-form cantilever's fixed-free boundary condition), a
+    `*DENSITY`-bearing material block, and a `*FREQUENCY` step
+    requesting the lowest `num_modes` modes -- no load block (an
+    eigenvalue extraction has no applied force)."""
+
+    fixed_ids = mesh.node_sets["FIXED"]
+    _log.info(
+        "building cantilever modal deck: %d nodes, %d elements, FIXED=%d, num_modes=%d",
+        len(mesh.nodes),
+        len(mesh.elements),
+        len(fixed_ids),
+        num_modes,
+    )
+
+    all_node_ids = tuple(range(1, len(mesh.nodes) + 1))
+
+    sections = [
+        _node_block(mesh.nodes),
+        _element_block(mesh.elements, mesh.element_type),
+        _nset_block("NALL", all_node_ids),
+        _nset_block("FIXED", fixed_ids),
+        _material_block_with_density(material),
+        _solid_section_block(),
+        "*BOUNDARY\nFIXED,1,3",
+        _modal_step_block(num_modes),
+    ]
+    return "\n".join(sections) + "\n"
 
 
 def _solid_section_block() -> str:

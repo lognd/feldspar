@@ -15,13 +15,18 @@ __all__ = ["Material", "CantileverGeometry", "CylinderGeometry"]
 
 
 class Material(BaseModel):
-    """Linear-elastic isotropic material properties (SI units)."""
+    """Linear-elastic isotropic material properties (SI units).
+    `density` (WO-16, modal tier) defaults to a nominal steel density so
+    every pre-WO-16 `Material(...)` call site (static-only, no mass
+    term needed) keeps working unchanged; the modal direction is the
+    only consumer that reads it."""
 
     model_config = ConfigDict(frozen=True)
 
     youngs_modulus: float  # Pa
     poisson: float  # dimensionless
     yield_strength: float  # Pa
+    density: float = 7850.0  # kg/m^3 -- WO-16 modal tier's mass term
 
 
 class CantileverGeometry(BaseModel):

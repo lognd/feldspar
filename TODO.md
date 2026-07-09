@@ -50,8 +50,16 @@ Wave 2 -- after WO-12:
 
 Wave 3 -- after their named gates:
 
-- [ ] **WO-16** structured ports + vibration tier (M6) -- after
-      WO-12/14.
+- [x] **WO-16** DONE (2026-07-08 completion cycle): structured ports
+      (verified already rank-native since WO-02/12, no scalar-only
+      guard existed) + vibration tier -- closed-form
+      beam/SDOF first_mode, Miles GRMS over a spectrum payload, mask
+      containment, ccx modal direction reusing the WO-12 mesh step
+      (routing verified, ccx/gmsh execution unverified in this
+      sandbox per the standing fea-marked caveat). Cut (recorded in
+      the WO): rainflow/Miner with mech.design (not required by
+      Acceptance, standalone-sized); modal mode SHAPES (frequency
+      only, left OPEN as a rank-vs-payload design question).
 - [ ] **WO-20** Phase 2 thermal-fluids wave (incl. the lithos-D141
       compressible tier) -- after WO-12/14; lithos's gn2_purge
       fixture is the demand case.

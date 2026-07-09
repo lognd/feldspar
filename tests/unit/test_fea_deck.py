@@ -8,7 +8,11 @@ must produce byte-identical strings, every float must be routed through
 must be present."""
 
 from feldspar.core import format_f64
-from feldspar.fea.deck import build_cantilever_deck, build_cylinder_deck
+from feldspar.fea.deck import (
+    build_cantilever_deck,
+    build_cantilever_modal_deck,
+    build_cylinder_deck,
+)
 from feldspar.fea.geometry import Material
 from feldspar.fea.mesh import MeshData
 
@@ -78,6 +82,45 @@ def _tiny_cylinder_mesh() -> MeshData:
     return MeshData(
         element_type="CAX8", nodes=nodes, elements=elements, node_sets=node_sets
     )
+
+
+def test_cantilever_modal_deck_is_byte_stable():
+    """WO-16: two calls with identical MeshData/Material inputs must
+    produce byte-identical modal deck text."""
+
+    mesh = _tiny_cantilever_mesh()
+
+    deck_a = build_cantilever_modal_deck(mesh, _MATERIAL, num_modes=1)
+    deck_b = build_cantilever_modal_deck(mesh, _MATERIAL, num_modes=1)
+
+    assert deck_a == deck_b
+
+
+def test_cantilever_modal_deck_has_expected_sections():
+    mesh = _tiny_cantilever_mesh()
+    deck = build_cantilever_modal_deck(mesh, _MATERIAL, num_modes=1)
+
+    for keyword in (
+        "*NODE",
+        "*ELEMENT",
+        "*MATERIAL",
+        "*ELASTIC",
+        "*DENSITY",
+        "*SOLID SECTION",
+        "*BOUNDARY",
+        "*FREQUENCY",
+        "*END STEP",
+    ):
+        assert keyword in deck
+    # An eigenvalue extraction applies no load: no *CLOAD/*DLOAD block.
+    assert "*CLOAD" not in deck
+    assert format_f64(_MATERIAL.density) in deck
+
+
+def test_cantilever_modal_deck_requests_num_modes():
+    mesh = _tiny_cantilever_mesh()
+    deck = build_cantilever_modal_deck(mesh, _MATERIAL, num_modes=3)
+    assert "*FREQUENCY\n3" in deck
 
 
 def test_cantilever_deck_is_byte_stable():

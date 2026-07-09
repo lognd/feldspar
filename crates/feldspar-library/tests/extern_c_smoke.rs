@@ -104,5 +104,21 @@ fn wo07_extern_c_symbols_resolve_via_dlopen() {
             .get(b"bore_von_mises\0")
             .expect("bore_von_mises symbol should resolve");
         let _ = f(30.0, 1.0, 2.0);
+
+        // WO-16 additions (vibration tier formulas).
+        let f: Symbol<unsafe extern "C" fn(f64, f64) -> f64> = lib
+            .get(b"sdof_first_mode\0")
+            .expect("sdof_first_mode symbol should resolve");
+        let _ = f(1000.0, 2.0);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64, f64, f64) -> f64> = lib
+            .get(b"beam_cantilever_first_mode\0")
+            .expect("beam_cantilever_first_mode symbol should resolve");
+        let _ = f(200e9, 8e-6, 7850.0, 0.01, 1.0);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64) -> f64> = lib
+            .get(b"miles_grms\0")
+            .expect("miles_grms symbol should resolve");
+        let _ = f(100.0, 10.0, 0.1);
     }
 }

@@ -87,8 +87,7 @@ docs/
   workflow/    process
     README.md                     ground rules, conventions, the WO
                                   dependency graph
-    work-orders/WO-01..WO-11      agent-executable work orders (all
-                                  DONE as of 2026-07-08)
+    work-orders/WO-01..WO-22      agent-executable work orders
     FINV-audit.md                 the invariant audit checklist
 
 examples/          target-API pressure tests (written before code;

@@ -109,14 +109,23 @@ internal subprocess, so in-process registration is D-B-conformant):
   honest indeterminate, never violated, never an exception. (regolith
   errors are constructor-imported inside `pack/`; the mapping table
   lives in one function.)
-- Planned (09 M3, not v1): **margin-driven adaptive refinement** --
-  the request carries the claim's limit, so the model translates the
+- **Margin-driven adaptive refinement** (09 M3, LANDED WO-13): the
+  request carries the claim's limit, so the model translates the
   margin needed into an eps budget and drives the engine's
-  budget-seeking refinement (09 sec. 3): refine until `value + eps`
-  closes the claim or the ladder tops out, then honest indeterminate
-  stating eps achieved vs needed (regolith's "what would resolve it"
-  diagnostic family). Accuracy stays automatic -- the knob-turning is
-  inside the model, driven by the margin, deterministically.
+  budget-seeking refinement (09 sec. 3): solve once at the loose
+  first budget (the cheapest honest answer -- an eps-seeking
+  direction stops at its first Richardson pair), and only if that
+  eps is too fat for the margin re-solve with `eps_budget = limit -
+  value` (sense-aware, `_FeaModel._margin_needed`), repeating with
+  strictly tighter budgets until `value + eps` closes the claim or
+  the ladder tops out -- then honest indeterminate STATING eps
+  achieved vs needed (regolith's "what would resolve it" diagnostic
+  family; `pack.errors.margin_exhausted_error`). A value that alone
+  busts the limit short-circuits (no eps budget can close it; the
+  honest prediction returns as-is, the harness judges). Accuracy
+  stays automatic -- the knob-turning is inside the model, driven by
+  the margin, deterministically (same request -> same budget
+  sequence -> same rungs).
 - Planned (09 M4, regolith-gated): richer inputs (parametric
   descriptors, WO-22 realized-geometry refs, spectra/masks) cross as
   hash-pinned payloads on the D96 `DischargeRequest.payloads` channel

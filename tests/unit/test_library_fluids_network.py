@@ -268,6 +268,32 @@ def test_overconstrained_demand_is_honest_indeterminate():
     )
 
 
+def test_all_imposer_cycle_loop_is_honest_indeterminate():
+    """L3 (cycle-28 audit): two parallel fixed-flow imposer edges
+    between the same node pair form a cycle-basis loop with NO pipe
+    unknown (denominator stays 0 every iteration) and no head-loss
+    model for imposer edges (module docstring's named cut) to verify
+    it against. Continuity is fully satisfied here (0.6e-4 + 0.4e-4 =
+    1e-4 splits and recombines exactly) -- this is not an
+    over/under-constrained demand case -- yet the loop's head balance
+    is structurally unverifiable by Hardy-Cross, so the solve must
+    report `OutOfDomain`, never a fabricated "converged"."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["src", "a", "b", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "a", 1.0e-4),
+            _imposer("imp1", "a", "b", 0.6e-4),
+            _imposer("imp2", "a", "b", 0.4e-4),
+            _imposer("imp_out", "b", "sink", 1.0e-4),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+    assert result.err.violation.tag == "all_imposer_loop"
+
+
 def test_dead_end_pipe_forced_to_zero_flow():
     """A pipe leading to a degree-1 node with no imposer is a physical
     dead end: continuity forces it to zero flow, not an arbitrary

@@ -23,6 +23,7 @@ figure CoolProp itself carries against IAPWS-95/Lemmon reference
 equations of state, not a table-interpolation error of feldspar's own
 making)."""
 
+import math
 from dataclasses import dataclass
 
 from typani import Ok
@@ -143,7 +144,42 @@ def _make_property_direction(fluid_key: str, prop_code: str, prop_name: str, acc
         propsi = _lazy_propsi()
         t = x[t_port]
         p = x[p_port]
-        value = propsi(prop_code, "T", t, "P", p, coolprop_name)
+        # M5 (cycle-28 audit): the rectangular T-P `Domain` box does not
+        # guarantee CoolProp accepts every interior point (saturation
+        # line, sub-triple-point, rejected T,P pairs) -- `PropsSI` raises
+        # `ValueError` for those states and this must be an honest
+        # `OutOfDomain`, never an unhandled crash (mirrors struct.py's
+        # direct-stiffness `ValueError -> OutOfDomain` mapping).
+        try:
+            value = propsi(prop_code, "T", t, "P", p, coolprop_name)
+        except ValueError as exc:
+            _log.warning(
+                "thermo.%s.%s: PropsSI rejected T=%s P=%s (%s)",
+                fluid_key,
+                prop_name,
+                t,
+                p,
+                exc,
+            )
+            return Err(SolveError.OutOfDomain(violation=str(exc)))
+        if not math.isfinite(value):
+            _log.warning(
+                "thermo.%s.%s: PropsSI returned non-finite value %s for "
+                "T=%s P=%s",
+                fluid_key,
+                prop_name,
+                value,
+                t,
+                p,
+            )
+            return Err(
+                SolveError.OutOfDomain(
+                    violation=(
+                        f"{coolprop_name} {prop_name} at T={t}, P={p}: "
+                        f"PropsSI returned non-finite value {value!r}"
+                    )
+                )
+            )
         _log.debug("thermo.%s.%s: T=%s P=%s -> %s", fluid_key, prop_name, t, p, value)
         return Ok({out_port: value})
 

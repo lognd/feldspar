@@ -193,6 +193,24 @@ Corollaries that keep the argument honest:
   the two never share storage (the pack boundary passes values, not
   cache entries).
 
+**Per-payload step cache** (WO-12; the 09 secs. 3-4 per-rung/
+per-payload discipline): beside the Solution cache, DETERMINISTIC
+payload-touching steps also cache at STEP grain
+(`.feldspar/cache/steps/`, `PayloadStepCache`), keyed on the step's
+own purity tuple -- `solver_id`, `version`, `settings_digest`, the
+inflated scalar input box, each payload input's DIGEST (a payload in
+a digest is its hash, FINV-12), and `feldspar_version`. The
+freshness argument above carries over verbatim at the smaller grain.
+The step grain is what makes one mesh feed multiple solves: two
+requests with different targets have different Solution keys but
+share the mesh step's entry, so a mesh (later: a refinement rung,
+09 sec. 3) is paid for once ever. `get()` applies the A-5 tool
+recheck per step (a recompute would fail `ToolMissing`, so a hit
+must not paper over a vanished tool); known payload ports fold into
+`request_digest` as their hashes; the hit/miss counters are
+contract-level (the WO-12 acceptance proves same-mesh reuse by hit
+count).
+
 ## Justification report (DECIDED 2026-07-07, part of OPEN-10)
 
 `Solution.explain()` renders the step-by-step engineering argument:

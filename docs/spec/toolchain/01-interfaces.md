@@ -28,7 +28,7 @@ class Accuracy:                     # frozen
     def worst_over(self, iv: Interval) -> float  # max at |v| extremum
 
 class Rank:                         # enum: SCALAR|COMPLEX|VECTOR(n)|
-    ...                             # TENSOR(n,m); PAYLOAD reserved M2
+    ...                             # TENSOR(n,m)|PAYLOAD(kind) (WO-12)
 
 class PortDecl:                     # frozen
     name: str; unit: str; rank: Rank = Rank.SCALAR
@@ -105,6 +105,8 @@ class SolverInfo(BaseModel):        # frozen
 class SolveOutput(BaseModel):       # frozen (DX F16)
     values: Mapping[str, float]
     measured_eps: float | None = None   # replaces declared ceiling
+    payloads: Mapping[str, PayloadRef] = {}  # WO-12: payload-rank
+                                        # outputs; corner-INVARIANT
 
 SolveFn = Callable[[Mapping[str, float]],
                    Result[SolveOutput, SolveError]]
@@ -174,7 +176,40 @@ class SolverRegistry:
 `RegistryError` variants: `DuplicateSolverId`, `PortUnitConflict`,
 `PortRankConflict`, `UnknownPort`, `DuplicatePortDecl`,
 `EmptyCitations`, `NonPositiveCost`, `AccuracyOutputMismatch`,
-`Frozen`, `BadTable(reason)`.
+`Frozen`, `BadTable(reason)`; WO-12 adds
+`PayloadKindConflict(port)` (same port declared with two different
+payload kinds -- the unit-mismatch mirror, 09 sec. 4) and
+`UnknownPayloadKind(port, payload_kind)` (kind string outside
+`PAYLOAD_KINDS`).
+
+### WO-12 (M2) payload ports
+
+```python
+PAYLOAD_KINDS: frozenset[str]        # the 09 sec. 4 kind table,
+                                     # VERBATIM (single Python home;
+                                     # includes `frame`)
+
+class PayloadRef(BaseModel):         # frozen pydantic; exact by ref
+    kind: str                        # must be in PAYLOAD_KINDS
+    digest: str                      # content address (store-derived)
+    origin: str = ""                 # provenance only; never digested
+
+class PayloadResolver(Protocol):     # orchestrator-provided handle
+    # (D96/OPEN-2: feldspar never does store IO)
+    def resolve(self, ref: PayloadRef) -> Result[bytes, SolveError]
+    def store(self, kind: str, content: bytes, origin: str) -> PayloadRef
+
+def payload_feature_violation(port: str, feature: str) -> DomainViolation
+    # the 09 sec. 4a execution-time payload-feature check's violation
+    # value, for SolveError.OutOfDomain(violation)
+```
+
+Payload semantics REQUIRE declared ports: registration and execution
+kind checks both read the declared `Rank.payload(kind)`, exactly as
+unit checks read declared units (F12 opt-in extended). Accuracy for a
+payload output is declared `EXACT` by convention (a payload is exact
+by reference, 02); a payload in ANY digest folds as its `digest`
+string alone (FINV-12).
 
 ## feldspar.plan (WO-05, WO-06, WO-10)
 
@@ -189,11 +224,16 @@ class Route(BaseModel):             # frozen
 
 def plan(registry, known: Mapping[str, Interval],
          tags: frozenset[str], target: str, eps_budget: float,
-         sense: ClaimSenses = ClaimSenses.BOTH
+         sense: ClaimSenses = ClaimSenses.BOTH,
+         payloads: Mapping[str, PayloadRef] | None = None  # WO-12
          ) -> Result[Route, PlanError]
     # zero-step Route when target in known (G12); sense filters
     # conservative_for edges and folds into the request digest (A-3);
-    # one-sided edges admissible as the FINAL step only (A-2)
+    # one-sided edges admissible as the FINAL step only (A-2).
+    # WO-12: known payload ports enter the search as width-0
+    # placeholder labels; the search core stays payload-unaware;
+    # planning over abstraction edges is OPTIMISTIC (09 sec. 4a);
+    # target must be a scalar port in M2
 
 class Solution(BaseModel):          # frozen; fields per 04
     target: str; value: Interval; eps: float; route: Route
@@ -206,11 +246,27 @@ class Solution(BaseModel):          # frozen; fields per 04
 class RoutePolicy(BaseModel):       # frozen
     fallback: bool = True; cache: bool = True; threads: int = 1
 
-def execute(route: Route, registry, known) -> Result[Solution, SolveError]
+def execute(route: Route, registry, known,
+            payloads: Mapping[str, PayloadRef] | None = None,   # WO-12
+            step_cache: PayloadStepCache | None = None          # WO-12
+            ) -> Result[Solution, SolveError]
 def solve(registry, known, tags, target, eps_budget,
           sense: ClaimSenses = ClaimSenses.BOTH,
-          policy: RoutePolicy = RoutePolicy()
+          policy: RoutePolicy = RoutePolicy(),
+          payloads: Mapping[str, PayloadRef] | None = None,     # WO-12
+          step_cache: PayloadStepCache | None = None            # WO-12
           ) -> Result[Solution, SolveError | PlanError]
+
+class PayloadStepCache:             # WO-12; 04 "Solve cache" extension
+    hits: int; misses: int          # contract-level counters
+    def __init__(self, root: Path | None = None) -> None
+    def key(self, info: SolverInfo, box, payload_inputs) -> str
+    def get(self, key, probe_tools=None) -> StepEntry | None
+    def put(self, key, hull, payloads, step_eps) -> None
+    # per-rung/per-payload step cache (09 secs. 3-4): DETERMINISTIC,
+    # payload-touching steps only; keyed on solver identity +
+    # settings digest + scalar box + payload input DIGESTS +
+    # feldspar_version; A-5-style per-step tool recheck on get()
 ```
 
 `PlanError` variants: `UnknownTarget`, `NoApplicableSolver`,
@@ -220,7 +276,12 @@ def solve(registry, known, tags, target, eps_budget,
 `ToolFailed(tool, log_tail)`, `Timeout(tool, seconds)`,
 `ParseFailed(context)`, `OutOfDomain(violation)`, `NonFinite(port)`,
 `MissingOutput(port)`, `InvalidMeasurement(reason)`,
-`BudgetExceeded(realized, budget)`, `NoRouteRemaining(attempts)`.
+`BudgetExceeded(realized, budget)`, `NoRouteRemaining(attempts)`;
+WO-12 adds `PayloadKindMismatch(port, expected_kind, actual_kind)`
+(execution-time twin of the registration kind check),
+`MissingPayload(port)` (declared payload port with no supplied ref),
+and `DanglingDigest(digest)` (a ref the resolver's store has no
+content for).
 (`NoConvergence` is reserved for M8 coupled groups, 09 sec. 4b.)
 
 ## feldspar.fea (WO-08) and feldspar.pack (WO-09)

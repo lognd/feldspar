@@ -112,7 +112,7 @@ the same change as their implementation (regolith house rule D-G).
 | FINV-9 | Parallel == serial: bit-identical Solutions at any thread count | CI determinism job runs both (AD-12c) |
 | FINV-10 | Boundary conversion only: core types never depend on regolith types; one converter pair, round-trip tested (06) | import-linter + round-trip tests |
 | FINV-11 | Coherent-SI storage: values are stored/computed/digested in coherent SI; conversion at ingest/print only (02) | UnitSystem API shape (no convert on stored values); table validation vs regolith-qty in pack tests |
-| FINV-12 | Payloads cross by content address: a payload in any digest is its hash; payload kinds type-check like units (09 sec. 4) | payload port registration checks; digest tests (lands with 09 M2, enters table then) |
+| FINV-12 | Payloads cross by content address: a payload in any digest is its hash; payload kinds type-check like units (09 sec. 4) | `declare_ports` kind checks (`PayloadKindConflict`/`UnknownPayloadKind`) + execution-time `PayloadKindMismatch` (WO-12); `request_digest`/`PayloadStepCache.key` fold `ref.digest` only; 02-edge-cases WO-12 digest rows |
 
 ## Language assignment (per WO `Language:` header)
 

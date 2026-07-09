@@ -427,6 +427,38 @@ class TestPayloadErrorValues:
         assert result.is_err
         assert result.danger_err == SolveError.MissingOutput(port=MESH_PORT)
 
+    def test_payload_output_varying_across_corners_rejected(self) -> None:
+        """A payload output that depends on a swept scalar corner breaks
+        exact-by-reference (09 sec. 4): Err(InvalidMeasurement), never a
+        silently-picked corner's ref."""
+        registry = SolverRegistry()
+        _declare_ports(registry)
+        resolver = DictResolver()
+
+        @solver(
+            namespace="meshgen",
+            inputs=(F_PORT,),  # a real interval: two corners
+            outputs=(MESH_PORT,),
+            domain={F_PORT: (1.0, 1e4)},
+            cost=1.0,
+            accuracy=EXACT,
+            citations=_CITATION,
+            version="1",
+        )
+        def corner_dependent_mesh(x):
+            content = json.dumps({"force": x[F_PORT]}).encode()
+            ref = resolver.store("mesh", content, "corner-dependent")
+            return Ok(SolveOutput(values={}, payloads={MESH_PORT: ref}))
+
+        assert registry.register(*corner_dependent_mesh.solver_direction).is_ok
+        registry.freeze()
+        known = {F_PORT: Interval(10.0, 20.0)}  # non-degenerate: 2 corners
+        route = plan(registry, known, frozenset(), MESH_PORT, _BUDGET)
+        assert route.is_ok
+        result = execute(route.danger_ok, registry, known)
+        assert result.is_err
+        assert result.danger_err.kind == "InvalidMeasurement"
+
 
 class TestAbstractionEdge:
     """09 sec. 4a: execution-time domain checks over payload features;

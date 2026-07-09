@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from typani import Err, Ok
 from typani.result import Result
 
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve.errors import SolveError
 
 __all__ = ["CcxRun", "find_ccx", "run_ccx", "probe_tools"]

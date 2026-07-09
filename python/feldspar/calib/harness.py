@@ -18,7 +18,7 @@ from typani.result import Err, Ok, Result
 from feldspar.calib._models import CalibRecord
 from feldspar.calib.errors import CalibError
 from feldspar.calib.store import read_record
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve._models import EXACT, SolverInfo
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.solver import SolveFn

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 from typani.result import Err, Ok, Result
 
 from feldspar.core import Interval, corner_sweep, inflate
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.plan.route import Route
 from feldspar.solve._models import Citation
 from feldspar.solve.digest import canonical_digest

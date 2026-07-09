@@ -17,7 +17,7 @@ from typani.result import Result
 
 from feldspar.__about__ import __version__
 from feldspar.core import Domain, Interval
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.plan.execute import AttemptRecord, Solution, route_settings_digest
 from feldspar.plan.route import Route, RouteStep
 from feldspar.solve._models import Citation, ClaimSenses

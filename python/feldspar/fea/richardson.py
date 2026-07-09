@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 
 _log = get_logger(__name__)
 

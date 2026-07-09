@@ -22,7 +22,9 @@ def _citation() -> Tuple[Citation, ...]:
     return (Citation(kind="handbook", ref="test fixture"),)
 
 
-def _toy_registry(*, tier_a: str = "closed_form", tier_b: str = "table") -> SolverRegistry:
+def _toy_registry(
+    *, tier_a: str = "closed_form", tier_b: str = "table"
+) -> SolverRegistry:
     """5-solver toy registry (WO-05 acceptance): `x` is known; two
     independent routes reach `target` -- `cheap_sloppy` (low cost, wide
     eps) and `via_mid` -> `tight_final` (higher cost, tight eps) -- plus
@@ -127,7 +129,9 @@ def test_acceptance_tight_budget_selects_costly_route() -> None:
 
 def test_target_already_known_is_zero_step_route() -> None:
     registry = _toy_registry()
-    route = plan(registry, {"toy.target": Interval(3.0, 3.0)}, frozenset(), "toy.target", 1.0).danger_ok
+    route = plan(
+        registry, {"toy.target": Interval(3.0, 3.0)}, frozenset(), "toy.target", 1.0
+    ).danger_ok
     assert route.steps == ()
     assert route.predicted_eps == 0.0
     assert route.total_cost == 0.0
@@ -159,7 +163,13 @@ def test_budget_unreachable_carries_best_eps() -> None:
 
 def test_no_applicable_solver_when_domain_excludes_hull() -> None:
     registry = _toy_registry()
-    result = plan(registry, {"toy.x": Interval(1500.0, 1500.0)}, frozenset(), "toy.out_of_domain2", 1.0)
+    result = plan(
+        registry,
+        {"toy.x": Interval(1500.0, 1500.0)},
+        frozenset(),
+        "toy.out_of_domain2",
+        1.0,
+    )
     assert result.is_err
     assert result.err == PlanError.UnknownTarget(target="toy.out_of_domain2")
 
@@ -296,9 +306,13 @@ def test_sense_filters_one_sided_edges_and_folds_into_request() -> None:
     registry.freeze()
 
     known = {"sense.x": Interval(1.0, 1.0)}
-    upper_result = plan(registry, known, frozenset(), "sense.y", 1.0, sense=ClaimSenses.UPPER)
+    upper_result = plan(
+        registry, known, frozenset(), "sense.y", 1.0, sense=ClaimSenses.UPPER
+    )
     assert upper_result.is_ok
 
-    lower_result = plan(registry, known, frozenset(), "sense.y", 1.0, sense=ClaimSenses.LOWER)
+    lower_result = plan(
+        registry, known, frozenset(), "sense.y", 1.0, sense=ClaimSenses.LOWER
+    )
     assert lower_result.is_err
     assert lower_result.err == PlanError.NoApplicableSolver()

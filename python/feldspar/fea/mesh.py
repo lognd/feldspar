@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from typani import Err, Ok, Result
 
 from feldspar.fea.geometry import CantileverGeometry, CylinderGeometry
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve.errors import SolveError
 
 _log = get_logger(__name__)

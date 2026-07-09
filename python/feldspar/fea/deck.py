@@ -38,7 +38,7 @@ from typing import Sequence, Tuple
 from feldspar.core import format_f64
 from feldspar.fea.geometry import Material
 from feldspar.fea.mesh import MeshData
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 
 _log = get_logger(__name__)
 
@@ -67,15 +67,11 @@ def _node_block(nodes: Tuple[Tuple[float, float, float], ...]) -> str:
     lines = ["*NODE"]
     for index, (x, y, z) in enumerate(nodes):
         node_id = index + 1
-        lines.append(
-            f"{node_id},{format_f64(x)},{format_f64(y)},{format_f64(z)}"
-        )
+        lines.append(f"{node_id},{format_f64(x)},{format_f64(y)},{format_f64(z)}")
     return "\n".join(lines)
 
 
-def _element_block(
-    elements: Tuple[Tuple[int, ...], ...], element_type: str
-) -> str:
+def _element_block(elements: Tuple[Tuple[int, ...], ...], element_type: str) -> str:
     """`*ELEMENT` block: one continuation-wrapped record per element, id
     = index + 1, elset EALL (the single elset every element belongs
     to, used by *SOLID SECTION / *EL PRINT)."""
@@ -132,9 +128,7 @@ def _result_requests_block() -> str:
     )
 
 
-def build_cantilever_deck(
-    mesh: MeshData, material: Material, tip_force: float
-) -> str:
+def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) -> str:
     """Render a full ccx .inp deck for one cantilever mesh: fixed FIXED
     set (DOFs 1-3), tip_force split evenly across TIP as DOF-2 point
     loads, principal-stress + displacement result requests."""
@@ -171,9 +165,7 @@ def build_cantilever_deck(
     return "\n".join(sections) + "\n"
 
 
-def build_cylinder_deck(
-    mesh: MeshData, material: Material, pressure: float
-) -> str:
+def build_cylinder_deck(mesh: MeshData, material: Material, pressure: float) -> str:
     """Render a full ccx .inp deck for one cylinder mesh: axial (DOF 2)
     fixed on every node (documented plane-strain-style simplification,
     see module docstring), internal pressure applied as an equivalent

@@ -32,7 +32,7 @@ from feldspar.fea.results import (
     parse_dat_principal_stresses,
 )
 from feldspar.fea.richardson import richardson_extrapolate
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve import Citation, SolveOutput, SolverRegistry, solver
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Iterator, Mapping, Tuple
 from typani.result import Err, Ok, Result
 
 from feldspar.core import Interval, total_error
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.plan.cache import SolveCache, cache_key, is_route_cacheable
 from feldspar.plan.errors import PlanError
 from feldspar.plan.execute import (

@@ -6,7 +6,7 @@ entry point target (06 "Boundary rules", `[project.entry-points]` in
 
 from typing import Any  # noqa: E402 -- after module docstring, ruff false-positive
 
-from feldspar.logging import get_logger  # noqa: E402
+from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
     FeaStaticDeflectionModel,
     FeaStaticStressModel,

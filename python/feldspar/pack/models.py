@@ -19,7 +19,7 @@ from regolith.harness.signature import ClaimSense, ModelSignature
 from typani.result import Err, Ok, Result
 
 from feldspar.__about__ import __version__
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.pack.converters import to_feldspar_interval
 from feldspar.pack.errors import map_engine_error
 from feldspar.plan.solve import solve

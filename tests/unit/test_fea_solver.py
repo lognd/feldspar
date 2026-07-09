@@ -33,41 +33,62 @@ def test_timeout_s_not_a_settings_field() -> None:
 
 def test_fold_changes_when_mesh_h_char_length_changes() -> None:
     other = MeshSettings(family="cantilever", element_type="C3D20", char_length=0.03)
-    assert _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_mesh_h2_char_length_changes() -> None:
     other = MeshSettings(family="cantilever", element_type="C3D20", char_length=0.005)
-    assert _fold_settings_digest(_MESH_H, other, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(_MESH_H, other, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_mesh_h_family_changes() -> None:
     other = MeshSettings(family="cylinder", element_type="C3D20", char_length=0.02)
-    assert _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_mesh_h_element_type_changes() -> None:
     other = MeshSettings(family="cantilever", element_type="CAX8", char_length=0.02)
-    assert _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_mesh_h_algorithm_id_changes() -> None:
     other = MeshSettings(
         family="cantilever", element_type="C3D20", char_length=0.02, algorithm_id=2
     )
-    assert _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_mesh_h_seed_changes() -> None:
     other = MeshSettings(
         family="cantilever", element_type="C3D20", char_length=0.02, seed=7
     )
-    assert _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(other, _MESH_H2, _SETTINGS, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_omp_num_threads_changes() -> None:
     other = SolveSettings(omp_num_threads=4)
-    assert _fold_settings_digest(_MESH_H, _MESH_H2, other, _TOOL_VERSIONS) != _base_digest()
+    assert (
+        _fold_settings_digest(_MESH_H, _MESH_H2, other, _TOOL_VERSIONS)
+        != _base_digest()
+    )
 
 
 def test_fold_changes_when_gmsh_version_changes() -> None:

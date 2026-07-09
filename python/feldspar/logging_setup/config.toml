@@ -2,14 +2,14 @@ version = 1
 disable_existing_loggers = false
 
 [filters.below_warning]
-"()" = "feldspar.logging.filter.BelowLevelFilter"
+"()" = "feldspar.logging_setup.filter.BelowLevelFilter"
 below = "WARNING"
 
 [formatters.stdout_fmt]
-"()" = "feldspar.logging.formatter.MalmbergFormatter"
+"()" = "feldspar.logging_setup.formatter.MalmbergFormatter"
 
 [formatters.stderr_fmt]
-"()" = "feldspar.logging.formatter.MalmbergFormatter"
+"()" = "feldspar.logging_setup.formatter.MalmbergFormatter"
 show_level = true
 
 [handlers.stdout]

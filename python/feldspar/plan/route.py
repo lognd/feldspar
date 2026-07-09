@@ -16,7 +16,7 @@ from typani.result import Err, Ok, Result
 
 from feldspar import _feldspar
 from feldspar.core import Domain, Interval
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.plan.errors import PlanError
 from feldspar.solve._models import ClaimSenses
 

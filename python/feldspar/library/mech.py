@@ -15,7 +15,7 @@ from typani import Err, Ok
 
 from feldspar import _feldspar
 from feldspar.core import Accuracy, Domain, Interval
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, Relation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
 

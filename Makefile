@@ -1,7 +1,15 @@
-.PHONY: install build test regolith-test lint import-lint format typecheck coverage check keys clean
+.PHONY: install install-regolith build test regolith-test lint import-lint fmt-check format typecheck coverage check keys clean
 
+# Default install works WITHOUT a sibling lithos checkout: the
+# `regolith` extra is an editable path dependency on ../lithos and only
+# `install-regolith` (and the conformance tests) needs it.
 install:
+	uv sync --all-extras --no-extra regolith
+	uv run maturin develop
+
+install-regolith:
 	uv sync --all-extras
+	uv run maturin develop
 
 build:
 	uv run maturin develop
@@ -18,8 +26,13 @@ lint:
 import-lint:
 	uv run lint-imports
 
+fmt-check:
+	uv run ruff format --check python/ tests/
+	cargo fmt --all -- --check
+
 format:
 	uv run ruff format python/ tests/
+	cargo fmt --all
 
 typecheck:
 	uv run ty check python/
@@ -28,8 +41,7 @@ coverage:
 	uv run pytest tests/ --cov=python --cov-report=term-missing --cov-report=html \
 		-m "not regolith and not fea"
 
-check: lint import-lint typecheck test
-	cargo fmt --all -- --check
+check: fmt-check lint import-lint typecheck test
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo test --workspace
 

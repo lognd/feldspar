@@ -22,7 +22,7 @@ from typing import Mapping, Tuple
 from typani import Err, Ok, Result
 
 from feldspar import _feldspar
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve.errors import SolveError
 
 _log = get_logger(__name__)
@@ -61,16 +61,13 @@ def _parse_three_column_table(
         value_tokens = tokens[1:]
         if len(value_tokens) != 3:
             _log.warning(
-                "%s: malformed row at line %d (expected 3 value columns, "
-                "got %d): %r",
+                "%s: malformed row at line %d (expected 3 value columns, got %d): %r",
                 table_name,
                 line_no,
                 len(value_tokens),
                 raw_line,
             )
-            return Err(
-                SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}")
-            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
         try:
             a, b, c = (float(tok) for tok in value_tokens)
         except ValueError:
@@ -80,9 +77,7 @@ def _parse_three_column_table(
                 line_no,
                 raw_line,
             )
-            return Err(
-                SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}")
-            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
         rows[row_id] = (a, b, c)
     _log.info("%s: parsed %d data rows", table_name, len(rows))
     return Ok(rows)
@@ -109,7 +104,7 @@ def parse_dat_principal_stresses(
 
 
 def max_displacement_magnitude(
-    displacements: Mapping[int, Tuple[float, float, float]]
+    displacements: Mapping[int, Tuple[float, float, float]],
 ) -> float:
     """Max Euclidean displacement magnitude sqrt(ux^2+uy^2+uz^2) over
     every parsed node row -- the scalar reduction WO-08's solver.py
@@ -120,7 +115,7 @@ def max_displacement_magnitude(
 
 
 def max_von_mises(
-    principal_stresses: Mapping[int, Tuple[float, float, float]]
+    principal_stresses: Mapping[int, Tuple[float, float, float]],
 ) -> float:
     """Max von Mises equivalent stress over every parsed
     element/integration-point row, via

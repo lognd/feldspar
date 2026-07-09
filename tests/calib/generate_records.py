@@ -37,7 +37,7 @@ from pathlib import Path
 from feldspar.calib import calibrate
 from feldspar.calib.store import write_record
 from feldspar.library.mech import register
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve import SolverRegistry
 
 _log = get_logger(__name__)

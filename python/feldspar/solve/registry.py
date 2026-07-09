@@ -9,7 +9,7 @@ from typing import Dict, Iterator, Mapping, Tuple
 from typani.result import Err, Ok, Result
 
 from feldspar.core import PortDecl
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 from feldspar.solve import digest as _digest
 from feldspar.solve._models import SolverInfo
 from feldspar.solve.errors import RegistryError

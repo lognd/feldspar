@@ -39,7 +39,7 @@ features = ["pyo3/extension-module"]
 # tool.hatch.version.path).
 
 [tool.setuptools.package-data]
-feldspar = ["py.typed", "logging/config.toml", "_feldspar.pyi"]
+feldspar = ["py.typed", "logging_setup/config.toml", "_feldspar.pyi"]
 
 [dependency-groups]
 dev = [
@@ -94,7 +94,7 @@ name = "regolith imports confined to feldspar.pack (FINV-3/10)"
 type = "forbidden"
 source_modules = [
     "feldspar.core",
-    "feldspar.logging",
+    "feldspar.logging_setup",
     "feldspar.solve",
     "feldspar.plan",
     "feldspar.library",

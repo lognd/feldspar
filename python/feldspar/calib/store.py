@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from feldspar.calib._models import CalibRecord
-from feldspar.logging import get_logger
+from feldspar.logging_setup import get_logger
 
 __all__ = ["record_path", "write_record", "read_record"]
 

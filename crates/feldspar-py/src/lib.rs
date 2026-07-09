@@ -8,13 +8,6 @@
 //! 01-interfaces are exposed here as raising "raw/checked" primitives
 //! (see `errors.rs`); `python/feldspar/core.py` wraps them into the
 //! typani `Result` values the public Python surface promises.
-// PyO3 0.22's macros emit a `gil-refs` cfg newer rustc doesn't know; the
-// warning is upstream boilerplate, not our code (removed when pyo3 bumps).
-#![allow(unexpected_cfgs)]
-// PyO3's generated wrappers call `.into()` on already-`PyErr` results;
-// the useless-conversion is in generated glue, not our bodies.
-#![allow(clippy::useless_conversion)]
-
 use pyo3::prelude::*;
 
 mod accuracy;
@@ -96,33 +89,21 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExpr>()?;
     m.add_class::<PyPredicate>()?;
 
-    m.add(
-        "CoreErrorRaised",
-        _py.get_type_bound::<errors::CoreErrorRaised>(),
-    )?;
-    m.add(
-        "UnitErrorRaised",
-        _py.get_type_bound::<errors::UnitErrorRaised>(),
-    )?;
+    m.add("CoreErrorRaised", _py.get_type::<errors::CoreErrorRaised>())?;
+    m.add("UnitErrorRaised", _py.get_type::<errors::UnitErrorRaised>())?;
     m.add(
         "DomainViolationRaised",
-        _py.get_type_bound::<errors::DomainViolationRaised>(),
+        _py.get_type::<errors::DomainViolationRaised>(),
     )?;
     m.add(
         "PropagationErrorRaised",
-        _py.get_type_bound::<errors::PropagationErrorRaised>(),
+        _py.get_type::<errors::PropagationErrorRaised>(),
     )?;
-    m.add(
-        "PlanErrorRaised",
-        _py.get_type_bound::<errors::PlanErrorRaised>(),
-    )?;
-    m.add(
-        "EvalErrorRaised",
-        _py.get_type_bound::<errors::EvalErrorRaised>(),
-    )?;
+    m.add("PlanErrorRaised", _py.get_type::<errors::PlanErrorRaised>())?;
+    m.add("EvalErrorRaised", _py.get_type::<errors::EvalErrorRaised>())?;
     m.add(
         "SymbolicErrorRaised",
-        _py.get_type_bound::<errors::SymbolicErrorRaised>(),
+        _py.get_type::<errors::SymbolicErrorRaised>(),
     )?;
 
     Ok(())

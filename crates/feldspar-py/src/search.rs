@@ -18,7 +18,7 @@ use crate::interval::PyInterval;
 /// `SolverInfo` by the caller (`feldspar/plan/route.py`). Deliberately
 /// carries no `tier` field (FINV-8: the search must not be ABLE to read
 /// tier, not merely choose not to).
-#[pyclass(frozen, name = "_PlanSolverInput")]
+#[pyclass(frozen, from_py_object, name = "_PlanSolverInput")]
 #[derive(Clone)]
 pub struct PySolverInput {
     pub solver_id: String,
@@ -68,7 +68,7 @@ fn to_core_summary(s: &PySolverInput) -> feldspar_core::SolverSummary {
 }
 
 /// Frozen mirror of `feldspar_core::RouteStep` (01-interfaces `RouteStep`).
-#[pyclass(frozen, name = "RouteStep")]
+#[pyclass(frozen, from_py_object, name = "RouteStep")]
 #[derive(Clone)]
 pub struct PyRouteStep {
     inner: feldspar_core::RouteStep,
@@ -123,7 +123,7 @@ impl PyRouteStep {
 }
 
 /// Frozen mirror of `feldspar_core::Route` (01-interfaces `Route`, AD-5).
-#[pyclass(frozen, name = "Route")]
+#[pyclass(frozen, from_py_object, name = "Route")]
 #[derive(Clone)]
 pub struct PyRoute {
     inner: feldspar_core::Route,

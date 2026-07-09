@@ -16,7 +16,7 @@ use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 
 /// Tagged rank value; see module docs for the tagged-struct rationale.
-#[pyclass(frozen, name = "Rank", get_all)]
+#[pyclass(frozen, from_py_object, name = "Rank", get_all)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PyRank {
     pub kind: String,
@@ -141,7 +141,7 @@ impl PyRank {
 }
 
 /// Frozen namespaced port declaration: name, coherent-SI unit label, rank.
-#[pyclass(frozen, name = "PortDecl", get_all)]
+#[pyclass(frozen, from_py_object, name = "PortDecl", get_all)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PyPortDecl {
     pub name: String,

@@ -21,13 +21,13 @@ use crate::interval::PyInterval;
 pub fn corner_sweep_py(
     py: Python<'_>,
     box_: BTreeMap<String, PyInterval>,
-    callback: PyObject,
+    callback: Py<PyAny>,
 ) -> PyResult<BTreeMap<String, PyInterval>> {
     let core_box: BTreeMap<String, feldspar_core::Interval> =
         box_.into_iter().map(|(k, v)| (k, v.0)).collect();
 
     let hull = feldspar_core::corner_sweep(&core_box, |corner: &BTreeMap<String, f64>| {
-        let corner_dict = PyDict::new_bound(py);
+        let corner_dict = PyDict::new(py);
         for (k, v) in corner {
             corner_dict.set_item(k, v)?;
         }

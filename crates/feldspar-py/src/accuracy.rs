@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use crate::interval::PyInterval;
 
 /// Frozen model-error bound: `eps(v) = eps_abs + eps_rel * |v|`.
-#[pyclass(frozen, name = "Accuracy")]
+#[pyclass(frozen, from_py_object, name = "Accuracy")]
 #[derive(Clone, Copy)]
 pub struct PyAccuracy(pub feldspar_core::Accuracy);
 

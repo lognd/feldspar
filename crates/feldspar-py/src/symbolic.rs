@@ -48,7 +48,7 @@ fn branch_from_str(s: &str) -> PyResult<feldspar_core::symbolic::Branch> {
 /// canonical algebraic AST a law is authored as. Constructed via the
 /// staticmethod builders below (never `#[new]` -- `Expr` has multiple
 /// constructor shapes, unlike the single-shape types elsewhere).
-#[pyclass(frozen, name = "Expr")]
+#[pyclass(frozen, from_py_object, name = "Expr")]
 #[derive(Clone)]
 pub struct PyExpr(pub feldspar_core::symbolic::Expr);
 
@@ -141,7 +141,7 @@ impl PyExpr {
 
 /// Frozen mirror of `feldspar_core::symbolic::Predicate` (11 sec. 2): an
 /// inequality over ports, e.g. `Re < 2300`.
-#[pyclass(frozen, name = "Predicate")]
+#[pyclass(frozen, from_py_object, name = "Predicate")]
 #[derive(Clone)]
 pub struct PyPredicate(pub feldspar_core::symbolic::Predicate);
 

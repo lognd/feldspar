@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 /// Frozen `[i8; 7]` SI base-dimension exponent vector (m, kg, s, A, K,
 /// mol, cd order).
-#[pyclass(frozen, name = "Dimension")]
+#[pyclass(frozen, from_py_object, name = "Dimension")]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PyDimension(pub feldspar_core::Dimension);
 

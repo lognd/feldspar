@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use crate::errors::core_error_to_py;
 
 /// Frozen, ordered, hashable closed interval `[lo, hi]`.
-#[pyclass(frozen, name = "Interval")]
+#[pyclass(frozen, from_py_object, name = "Interval")]
 #[derive(Clone, Copy)]
 pub struct PyInterval(pub feldspar_core::Interval);
 

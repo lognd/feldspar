@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 /// workspace) -- so a Python `dict`'s insertion order never affects the
 /// digest (02-edge-cases WO-02 row).
 #[pyfunction]
-pub fn canonical_digest(py: Python<'_>, obj: PyObject) -> PyResult<String> {
+pub fn canonical_digest(py: Python<'_>, obj: Py<PyAny>) -> PyResult<String> {
     let bound = obj.bind(py);
     let value: serde_json::Value = pythonize::depythonize(bound)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;

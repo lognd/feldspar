@@ -15,7 +15,7 @@ use crate::interval::PyInterval;
 
 /// Frozen validity region: a box of per-port allowed intervals plus
 /// regime tags.
-#[pyclass(frozen, name = "Domain")]
+#[pyclass(frozen, from_py_object, name = "Domain")]
 #[derive(Clone)]
 pub struct PyDomain(pub feldspar_core::Domain);
 

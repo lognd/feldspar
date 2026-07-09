@@ -10,6 +10,7 @@ from typing import Any  # noqa: E402 -- after module docstring, ruff false-posit
 from feldspar.__about__ import __version__  # noqa: E402
 from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
+    FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
 )
@@ -20,7 +21,7 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's two reduced-tier FEA models on `registry`
+    """Registers feldspar's three reduced-tier FEA models on `registry`
     (a regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 
@@ -28,10 +29,17 @@ def register(registry: Any) -> None:
     instances and calling `registry.register()` only adds Python-side
     metadata -- no gmsh/ccx tool discovery happens until a matched
     model's `estimate()` actually runs a route (`pack.models._FeaModel.
-    estimate` builds the engine `SolverRegistry` lazily, per call)."""
+    estimate` builds the engine `SolverRegistry` lazily, per call).
+    `FeaStaticDeflectionFromGeometryModel` (WO-14, 06 "Planned (09 M4)")
+    is the D96 payload-channel model: it only matches a request that
+    carries the geometry payload ref, and honestly indeterminates on
+    match today (see `pack.payload_bridge`'s escalated resolver-
+    threading residual) -- registering it is safe and probe-free by the
+    same rule."""
     registry.register(FeaStaticStressModel())
     registry.register(FeaStaticDeflectionModel())
-    _log.info("feldspar.pack: registered 2 regolith model(s)")
+    registry.register(FeaStaticDeflectionFromGeometryModel())
+    _log.info("feldspar.pack: registered 3 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

@@ -608,3 +608,54 @@ class TestSolveFacadeWithPayloads:
         )
         assert r3.is_ok and not r3.danger_ok.cache_hit
         assert r3.danger_ok.value != r1.danger_ok.value
+
+
+class TestFeaPayloadStepsRegistration:
+    """The REAL fea/payload_steps.py module, up to the tool boundary:
+    registration and PLANNING need neither gmsh nor ccx, so the
+    acceptance route shape is pinned in the default suite; execution
+    against real tools is tests/integration/test_fea_payload_steps.py
+    (`fea`-marked)."""
+
+    def test_registers_and_plans_the_acceptance_route(self) -> None:
+        from feldspar.fea.payload_steps import (
+            GEOMETRY_PORT as REAL_GEOM_PORT,
+        )
+        from feldspar.fea.payload_steps import (
+            MESH_PORT as REAL_MESH_PORT,
+        )
+        from feldspar.fea.payload_steps import (
+            register as register_payload_steps,
+        )
+
+        resolver = DictResolver()
+        registry = SolverRegistry()
+        register_payload_steps(registry, resolver)
+        registry.freeze()
+
+        table = registry.port_table()
+        assert table[REAL_GEOM_PORT].rank == Rank.payload("geometry.parametric")
+        assert table[REAL_MESH_PORT].rank == Rank.payload("mesh")
+
+        geom = resolver.store("geometry.parametric", b"{}", "test")
+        route = plan(
+            registry,
+            {
+                "mech.material.youngs_modulus": Interval(7e10, 7e10),
+                "mech.material.poisson": Interval(0.33, 0.33),
+                "mech.load.tip_force": Interval(1e3, 1e3),
+            },
+            frozenset({"linear_elastic", "small_deflection"}),
+            "mech.deflection.tip",
+            # Generous: the M1 planner ESTIMATES eps from the sum
+            # surrogate (search.rs module note), so the direction's
+            # eps_rel ceiling scales with ~youngs_modulus here; the
+            # post-execution re-check is what enforces a real budget.
+            1e10,
+            payloads={REAL_GEOM_PORT: geom},
+        )
+        assert route.is_ok
+        assert [s.solver_id for s in route.danger_ok.steps] == [
+            "fea.mesh.cantilever",
+            "fea.static_deflection.cantilever_from_mesh",
+        ]

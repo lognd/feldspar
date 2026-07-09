@@ -14,7 +14,7 @@ from typing import Any
 
 from regolith.harness.errors import DomainError
 
-__all__ = ["map_engine_error"]
+__all__ = ["map_engine_error", "margin_exhausted_error"]
 
 
 def _describe(error: Any) -> str:
@@ -42,4 +42,27 @@ def map_engine_error(model_id: str, error: Any) -> DomainError:
     return DomainError(
         model_id=model_id,
         message=f"feldspar engine failure: {_describe(error)}",
+    )
+
+
+def margin_exhausted_error(
+    model_id: str,
+    eps_achieved: float,
+    eps_needed: float,
+    limit: float,
+    error: Any,
+) -> DomainError:
+    """WO-13 (09 sec. 5): the honest indeterminate for a margin-driven
+    refinement that topped out -- STATES eps achieved vs needed (the
+    input to regolith's "what would resolve it" diagnostic family,
+    regolith/07 sec. 4), plus the underlying engine error, in one
+    greppable message. Lives here so the pack's error-message rendering
+    stays in its one home (06 "Failures")."""
+    return DomainError(
+        model_id=model_id,
+        message=(
+            "margin-driven refinement exhausted: eps achieved "
+            f"{eps_achieved!r} vs needed {eps_needed!r} to close the claim "
+            f"at limit {limit!r} (engine: {_describe(error)})"
+        ),
     )

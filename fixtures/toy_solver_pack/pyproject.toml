@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "toy-bearings"
+version = "0.1.0"
+description = "WO-19 M9 acceptance fixture: a toy out-of-repo feldspar solver pack"
+requires-python = ">=3.12"
+dependencies = ["feldspar"]
+
+# The M9 acceptance criterion (10 sec. 3): an out-of-repo pack declares
+# ONE entry point in the "feldspar.solver_packs" group, a bare
+# `register(registry) -> None` callable -- no manifest wrapper, unlike
+# the regolith-facing seam one level up.
+[project.entry-points."feldspar.solver_packs"]
+toy_bearings = "toy_bearings:register"
+
+[tool.uv.sources]
+feldspar = { path = "../..", editable = true }
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["toy_bearings"]
+
+# This fixture lives INSIDE the feldspar repo only so CI can exercise it
+# without a second checkout; `rootdir`/`testpaths` are pinned here so its
+# own `uv run pytest` never picks up the parent repo's tests/config --
+# a real out-of-repo pack would have no parent pyproject.toml to find.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

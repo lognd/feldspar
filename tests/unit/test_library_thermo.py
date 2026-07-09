@@ -83,3 +83,17 @@ def test_out_of_domain_temperature_is_rejected_at_registration_level():
     _info, fn = _solvers()["thermo.water_density"]
     result = fn({"thermo.water.temperature": 293.15, "thermo.water.pressure": 101325.0})
     assert result.is_ok
+
+
+def test_propsi_valueerror_is_honest_out_of_domain_not_a_crash():
+    """M5 (cycle-28 audit): the rectangular T-P `Domain` box does not
+    guarantee CoolProp accepts every interior point. `(T=273.16,
+    P=611.0)` is inside water's declared box (`[273.16, 373.124]` x
+    `[611e0, 2e7]`) but is just below water's triple-point pressure
+    (611.655 Pa) at Tmin -- CoolProp's `PropsSI` raises `ValueError`
+    for it. This must surface as `SolveError.OutOfDomain`, never an
+    unhandled crash."""
+    _info, fn = _solvers()["thermo.water_density"]
+    result = fn({"thermo.water.temperature": 273.16, "thermo.water.pressure": 611.0})
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"

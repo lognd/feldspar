@@ -4,7 +4,7 @@ import logging
 import logging.config
 from pathlib import Path
 
-from feldspar._compat import toml
+import tomllib as toml
 
 _CONFIG_PATH = Path(__file__).parent / "config.toml"
 _initialized = False

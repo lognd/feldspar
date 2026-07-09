@@ -1,0 +1,4 @@
+# The lithos-corpus mirror must stay byte-identical to lithos
+# (LF), even on autocrlf checkouts -- the regolith toolchain reads
+# these files directly (lithos F103: CRLF breaks its layout pass).
+examples/lithos/** text eol=lf

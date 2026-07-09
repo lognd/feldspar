@@ -34,6 +34,7 @@ pub use heat::{
 pub use mech::{
     mech_beam_cantilever_first_mode_py, mech_bore_von_mises_py,
     mech_cantilever_required_youngs_modulus_py, mech_cantilever_tip_deflection_py,
-    mech_lame_hoop_stress_bore_py, mech_lame_radial_stress_bore_py, mech_miles_grms_py,
-    mech_rect_second_moment_py, mech_sdof_first_mode_py, mech_von_mises_principal_py,
+    mech_frame2d_solve_py, mech_lame_hoop_stress_bore_py, mech_lame_radial_stress_bore_py,
+    mech_miles_grms_py, mech_rect_second_moment_py, mech_sdof_first_mode_py,
+    mech_von_mises_principal_py,
 };

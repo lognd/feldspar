@@ -69,9 +69,16 @@ Wave 3 -- after their named gates:
       the acceptance fixture.
 - [ ] **WO-19** solver-pack kit (M9) -- kit half after WO-14; the
       AD-26 entry-point migration half is GATED on lithos WO-44.
-- [ ] **WO-21** Phase 6 civil/structural wave (`frame` consumer,
-      `mech.struct`) -- HARD-gated on lithos WO-48 producing frame
-      payloads in the wild.
+- [x] **WO-21** PARTIAL (2026-07-09 dispatch): 2D direct-stiffness
+      `mech.struct` frame solver landed and validated against 3/5
+      benchmark cases (`python/feldspar/library/struct.py`,
+      `crates/feldspar-library/src/mech/frame.rs`). NOT landed: member
+      design checks/buckling/connections, frame modal, indeterminate
+      calibration tiers, geotech, corpus conformance -- all blocked on
+      an unbuilt section/material registry-resolution channel (largest
+      cut) and unresolved joint coordinates for inclined members. Full
+      cut list in the WO-21 file's close-out; a follow-up WO should
+      pick up the registry-resolution channel first.
 
 Standing:
 

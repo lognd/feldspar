@@ -16,10 +16,12 @@
 //! path IDENTICAL to before the split (crate consumers, PyO3 bindings,
 //! and the `extern "C"` symbol table are all unaffected).
 
+pub mod frame;
 mod sections;
 mod statics;
 mod vibration;
 
+pub use frame::{frame2d_solve, FrameError, FrameMemberInput, FrameSolution};
 pub use sections::rect_second_moment;
 pub use statics::{
     bore_von_mises, cantilever_required_youngs_modulus, cantilever_tip_deflection,

@@ -3,6 +3,7 @@ name = "feldspar-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 
 [lib]
 name = "feldspar_core"

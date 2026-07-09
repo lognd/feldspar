@@ -3,17 +3,22 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+# Both pyo3 advisories need the breaking 0.24+ migration (lithos pins
+# 0.22 too -- migrate both repos together); neither API is used here
+# (grep-verified: no PyString::from_object, no PyCFunction::new_closure).
+ignore = ["RUSTSEC-2025-0020", "RUSTSEC-2026-0177"]
 
 [licenses]
 version = 2
 # GPL-2.0 covers our own workspace crates (owner-decided 2026-07-08);
 # dependencies stay permissive-only.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "GPL-2.0", "Unicode-3.0", "Zlib", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause"]
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "GPL-2.0-only", "Unicode-3.0", "Zlib", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause"]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Internal path deps carry no version (unpublished workspace crates).
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

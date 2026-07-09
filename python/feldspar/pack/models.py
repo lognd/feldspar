@@ -13,6 +13,8 @@ regolith `Prediction`. All regolith imports live here, under
 `feldspar.pack` (FINV-3/10)."""
 
 
+from collections.abc import Callable
+
 from regolith._schema.models import CoverageAxis, CoverageDomain1, CoverageMethod1
 from regolith.harness.errors import HarnessError
 from regolith.harness.model import DischargeRequest, Model, Prediction
@@ -23,7 +25,7 @@ from feldspar.__about__ import __version__
 from feldspar.logging_setup import get_logger
 from feldspar.pack.converters import to_feldspar_interval, to_feldspar_payload_ref
 from feldspar.pack.errors import map_engine_error, margin_exhausted_error
-from feldspar.pack.payload_bridge import NoStoreResolver
+from feldspar.pack.payload_bridge import NoStoreResolver, RegolithResolverAdapter
 from feldspar.plan.solve import solve
 from feldspar.solve._models import ClaimSenses
 from feldspar.solve.payload import PayloadResolver
@@ -462,14 +464,19 @@ class FeaStaticDeflectionFromGeometryModel(Model):
     honest `no_model`/non-match (`ModelSignature.accepts_payloads`) --
     this class never assumes a default geometry.
 
-    Resolution itself is a NAMED, escalated residual (see `pack.
-    payload_bridge`): `Model.estimate` has no orchestrator payload-store
-    handle to resolve the ref's digest through yet (regolith has not
-    threaded one down its discharge path), so every MATCHED request
-    still honestly indeterminates via `NoStoreResolver` -- never a
-    silent success, never an exception, and never feldspar doing its
-    own storage IO (06 "digests resolved through the orchestrator store
-    handle only")."""
+    Resolution (D154, lithos design-log `2026-07-08-cycle-28.md`): this
+    `estimate` override names a keyword-only `resolver` parameter, the
+    capability check `regolith.harness.model._accepts_resolver` looks
+    for -- opting into the orchestrator's real `PayloadStore` handle
+    when `Model.discharge` has one to thread. `pack.payload_bridge.
+    RegolithResolverAdapter` wraps that lithos callable into feldspar's
+    own `PayloadResolver` protocol (parsing resolved bytes against the
+    D154 schema-version envelope). A discharge with no resolver
+    threaded (every pre-D154 caller, or a build with no `PayloadStore`
+    configured) still honestly indeterminates via `NoStoreResolver` --
+    never a silent success, never an exception, and never feldspar doing
+    its own storage IO (06 "digests resolved through the orchestrator
+    store handle only")."""
 
     def __init__(self, *, claim_kind: str = DEFAULT_DEFLECTION_CLAIM_KIND) -> None:
         """`claim_kind` defaults to the same vocabulary-owned kind the
@@ -507,11 +514,25 @@ class FeaStaticDeflectionFromGeometryModel(Model):
         the ccx solve, 06 "cost declares the honest relative expense")."""
         return _PAYLOAD_TIER_COST
 
-    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
+    def estimate(
+        self,
+        request: DischargeRequest,
+        *,
+        resolver: Callable[[str], Result[bytes, object]] | None = None,
+    ) -> Result[Prediction, HarnessError]:
         """Convert the geometry `PayloadRef` and scalar inputs, then run
-        the engine's payload-step pipeline through `solve()`. Honestly
-        indeterminate today (see class docstring) via `NoStoreResolver`
-        until regolith threads a real store handle to `Model.estimate`."""
+        the engine's payload-step pipeline through `solve()`.
+
+        ``resolver`` (D154) is the keyword-only opt-in
+        `regolith.harness.model._accepts_resolver` detects: naming it,
+        never registering separately, is how a model declares it wants
+        the orchestrator's real payload-store handle. Structural typing
+        only (`Callable[[str], Result[bytes, object]]`) -- this module
+        never imports the lithos `PayloadResolver` type alias itself
+        (FINV-3). When a resolver is threaded, `pack.payload_bridge.
+        RegolithResolverAdapter` wraps it into feldspar's own
+        `PayloadResolver` protocol; with none, this falls back to the
+        pre-D154 `NoStoreResolver` honest-indeterminate path unchanged."""
         known = {
             name: to_feldspar_interval(interval)
             for name, interval in request.inputs.items()
@@ -519,7 +540,12 @@ class FeaStaticDeflectionFromGeometryModel(Model):
         geometry_ref = request.payloads[_GEOMETRY_PAYLOAD_PORT]
         payloads = {_GEOMETRY_PAYLOAD_PORT: to_feldspar_payload_ref(geometry_ref)}
         sense = ClaimSenses.UPPER if self.signature.sense.upper else ClaimSenses.LOWER
-        registry = _engine_registry(NoStoreResolver())
+        engine_resolver: PayloadResolver = (
+            RegolithResolverAdapter(resolver)
+            if resolver is not None
+            else NoStoreResolver()
+        )
+        registry = _engine_registry(engine_resolver)
         result = solve(
             registry,
             known,

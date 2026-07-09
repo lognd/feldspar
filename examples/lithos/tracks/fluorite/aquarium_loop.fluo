@@ -1,0 +1,43 @@
+# Aquarium filtration loop -- exercises: a Pump curve record, Filter
+# dp_curve, CheckValve, the npsh_margin claim, and a startup `settles`
+# transient claim (fluorite/02 sec. 3, sec. 6; fluorite/03 sec. 3
+# npsh_margin row).
+
+import std.fluorite (Pipe, Pump, Filter, CheckValve)
+
+medium Water: liquid
+    props: registry(freshwater_25c)
+
+flownet AquariumLoop(medium=Water):
+    reference: ambient(101kPa, 298K)            # open-sump reference
+    nodes: sump, pump_out, filt_in, filt_out, cv_out, tank_in
+    edges:
+        suction: Pipe(from=intake.run)          (sump -> pump_out)
+        pump:    Pump(curve=registry(eheim_1250_curve))
+                                                 (pump_out -> filt_in)
+        filt:    Filter(dp_curve=registry(canister_media_dp))
+                                                 (filt_in -> filt_out)
+        cv:      CheckValve(crack_dp=2kPa)      (filt_out -> cv_out)
+        return:  Pipe(from=return_line.run)     (cv_out -> tank_in)
+    states:
+        pump.state in {off, on}                 # edge-parameter domain
+                                                # (02 sec. 4)
+        event pump.start: commanded by op.power_switch # regolith/02
+                                                        # sec. 5 event
+                                                        # vocabulary
+
+require FlowMargin:
+    margin: fluids.dp(sump -> tank_in) <= 15kPa
+    # cavitation guard on the pump inlet (fluorite/03 sec. 3
+    # npsh_margin row: flownet ref + pump record + pv(T) record).
+    npsh:   fluids.npsh_margin(pump) > 0.5m, sf=1.3
+
+require Startup:
+    # the loop settles to steady flow shortly after the pump is
+    # commanded on (regolith/02 sec. 5 temporal vocabulary, fluorite/02
+    # sec. 6 verbatim reuse).
+    fill: settles(fluids.mdot(tank_in), to=+-2%,
+              within 5s after pump.start)
+
+require Regime:
+    choke: not choked(cv)

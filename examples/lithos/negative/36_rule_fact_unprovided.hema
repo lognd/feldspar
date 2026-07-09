@@ -1,0 +1,12 @@
+# BREAKS: a rule predicate referencing a fact no layer (static entity
+#   DB, realized-fact extraction) provides (design doc D-E: a compile
+#   error on the rule itself, not a deferral).
+# EXPECT-TODO: E0603
+# Self-calibration: per `regolith-lower/src/checks.rs`'s own doc
+# comment, fact-classification (E0603) is cut alongside E0601/E0604
+# (WO-28 partial). `demand: unprovided_fact_xyz` names a fact no layer
+# supplies; no E0603 fires today. See README candidate finding.
+process sheet_metal:
+    dfm:
+        rule needs_ghost_fact:
+            demand: unprovided_fact_xyz

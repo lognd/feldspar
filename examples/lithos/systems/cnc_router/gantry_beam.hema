@@ -1,0 +1,116 @@
+# Burin gantry beam -- the bridge the Y axis rides on. Exercises the
+# sketch layer hard (mech 02 sec. 5): a custom extrusion section as a
+# profile with a long WALK (every discrete branch pinned), named inner
+# loops (`hole`), named `regions:` consumed by features, exported
+# datums, and a DOF ledger that must close. The beam's twist and sag
+# claims are gantry-kinematics contributions the machine-level
+# positioning budget spends at its worst carriage position.
+
+import "contracts.hema" (BeamEnd, ShoulderSeat)
+import std.mech.cnc (saw_stock, cnc_mill)
+
+profile BeamSection:
+    # 160mm x 80mm closed box with an integral rail land at the top
+    # front, a chamfered cable channel at the rear, and two screw
+    # bosses inside. The walk pins every branch chord-wise
+    # (bulge=left/right, mech 02 sec. 5) -- an unpinned arc branch is
+    # a compile error, the sketch-layer analog of ambiguous queries.
+    walk:
+        from base_plane
+        line right                    # a: bottom face, 80mm
+        line up                       # b: rear wall
+        arc tangent, bulge=left       # c: rear chamfer blend
+        line left                     # d: top rear shelf (cable channel)
+        line up                       # e: channel rear lip
+        line left                     # f: top face
+        line down                     # g: rail land riser
+        line left                     # h: rail land, 23mm for HGR20
+        line down                     # i: front wall
+        arc tangent, bulge=right      # j: front toe blend
+        close                         # k: return to start
+    hole screw_ch:                    # ballscrew channel, one nesting
+        circle(dia 40mm, at=(0mm, 12mm))
+    hole wire_ch:
+        circle(dia 18mm, at=(-24mm, 22mm))
+    regions:
+        webs: interior - screw_ch - wire_ch
+    constraints:
+        a.length = 80mm
+        b.length = 64mm
+        c.radius = 6mm
+        d.length = 22mm
+        e.length = 10mm
+        f.length = 30mm
+        g.length = 4mm
+        h.length = 23mm
+        i.length = 58mm
+        j.radius = 6mm
+        wall = 6mm                    # named free variable pinned here;
+                                      # the DOF ledger closes with it
+    exports:
+        rail_land_plane: datum
+        section_center:  datum
+
+part GantryBeam:
+    material: AL6082_T6
+
+    stage stock: process=saw_stock(extrusion(BeamSection, l=820mm))
+        # custom die; the section IS the profile above -- one source
+        # of truth for the FEA section constants and the die drawing
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.bottom
+            datum A = stock.body.bottom
+            then:
+                # the rail land is extruded to +0.4mm and machined:
+                # straightness comes from this pass, not from the die
+                land = FaceMill(on=stock.body.rail_land, depth=0.4mm)
+            then:
+                rail_taps = PatternOf<TappedHole<M5>>(n=14,
+                                along(land.axis, spacing=60mm, centered))
+                # 14 taps on 60mm centers: HGR20 standard drilling
+        setup B:
+            flip about Y
+            hold: milled.land
+            then:
+                end_l = FaceMill(on=stock.body.end_left, depth=1mm)
+                end_r = FaceMill(on=stock.body.end_right, depth=1mm)
+            then:
+                end_taps_l = PatternOf<TappedHole<M8>>(n=6,
+                                 rect(130mm x 60mm), frame=end_l.center)
+                end_taps_r = PatternOf<TappedHole<M8>>(n=6,
+                                 rect(130mm x 60mm), frame=end_r.center)
+
+    datum land_ref = milled.land.as_datum()
+
+    impl BeamEnd for self as end_left:
+        face  = milled.end_l
+        bolts = milled.end_taps_l.instances
+
+    impl BeamEnd for self as end_right:
+        face  = milled.end_r
+        bolts = milled.end_taps_r.instances
+
+    impl ShoulderSeat for self as y_axis_seat:
+        seat  = milled.land
+        bolts = milled.rail_taps.instances
+
+    require Straightness:
+        # rail-land straightness is a direct positioning-budget member:
+        # a bowed land becomes Y-position error at the tool point
+        land_straight: geom.straightness(milled.land) <= 0.015mm
+
+    require Stiffness:
+        trust: >= certified
+        # 800 N survey-corner cutting force at 180mm tool offset makes
+        # 144 N*m of torsion mid-span; the twist claim is what the
+        # machine's `forall y in travel` kinematic sweep consumes:
+        twist: mech.twist(stock.body, under=interface_envelope(ShoulderSeat))
+                   <= 0.10 mrad
+        sag:   mech.deflection(milled.land.mid,
+                   under=interface_envelope(ShoulderSeat)) <= 0.010mm
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=50) <= 260 USD

@@ -1,0 +1,26 @@
+# BREAKS: an impl whose realized promise is narrower than the interface
+#   it conforms to (INV-13 no dead uppers: a contradicted hand-written
+#   impl must fail equivalence).
+# EXPECT-TODO: E0410
+# Self-calibration: `Buck`'s spec promises `dissipation <= 1.2W`; this
+# impl's own annotated capability is 2.0W (narrower-than-promise), but
+# no equivalence/conformance obligation fires against it in the checked
+# pipeline today (the conformance-checking machinery is unwired per the
+# same finding as 14_capability_vs_demand.cupr). See README candidate
+# finding.
+block Buck:
+    ports:
+        vin: supply(in, [7V, 24V])
+        out: supply(out, 5.0V +- 2%, i <= 2A)
+        gnd: reference
+    promises:
+        power: dissipation <= 1.2W
+
+impl Buck by circuit:
+    # narrower realized capability than the promise above (2.0W > 1.2W)
+    then:
+        u1 = vendor(tps54331)
+    nets:
+        inn:  (vin, u1.vin)
+        outn: (out, u1.sw)
+        gndn: (gnd, u1.gnd)

@@ -1,0 +1,13 @@
+# BREAKS: the same port name declared twice in one block (one word one
+#   idea -- a name must denote exactly one thing in its scope).
+# EXPECT-TODO: E0301
+# Self-calibration: two `out:` port declarations in the same `ports:`
+# block lower clean (ok=True, zero diagnostics) -- no duplicate-
+# declaration check fires anywhere in the checked pipeline today. See
+# README candidate finding.
+block Amp:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)

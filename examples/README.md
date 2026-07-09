@@ -2,11 +2,18 @@
 
 Three suites: this directory (target-API sketches, friction log F1-F6
 below), `solvers/` (the solver-authoring DX study, rungs 0-6,
-decisions F7-F17 in its README), and `lithos/` (hematite/cuprite
-end-to-end fixtures: G1-G12 in its README, G13-G21 in
-`lithos/reaction_wheel/`, G22-G33 in `lithos/regen_engine/`,
-G34-G43 in `lithos/dune_buggy/` -- the whole-vehicle stress test
-with its per-claim SOLVER-TRACE).
+decisions F7-F17 in its README), and `lithos/` -- which since
+cycle 27 (lithos D148) is a verbatim MIRROR of the lithos repo's
+entire `examples/` corpus: NEVER edit it here; fix fixtures in
+lithos and run `make sync-examples` (sibling checkout at
+`../lithos`; review the diff like any generated artifact). The
+feldspar-authored pressure fixtures live in the mirror under their
+lithos homes: the G1-G12 friction log at
+`lithos/feldspar-fixtures.md`, G13-G21 in
+`lithos/systems/reaction_wheel/`, G22-G33 in
+`lithos/systems/regen_engine/`, G34-G43 in
+`lithos/systems/dune_buggy/` (its SOLVER-TRACE was retired at
+migration -- the gates it tracked are now scheduled WOs).
 
 Target-API sketches, written BEFORE the implementation (regolith's
 `examples/` precedent): each file is what the API must feel like; if

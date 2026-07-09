@@ -1,0 +1,57 @@
+# Fuel tank -- slosh, baffles, straps: dynamic fluid loads asserted
+# as envelopes (the honest v1 form), strap fatigue, and the
+# fuel_system.fluo interface (tank outlet is a fluorite FluidPort).
+
+import std.mech.formed (Welded_Tank)
+import std.mech.sheet (Blank, Bend)
+
+part FuelTank:
+    material: AL_5052_H32
+    pieces:
+        shell: 2 x SheetStock(t 1.5mm)
+        baffles: 2 x SheetStock(t 1.2mm)
+        straps: 2 x SheetStock(t 2.0mm)
+
+    stage formed: process=press_brake
+        halves = Bend(shell, tank_7l_flat)
+    stage welded: process=gtaw, joins=[shell, baffles], from=formed
+        tank = Weld(seam, all_edges)
+
+    boundary:
+        fill: level in [0.5L, 7.0L]
+        accel: [-4g, 4g] all_axes          # terrain envelope
+        p_vent: [-5kPa, 15kPa]             # vent/rollover valve band
+        structure: spectrum(chassis_psd)
+
+    require Structural:
+        # Slosh pressure as a QUASI-STATIC envelope (hydrostatics
+        # under the accel corner box): honest v1. True slosh dynamics
+        # (mode coupling with the fill config domain) would want a
+        # profile payload -- noted, NOT claimed; the envelope is
+        # conservative and cited (the G27-adjacent discipline:
+        # claim only what a solver can defend).
+        shell: peak(mech.stress.von_mises, at=welded.tank.shell)
+                   < material.sigma_y / 2.5
+                   given p = hydrostatic_envelope(boundary.accel,
+                             boundary.fill) + boundary.p_vent.hi
+        baffle_weld: peak(mech.stress.von_mises,
+                         at=welded.tank.baffle_welds)
+                         < material.sigma_y / 3.0
+
+    require Fatigue:
+        # Strap chafe + vibration: the classic tank killer. Miner
+        # over the chassis PSD at the strap edge Kt.
+        strap_life: mech.fatigue.damage(straps.all,
+                        over=boundary.structure) < 1.0, sf=6
+
+    require Containment:
+        # Rollover: no leak at any attitude -- valve vendor evidence
+        # + seam proof pressure (G41-flavor transform of the shell
+        # claim at 2x vent band).
+        proof: peak(mech.stress.von_mises, at=welded.tank.seams)
+                   < material.sigma_y / 1.5
+                   given p = 30kPa
+        rollover_seal: assume!(vent_valve_seals(vendor(rv_08),
+                           attitude=any) == true,
+                           basis="vendor spec sheet; replace by "
+                                 "test(tilt_rig_report)")

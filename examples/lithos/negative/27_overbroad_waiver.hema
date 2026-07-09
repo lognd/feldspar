@@ -1,0 +1,15 @@
+# BREAKS: a waiver whose match set grows silently to cover a second,
+#   unintended failure (INV-12 waiver honesty: growth of the match set
+#   must surface in the diff/build report, never be silently absorbed).
+# EXPECT-TODO: INV-12
+# Self-calibration: this single-build fixture cannot itself demonstrate
+# match-set GROWTH (that is inherently a two-build diff, per INV-12's
+# own test recipe: "introduce a second failure under an unscoped
+# waiver; assert warning naming it"); a single check run has no prior
+# snapshot to diff against. Recorded as EXPECT-TODO pending a two-run
+# driver extension. See README candidate finding.
+part p:
+    require Strength:
+        yield: >= 200
+    waive Strength on self:
+        basis: "prototype lot"

@@ -1,0 +1,45 @@
+# Kestrel ADCS board -- attitude sensing + magnetorquer actuation.
+# Exercises: a 3-channel actuator orbit (verify one, instantiate
+# three), sensor fusion error budget membership declared here but
+# owned by the top system, and per-mode power refinement.
+
+import "contracts.cupr" (StackCard)
+import std.elec.families (cmos_3v3)
+import std.elec.buses (BusAttach)
+
+board AdcsPcb:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        u_imu  = vendor(bmi270)              # gyro + accel
+        u_mag  = vendor(rm3100)              # magnetometer, coil-based
+        u_sun  = 6 x vendor(sfh2430)         # photodiode per face
+        u_drv  = 3 x vendor(drv8837)         # torquer H-bridges: an orbit
+        coils  = 3 x vendor(torqrod_02nm2)   # X/Y/Z magnetorquers
+
+    connect:
+        drive: pairwise(u_drv.instances.out, coils.instances.winding)
+        # one channel verified, three instantiated -- the orbit is
+        # intact until a special role splits it
+
+    impl StackCard for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        conn    = assembled.stack_conn
+        promises:
+            mass:  <= 58g
+            power: <= 240mW during op = detumble   # all coils duty-limited
+            power: <= 95mW  during op = nominal
+
+    require Actuation:
+        dipole:   forall ch in coils.instances:
+                      elec.dipole(ch) >= 0.18 A*m2
+        no_stuck: within 50ms after fault(u_drv.instances.any):
+                      state(u_drv.instances.all) = coast
+
+    require Sensing:
+        mag_floor: rms(b(u_mag), band=[0.1Hz, 10Hz]) < 30nT
+        # the attitude-knowledge error budget that consumes this lives
+        # at the top level (kestrel.cupr, budget pointing_knowledge) --
+        # this board contributes a member term through its promises

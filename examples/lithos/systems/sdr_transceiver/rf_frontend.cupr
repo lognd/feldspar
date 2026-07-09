@@ -1,0 +1,105 @@
+# Peregrine RF front end -- the analog RF chain, both directions.
+# Exercises: the dB-native RX NOISE-FIGURE CASCADE (regolith 02
+# sec. 5a under real pressure -- per-stage NF and gain as dB views,
+# cascade closure as a budget whose MATH is the Friis harness model,
+# NOT interval sum; see README candidate findings), the TX lineup to
+# the emissions mask, T/R switching as an arbitrated shared path, and
+# per-stage catalog parts with datasheet-interval promises.
+
+import "contracts.cupr" (AntennaFeed)
+import std.elec.families (cmos_3v3)
+
+block RxFrontend:
+    ports:
+        ant_in:  analog(elec.power, range=[-120dBm, -10dBm], z=50ohm)
+        if_out:  analog(elec.voltage, range=[-1V, 1V], z_out=200ohm)
+        lo_in:   analog(elec.power, range=[-4dBm, 5dBm], z=50ohm)
+        vdd:     supply(in, 5V +- 5%, i <= 150mA)
+        gnd:     reference
+    spec:
+        continuous:
+            v(if_out) = mix(amplify(v(ant_in), g=lna_gain),
+                            v(lo_in)) * if_gain
+    promises:
+        # Per-stage cascade inputs, dB views of linear gains:
+        gain:  [30dB, 36dB]              # lineup gain scatter, interval
+        nf:    <= 5dB                    # cascade result, claimed below
+        p1db:  >= -25dBm                 # input-referred compression
+        spur_free: >= 80dBc
+
+    # The cascade as a budget: members contribute (nf_i, g_i) pairs;
+    # closure is Friis -- F = F1 + (F2-1)/G1 + (F3-1)/(G1*G2) --
+    # evaluated LINEAR by the harness model at worst-case gain corner.
+    # Lineup: LNA nf 0.9dB g 22dB; mixer nf 7dB g -6.5dB; IF amp
+    # nf 4dB g 18dB => F = 1.23 + 4.01/158 + 1.51/(158*0.224) = 1.30
+    # => 1.13dB, headroom against the 5dB ceiling buys cheap discharge.
+    budget rx_nf: kind=noise
+        require: elec.noise_figure(chain(ant_in -> if_out)) <= 5dB
+        members: [u_lna, u_mix, u_ifamp]
+        allocate: cost_optimal
+
+    require Overload:
+        # AGC step-back keeps the lineup out of compression at the
+        # strongest legal input:
+        no_clip: elec.power(if_out.node) <= p1db - 3dB
+                     during agc = stepped
+
+block TxLineup:
+    ports:
+        if_in:   analog(elec.voltage, range=[-0.5V, 0.5V], z=50ohm)
+        ant_out: analog(elec.power, range=[0dBm, 33dBm], z=50ohm)
+        lo_in:   analog(elec.power, range=[-4dBm, 5dBm], z=50ohm)
+        bias_en: digital(in)                  # PA ramp gate, from MCU
+        vpa:     supply(in, 5V +- 5%, i <= 2.2A)
+        gnd:     reference
+    spec:
+        continuous:
+            v(ant_out) = amplify(mix(v(if_in), v(lo_in)), g=pa_gain)
+    promises:
+        pa_out: >= 30dBm                     # 1W at the SMA, hot corner
+        gain:   [46dB, 52dB]
+        eff:    >= 38% during op = tx        # PA added efficiency
+    require Cleanliness:
+        # The harmonic lineup against the part-90 mask: PA second
+        # harmonic at -20dBc plus the output LPF's >= 40dB at 874MHz
+        # lands 2f0 below -36dBm absolute -- both spellings exercised:
+        h2_rel: elec.power(ant_out.harmonic(2)) <= -60dBc
+        h2_abs: elec.power(ant_out.harmonic(2)) <= -36dBm
+        # Reverse isolation: TX leakage back into the RX port while
+        # the T/R switch is in tx_path -- the arbitration claim's
+        # analog face:
+        rx_leak: elec.power(rx_port_leakage) <= -65dBm during op = tx
+
+# ---- One antenna, two directions: the T/R switch is a DECLARED
+#      arbitration over the shared 50-ohm path -- "no two drivers"
+#      becomes a checkable claim against the statechart, not a hope.
+
+board RfDeckFrontend:
+    stage bare:      process=pcb_fab(jlc_4l_ctrl_imp)   # 50ohm classes
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        u_lna   = vendor(pga103_plus)        # nf 0.9dB, g 22dB at 437MHz
+        u_mix   = vendor(adl5350)            # passive mixer, nf ~ 7dB
+        u_ifamp = vendor(opa847_if)          # IF post-amp, nf 4dB
+        u_pa    = vendor(sky65116)           # +32dBm UHF PA module
+        u_trsw  = vendor(pe4259)             # SPDT T/R switch
+        rx      = RxFrontend()
+        tx      = TxLineup()
+
+    connect:
+        feed: BusAttach<coax_50>(a=u_trsw.common, b=assembled.rf_conn)
+        arbitrate u_trsw.common: spdt(granted_by=op):
+            # the ONE deliberate arbitrate of this project (D119):
+            # tx_path drives during op = tx, rx_path listens otherwise;
+            # "both enabled" is statically excluded by the statechart
+            # claim tr_order in sdr.cupr.
+            members: [tx.ant_out, rx.ant_in]
+
+    impl AntennaFeed for self:
+        rf = assembled.rf_conn
+
+    require Switch:
+        hot_switch_never: elec.power(u_trsw.common) <= 20dBm
+                              during state(u_trsw) = transitioning
+        insertion: elec.loss(u_trsw) <= 0.35dB

@@ -1,0 +1,74 @@
+# Brake hydraulics -- fluorite customer #4 (G39): the master
+# cylinders are pressure IMPOSERS driven by a MECHANICAL input
+# (pedal_box.hema force through the bias bar) -- the first flownet
+# whose imposer is another track's output. Exercises: imposer-from-
+# promise, compliance budgets (COPEN-5: hose swell + caliper flex +
+# mount flex all consume pedal travel), pedal-step transient, dual-
+# circuit failure states.
+
+medium Dot4: liquid
+    props: registry(dot4_brake_fluid)   # rho(T), mu(T), boiling
+                                        # curve DRY and WET columns
+
+flownet BrakeCircuits(medium=Dot4):
+    reference: reservoir(101kPa, T_amb)
+    nodes: mc_f_out, mc_r_out, split_f, cal_fl, cal_fr, cal_r
+    edges:
+        mc_f:    Imposer(from=PedalBox.mc_mounts.front,
+                     p=pedal_force * ratio / area(19.05mm))
+                     (reservoir -> mc_f_out)
+                 # the imposer VALUE is a promise chain from
+                 # pedal_box.hema -- mech force in, pressure out;
+                 # cross-track analog of cuprite-commanded valves
+        line_f:  Pipe(from=brake_lines.front_runs) (mc_f_out -> split_f)
+        hose_fl: Hose(compliance=registry(hel_std_3an))
+                     (split_f -> cal_fl)
+        hose_fr: Hose(compliance=registry(hel_std_3an))
+                     (split_f -> cal_fr)
+        mc_r:    Imposer(from=PedalBox.mc_mounts.rear, ...)
+                     (reservoir -> mc_r_out)
+        hose_r:  Hose(compliance=registry(hel_std_3an))
+                     (mc_r_out -> cal_r)
+
+    states:
+        circuit_f in {intact, failed}      # dual-circuit failure
+        circuit_r in {intact, failed}      # states: G43's discrete
+                                           # axes in coverage
+
+require Pressure:
+    line_p: fluids.pressure(cal_fl) >= 55bar
+            given pedal_force = 400N, circuit_f = intact
+
+require Compliance:
+    # COPEN-5 made mainstream: total fluid volume consumed by hose
+    # swell + caliper flex (promise from brake_corner.hema) + mount
+    # flex (promise from pedal_box.hema) must fit the master's
+    # displacement with the reserve-travel margin -- a BUDGET over
+    # cross-track compliance promises.
+    volume: fluids.volume_consumed(all_edges, at=80bar)
+                < 0.75 * mc_displacement(front)
+
+require Transients:
+    # Pedal step: pressure rise time at the far caliper (line
+    # inertance + compliance) -- the water-hammer machinery at
+    # brake scale; and no cavitation on RELEASE snap-back.
+    rise: settles(fluids.pressure(cal_fl), to=+-5%,
+              within 80ms after pedal_step)
+    release: fluids.pressure.min(cal_fl,
+                 within 100ms after pedal_release) > 5kPa
+
+require Failure:
+    # forall over the failure state domain: HALF-system stopping
+    # still meets the rulebook decel -- the discrete-axis sweep
+    # (G43) whose coverage the bare float cannot state.
+    half_system: forall circuit in {circuit_f, circuit_r}:
+        vehicle.decel_available(remaining(circuit)) >= 0.35g
+        given circuit = failed
+
+require Thermal:
+    # Fluid boil at the fade duty: WET boiling point column vs the
+    # caliper soak promise from brake_corner.hema -- the G38 coupled
+    # solve's output consumed across tracks.
+    no_boil: thermo.temperature(cal_fl.fluid) <
+                 fluids.boiling_point(Dot4, condition=wet) - 20K
+                 given duty = descent(8min, grade=18%)

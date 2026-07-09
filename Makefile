@@ -1,4 +1,4 @@
-.PHONY: install install-regolith build test regolith-test lint import-lint fmt-check format typecheck coverage check keys clean
+.PHONY: install install-regolith build test regolith-test lint import-lint fmt-check format typecheck coverage check keys clean sync-examples
 
 # Default install works WITHOUT a sibling lithos checkout: the
 # `regolith` extra is an editable path dependency on ../lithos and only
@@ -52,3 +52,9 @@ keys:
 clean:
 	rm -rf dist/ build/ .venv/ target/ __pycache__ .pytest_cache .ruff_cache \
 		.coverage htmlcov coverage.xml
+
+# Refresh examples/lithos as a verbatim mirror of ../lithos/examples
+# (lithos D148: one corpus, single-sourced in lithos). Review the
+# diff like any generated artifact.
+sync-examples:
+	python3 scripts/sync_lithos_examples.py

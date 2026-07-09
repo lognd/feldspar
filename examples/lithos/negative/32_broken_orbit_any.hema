@@ -1,0 +1,8 @@
+# BREAKS: an `any` extension over a symmetry-broken orbit (INV-4
+#   mechanism: a special-role assignment that splits an orbit makes a
+#   later `any` unsound).
+# EXPECT: E0502
+part p:
+    pattern ring circular 4
+    break ring
+    any ring

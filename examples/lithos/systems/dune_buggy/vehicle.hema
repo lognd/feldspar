@@ -1,0 +1,132 @@
+# Vehicle assembly -- the roof: mass/CG budgets, vehicle dynamics
+# (G34), terrain boundary spectra (G35), cross-domain promise webs,
+# proof transforms (G41), mixed discrete x continuous coverage (G43).
+# Every part file's promises meet here; regolith's orchestrator owns
+# the assembly algebra (G21); feldspar discharges the quantity leaves.
+
+import SpaceFrame (from frame.hema)
+import RollCage (from rollcage.hema)
+import FrontCorner (from suspension_front.hema)
+import TrailingArm, PivotBushing (from suspension_rear.hema)
+import Coilover (from coilover.hema)
+import SteeringGeometry (from steering.hema)
+import RearHub (from hub_rear.hema)
+import Wheel, Tire (from wheel_tire.hema)
+import Crankshaft, ConnectingRod (from engine_bottom_end.hema)
+import CylinderHead, ValveSpring (from engine_top_end.hema)
+import CvtPrimary (from cvt_drive.hema)
+import ReductionBox, ChainFinal (from gearbox_final.hema)
+import Halfshaft (from halfshaft.hema)
+import BrakeDisc, Caliper (from brake_corner.hema)
+import PedalBox (from pedal_box.hema)
+import FuelTank (from fuel_tank.hema)
+import Exhaust, Airbox (from exhaust_intake.hema)
+import BodyPanels (from bodywork.hema)
+import SeatFrame, HarnessAnchors (from seat_restraint.hema)
+import PowerSystem (from electrical_power.cupr)
+import EfiEcu (from efi_ecu.cupr)
+import DashUnit (from dash_instrumentation.cupr)
+import EngineCooling (from cooling.fluo)
+import FuelFeed (from fuel_system.fluo)
+import BrakeCircuits (from brake_hydraulics.fluo)
+
+assembly DuneBuggy:
+    parts:
+        frame: SpaceFrame
+        cage: RollCage
+        corners_f: 2 x FrontCorner
+        arms_r: 2 x TrailingArm
+        shocks: 4 x Coilover
+        steering: SteeringGeometry
+        wheels: 4 x Wheel
+        tires: 4 x Tire
+        # ... (powertrain, brakes, tank, body, seat, electrical --
+        # every import above binds; elided bindings follow the same
+        # shape)
+
+    boundary:
+        # G35: ONE terrain library, hash-pinned; every part file's
+        # `spectrum(...)` given traces here. The speed-scaling
+        # transform (whoops_psd x speed -> hub PSD) is a payload->
+        # payload solver edge.
+        terrain: spectrum(whoops_psd), mask(dune_jump_srs)
+        speed: v in [0kph, 95kph]
+        range_state: in {trail, race}         # rev-limit config axis
+        T_amb: [-10degC, 55degC]
+        design_life: 150hr race duty
+
+    budget mass_total: kind=mass
+        members: all
+        allocate: cost_optimal
+        locked:
+            cage: 32kg                         # rulebook minimum tube
+                                               # schedule fixes it
+
+    require Vehicle:
+        # G34 -- the vehicle namespace earning its keep at the top:
+        mass: mech.mass(all) <= 285kg
+        cg_height: vehicle.cg_height(all) <= 560mm
+        # Static stability factor: track/2h with the CG at the WORST
+        # fuel+occupant corner -- LOWER-bound rollover threshold.
+        ssf: vehicle.rollover_threshold(all) >= 1.15g
+        gradeability: vehicle.gradeability(surface=sand_dry) >= 60%
+                      given range_state = trail
+        # Ride frequencies from corner rates THROUGH the motion-
+        # ratio curves (G36: consumes the kinematic config fields):
+        ride_f: vehicle.ride_frequency(front) within [1.4Hz, 1.9Hz]
+        flat_ratio: vehicle.ride_frequency(rear)
+                        / vehicle.ride_frequency(front)
+                        within [1.05, 1.25]
+
+    require Performance:
+        # The cross-namespace performance chain (G30 pattern):
+        # thermo Otto cycle -> shaft torque -> CVT ratio domain ->
+        # chain -> tire traction limit -> acceleration. Four
+        # namespaces, one route, no claim names a solver.
+        accel: vehicle.time_to(30m, surface=sand_dry) <= 3.4s
+               given range_state = race
+        top_speed: vehicle.top_speed(surface=hardpack) >= 90kph
+        # G43: mixed coverage -- discrete range_state x continuous
+        # (speed, T_amb): the per-axis coverage encoding must carry
+        # BOTH kinds of axis.
+        thermal_ok: forall range_state in {trail, race},
+                           T_amb in [-10degC, 55degC]:
+                           thermo.temperature(CylinderHead.bridge) < 210degC
+
+    require Braking:
+        # Consumes: tire mu record (wheel_tire), circuit pressure
+        # (brake_hydraulics.fluo), pad mu(T) (brake_corner), bias
+        # (pedal_box) -- four files, one decel claim.
+        decel: vehicle.decel_available(all, surface=hardpack)
+                   >= 0.75g
+        fade_decel: vehicle.decel_available(all, surface=hardpack)
+                        >= 0.55g
+                        given duty = descent(8min, grade=18%)
+
+    require Survival:
+        # Jump landing: the SRS mask gates the structure chain; the
+        # assembly first mode must clear the terrain PSD knee
+        # (Phase 3 modal tier over the M2 shared mesh).
+        landing: stays_within(mech.load(frame.pickups.all),
+                     mask=dune_jump_srs, during event(jump_landing))
+        first_mode: mech.first_mode(assembly) > 28Hz
+
+    require Thermal:
+        # The promise web: engine rejection -> cooling.fluo loop;
+        # regulator dissipation -> body bay; exhaust radiant -> tank
+        # standoff. Each arrow is a lowered given, none is hand-fed.
+        tank_standoff: thermo.temperature(FuelTank.tank.shell)
+                           < 45degC
+                           given duty = dune_climb, T_amb = 55degC
+
+    require Proof:
+        # G41 longhand again (the transform ask's third fixture):
+        proof_torsion: mech.stiffness.torsional(frame.front_axle_plane,
+                           frame.rear_axle_plane) >= 900N*m/deg
+                       given load = 1.25 * service_envelope
+
+    policy:
+        prefer closed_form over discretized   # solve-cost hygiene:
+                                              # identical semantics,
+                                              # cheaper evidence
+        forbid untested_material_records

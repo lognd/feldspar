@@ -1,0 +1,118 @@
+# Burin base frame -- welded steel torsion box, machined as a unit
+# after welding (the weldment machinery, mech 02 sec. 7a: `pieces:`
+# with per-piece stock/material, joining stage with mating-vocabulary
+# `align:`, weld joint entities, machining across piece boundaries).
+# The frame is the positioning budget's stiffness floor: everything
+# the machine claims about cut accuracy bottoms out in these welds
+# and pads.
+
+import "contracts.hema" (ShoulderSeat, BedSeat)
+import std.mech.weld (FilletWeld, GrooveWeld)
+import std.mech.cnc (cnc_mill)
+
+part BaseFrame:
+    pieces:
+        rail_l:   stock RectTube(80mm x 80mm x 4mm, l=1050mm), material: S355
+        rail_r:   stock RectTube(80mm x 80mm x 4mm, l=1050mm), material: S355
+        cross_f:  stock RectTube(80mm x 40mm x 4mm, l=680mm),  material: S355
+        cross_m:  stock RectTube(80mm x 40mm x 4mm, l=680mm),  material: S355
+        cross_b:  stock RectTube(80mm x 40mm x 4mm, l=680mm),  material: S355
+        upright_l: stock Plate(20mm, 240mm x 160mm), material: S355
+        upright_r: stock Plate(20mm, 240mm x 160mm), material: S355
+
+    stage welded: process=mig_weld(er70s_6), joins=[rail_l, rail_r,
+                      cross_f, cross_m, cross_b, upright_l, upright_r]
+        align:
+            cross_f.end_l.frame = rail_l.web.frame (contact, flush=top)
+            cross_f.end_r.frame = rail_r.web.frame (contact, flush=top)
+            cross_m.end_l.frame = rail_l.web.frame (contact, flush=top,
+                                                    offset=z: 480mm)
+            cross_m.end_r.frame = rail_r.web.frame (contact, flush=top,
+                                                    offset=z: 480mm)
+            cross_b.end_l.frame = rail_l.web.frame (contact, flush=top,
+                                                    offset=z: 960mm)
+            cross_b.end_r.frame = rail_r.web.frame (contact, flush=top,
+                                                    offset=z: 960mm)
+            upright_l.base.frame = rail_l.top.frame (contact,
+                                                     offset=z: 400mm)
+            upright_r.base.frame = rail_r.top.frame (contact,
+                                                     offset=z: 400mm)
+        then:
+            w_cf_l = FilletWeld(between=(cross_f.end_l, rail_l.web),
+                                leg=5mm, around)
+            w_cf_r = FilletWeld(between=(cross_f.end_r, rail_r.web),
+                                leg=5mm, around)
+            w_cm_l = FilletWeld(between=(cross_m.end_l, rail_l.web),
+                                leg=5mm, around)
+            w_cm_r = FilletWeld(between=(cross_m.end_r, rail_r.web),
+                                leg=5mm, around)
+            w_cb_l = FilletWeld(between=(cross_b.end_l, rail_l.web),
+                                leg=5mm, around)
+            w_cb_r = FilletWeld(between=(cross_b.end_r, rail_r.web),
+                                leg=5mm, around)
+            # the uprights carry the gantry moment into the rails: full
+            # penetration, not fillets (GrooveWeld prep vs 20mm plate is
+            # capability-checked against the mig pack)
+            w_up_l = GrooveWeld(between=(upright_l.base, rail_l.top),
+                                prep=bevel(45deg, 12mm))
+            w_up_r = GrooveWeld(between=(upright_r.base, rail_r.top),
+                                prep=bevel(45deg, 12mm))
+
+    stage machined: process=cnc_mill(axes=3), from=welded
+        setup A:
+            # one setup owns every precision face: shoulder seats and
+            # bed pads come out coplanar/parallel by the setup's
+            # capability, not by weld fixturing (the weldment's point)
+            hold: welded.rail_l.bottom & welded.rail_r.bottom
+            datum A = welded.rail_l.bottom
+            then:
+                seat_l = FacePad(depth=2mm, rect(160mm x 80mm),
+                                 on=welded.upright_l.top)
+                seat_r = FacePad(depth=2mm, rect(160mm x 80mm),
+                                 on=welded.upright_r.top)
+            then:
+                pads = PatternOf<FacePad(depth=1.5mm, rect(60mm x 60mm))>(
+                           n=6, grid(3, 2, 460mm x 560mm),
+                           frame=welded.cross_m.top.center)
+            then:
+                seat_bolts_l = PatternOf<TappedHole<M8>>(n=6,
+                                   rect(130mm x 60mm), frame=seat_l.center)
+                seat_bolts_r = PatternOf<TappedHole<M8>>(n=6,
+                                   rect(130mm x 60mm), frame=seat_r.center)
+                pad_bolts = PatternOf<TappedHole<M8>>(n=6,
+                                grid(3, 2, 460mm x 560mm),
+                                frame=welded.cross_m.top.center)
+
+    impl ShoulderSeat for self as shoulder_l:
+        seat  = machined.seat_l
+        bolts = machined.seat_bolts_l
+
+    impl ShoulderSeat for self as shoulder_r:
+        seat  = machined.seat_r
+        bolts = machined.seat_bolts_r
+
+    impl BedSeat<6> for self:
+        pads = machined.pad_bolts.instances
+
+    require Structural:
+        trust: >= certified
+        weld_static: forall w in welded.welds.all:
+            mech.weld_stress(w, under=interface_envelope(ShoulderSeat))
+                < w.filler.sigma_allow, sf=2.0
+        # gantry accel reaction: 30 kg gantry at 5 m/s2 through 400mm
+        # uprights is ~60 N*m per shoulder; the groove welds see it as
+        # bending across the prep
+
+    require Stiffness:
+        # the budget contribution the machine file spends: frame twist
+        # between the two shoulder seats under the worst cutting
+        # reaction (800 N survey corner, cutting-force-survey-r1)
+        shoulder_twist: mech.deflection(machined.seat_l,
+                            relative_to=machined.seat_r,
+                            under=interface_envelope(ShoulderSeat))
+                            <= 0.015mm
+        first_mode: mech.first_mode > 80Hz
+
+    require Manufacture:
+        makeable: manufacturable(machined)
+        time:     mfg.cycle_time(welded) <= 3 h

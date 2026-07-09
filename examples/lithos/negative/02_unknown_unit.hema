@@ -1,0 +1,12 @@
+# BREAKS: an unregistered unit suffix combined with a real quantity
+#   (regolith/02 quantity-core: every unit must resolve through the
+#   unit table before arithmetic runs).
+# EXPECT-TODO: E0101
+# Self-calibration: `5flerbs` is not a registered unit spelling but the
+# claim lowers clean (ok=True, zero diagnostics) -- the incompatible-
+# quantity check only fires on a KNOWN-dimension mismatch, not on an
+# unrecognized unit token. See README candidate finding.
+part p:
+    material: AISI_304
+    require Structural:
+        bad: 5N + 5flerbs <= 10N

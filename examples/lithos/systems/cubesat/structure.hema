@@ -1,0 +1,144 @@
+# Kestrel structure -- 1U frame: four machined rails + sheet side
+# panels + card bays. Exercises: a part orbit in an assembly
+# (`4 x Rail`), orbit connections in a MECH assembly (pairwise --
+# lifted to substrate vocabulary this cycle, F80/D53), zones for the
+# thermal split, a DFM waive with `expires:`, and impls of the
+# cross-language CardBay contract declared in contracts.cupr.
+
+import "contracts.cupr" (CardBay)
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.sheet (Blank, Pierce, Bend)
+import std.mech.matings (BoltedPattern, ScrewedLap)
+import std.mech.mounts (BoltPattern)
+
+interface PanelSeat<screw: thread, n: int>:
+    frame:
+        origin: holes.pattern_center
+        z: holes.plane.normal
+    roles:
+        holes: PatternOf<TappedHole<screw>, n, along>
+
+
+profile RailSection:
+    walk:
+        from base_plane
+        line right                    # a: outer face (the launch rail)
+        line up                       # b
+        line left                     # c: inner relief
+        line up                       # d
+        close
+    constraints:
+        a.length = 8.5mm
+        b.length = 8.5mm
+        c.length = 6.0mm
+        d.length = free               # DFM: min web the endmill allows
+
+part Rail:
+    material: AL7075_T6
+
+    stage stock: process=saw_stock(rect(10mm, 10mm, 116mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.end_bottom
+            then:
+                body = Contour(RailSection, keep=inside, through)
+            then:
+                ends = PatternOf<TappedHole<M3>>(n=2,
+                           along(body.axis, spacing=113mm, centered))
+                bays = PatternOf<TappedHole<M3>>(n=5,
+                           along(body.inner_edge, spacing=20mm, centered))
+
+    # The rail wall thins to 1.1mm at the relief -- below the pack's
+    # 1.5mm guard for 7075 webs. Proven on the qual unit; deviation
+    # with expiry (substrate 12 rules 3/8):
+    waive dfm(min_web_thickness) on milled.body.relief_wall:
+        basis: "qual unit survived GEVS +6dB; report VR-081"
+        by test(vibe_report_vr081)
+        expires: 2027-01-01
+
+    impl PanelSeat<M3, n=2> for self:
+        holes = milled.ends.instances
+
+    require Structural:
+        trust: >= certified
+        rail_stress: peak(mech.stress.von_mises, during boundary.launch)
+                         < material.sigma_y / 1.6
+
+part SidePanel:
+    material: AL6061_T6
+
+    stage cut: process=laser_cut(sheet=1.2mm)
+        then:
+            blank = Blank(PanelOutline)
+            vents = PatternOf<Pierce<circle(dia 3mm)>>(n=4,
+                        grid(2, 2, 60mm x 60mm), frame=blank.mid_plane)
+        then:
+            corners = PatternOf<Pierce<circle(dia 3.2mm)>>(n=4,
+                          grid(2, 2, 90mm x 90mm), frame=blank.mid_plane)
+
+    zones over cut.blank.faces:
+        radiator: .where(side=outer)      # space-facing; coated
+        batt_bay: remainder               # conduction path to batteries
+
+    impl BoltPattern<M3, n=4, grid(2, 2, 90mm x 90mm)> for self:
+        holes = cut.corners.instances
+
+profile PanelOutline:
+    walk:
+        from left_edge
+        line right                    # a
+        line up                       # b
+        line left                     # c
+        close                         # d
+    constraints:
+        a.length = 96mm
+        b.length = 96mm
+        symmetric(b, d, about=mid_plane)
+    exports:
+        mid_plane: datum
+
+assembly Frame:
+    parts:
+        rails:  4 x Rail                  # count constructor: an orbit
+                                          # of identical parts
+        panels: 4 x SidePanel
+    boundary:
+        launch: vibration(gevs_qual_ref), structure: spectrum(gevs_qual_ref)
+        ambient: [-40degC, 85degC]
+
+    connect:
+        # Orbit connection in a MECH assembly: panels zipped to rails
+        # element-wise in layout order, one mating instance per pair
+        # (`pairwise(a, b) by <Mating>` -- lifted from elec-only to
+        # substrate vocabulary this cycle, F80/D53). Each panel's
+        # trailing edge riding the neighboring rail is elided.
+        skin: pairwise(panels.instances.BoltPattern,
+                       rails.instances.PanelSeat) by ScrewedLap<M3>
+
+    # Card bays: each bay's four posts come from FOUR DIFFERENT rails
+    # at one deck height. FINDING F82: an assembly implementing an
+    # interface whose role entities span several parts was never
+    # stated (part impls bind own-stage entities); rule added to
+    # substrate 04 sec. 5 this cycle. `deck` is a measure the along()
+    # pattern exports -- height along the rail is semantic content,
+    # the same argument that blessed bus-bit addressing.
+    impl CardBay<rect(90mm x 90mm)> for self as bay_eps:
+        posts = rails.instances.all.bays.where(deck=1)
+    impl CardBay<rect(90mm x 90mm)> for self as bay_obc:
+        posts = rails.instances.all.bays.where(deck=2)
+    impl CardBay<rect(90mm x 90mm)> for self as bay_adcs:
+        posts = rails.instances.all.bays.where(deck=3)
+    impl CardBay<rect(90mm x 90mm)> for self as bay_comms:
+        posts = rails.instances.all.bays.where(deck=4)
+    impl CardBay<rect(90mm x 90mm)> for self as bay_payload:
+        posts = rails.instances.all.bays.where(deck=5)
+
+    require Stiffness:
+        first_mode: mech.first_mode > 120Hz during deploy = stowed
+        # launch-config modal floor; deploy is exposed by the antenna
+        # hold-down connection at the top level
+
+    require Mass:
+        frame_total: mech.mass(all) <= 210g

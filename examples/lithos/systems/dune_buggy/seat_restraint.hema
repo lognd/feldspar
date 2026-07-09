@@ -1,0 +1,62 @@
+# Seat + restraint -- anchor proofs and the occupant ladder: the
+# safety-critical statics file. Anchors: G41 proof transforms
+# (harness anchors), G37 occupant metrics, trust floors on
+# safety-of-life claims (regolith trust: >= tier machinery).
+
+import std.mech.sheet (Blank, Bend)
+import std.mech.tube (TubeProfile)
+
+part SeatFrame:
+    material: AISI_4130_N
+    pieces:
+        rails: 2 x TubeStock(od 25mm, wall 1.6mm)
+        pan: SheetStock(t 1.2mm)
+
+    stage welded: process=gtaw, joins=[rails, pan]
+        frame = Weld(fillet 2mm, all_notches)
+
+    boundary:
+        occupant: mass in [55kg, 110kg]
+        crash_pulse: <= 20g fwd, <= 10g lat, <= 8g vert
+        structure: static      # quasi-static crash equivalents per
+                               # the rulebook -- the honest v1 form
+
+    require Structural:
+        # Quasi-static occupant loads through the pan and rails:
+        # statics tier; the mass x pulse envelope is monotone, sweep
+        # collapses to the top corner.
+        rail_stress: peak(mech.stress.von_mises, at=welded.frame.rails)
+                         < material.sigma_y / 1.5
+                         given load = boundary.occupant.hi
+                                     * boundary.crash_pulse
+
+part HarnessAnchors:
+    material: AISI_4130_N
+
+    stage machined: process=cnc_mill
+        anchors = 5 x AnchorTab(t 4mm, eye dia 12mm)
+
+    require Proof:
+        trust: >= tested
+        # Safety-of-life: the trust floor demands TESTED-tier
+        # evidence -- computed evidence signed with the project key
+        # qualifies only when the calibration citations trace to
+        # physical pulls (the D-E tier ladder doing real work).
+        # G41: each proof is the operating claim at rulebook-scaled
+        # loads, longhand:
+        lap_anchor: peak(mech.stress.von_mises, at=anchors.lap.all)
+                        < material.sigma_u / 1.0
+                        given load = 13.3kN        # rulebook proof pull
+        shoulder_anchor: peak(mech.stress.von_mises,
+                             at=anchors.shoulder.all)
+                             < material.sigma_u / 1.0
+                             given load = 13.3kN
+        tab_tearout: mech.tearout_margin(anchors.all.eyes,
+                         under=13.3kN) >= 1.2
+
+    require Occupant:
+        # G37: the injury outcome is NOT a solver's to promise.
+        restrained: assume!(occupant_retention(harness_5pt,
+                        boundary.crash_pulse) == pass,
+                        basis="SFI 16.1 harness + rulebook geometry; "
+                              "replace by test(sled_report)")

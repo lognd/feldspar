@@ -1,0 +1,14 @@
+# BREAKS: a change that alters an entity's structure class between
+#   revisions (references family: a construct changing kind out from
+#   under its dependents).
+# EXPECT-TODO: E0304
+# Self-calibration: `STRUCTURE_CLASS_CHANGE` (E0304) is declared in the
+# diagnostic code registry (`regolith-diag/src/code.rs`) but grep finds
+# no emission site anywhere in `regolith-lower`/`regolith-ir`/
+# `regolith-sem` -- the check does not exist yet. This fixture is a
+# best-effort placeholder (a feature reinterpreted from a hole to a
+# boss across two references) pending the real check landing. See
+# README candidate finding.
+part p:
+    feature seat: kind=hole
+    refer seat as boss

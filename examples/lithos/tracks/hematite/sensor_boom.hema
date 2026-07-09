@@ -1,0 +1,72 @@
+# Instrument boom bracket -- feldspar pressure test #2 (the geometry
+# gauntlet): a bent-flange cantilever whose claims are ABOUT realized
+# geometry. Exercises: idealization to a parametric family as a
+# SOLVER with declared error and domain (G1), the hole-in-the-root
+# edge case that must ESCAPE the idealization's domain (G7), load
+# position conservatism from an interface envelope (G4), a modal
+# claim needing structured ports (G8/OPEN-11), realized-geometry refs
+# (OPEN-2 residual).
+
+import std.mech.sheet (Blank, Pierce, Bend)
+
+profile BoomFlat:
+    walk:
+        from root_edge
+        line right                  # a: root (clamped at chassis)
+        line up                     # b
+        line left                   # c: becomes the flange
+        close                       # d
+    hole harness_pass:
+        circle(dia 10mm)
+    constraints:
+        a.length = 120mm
+        b.length = 45mm
+        # G7 EDGE CASE: the hole sits 8mm from the root -- inside the
+        # high-stress region a cantilever idealization assumes solid.
+        harness_pass.center to a = 8mm
+        harness_pass.center to d = 60mm
+
+interface InstrumentPad:
+    frame:
+        origin: pad.center
+        z: pad.normal
+    roles:
+        pad: planar, rect(>= 25mm x 25mm)
+    loads:
+        static: <= 18N              # G4: applied AT the pad, which is
+        structure: static           # mid-span, not at the tip.
+
+part SensorBoom:
+    material: AL_6061_T6
+
+    stage cut: process=laser_cut(sheet=2.0mm)
+        then:
+            blank = Blank(BoomFlat)
+
+    stage formed: process=press_brake, from=cut
+        flange = Bend(edge=cut.blank.top_edge, angle=90deg, radius=free)
+
+    impl InstrumentPad for self:
+        pad = formed.flange.face
+
+    require Structural:
+        # G1: no closed-form solver consumes "a bent flange with a
+        # hole". An IDEALIZATION EDGE (geometry payload -> cantilever
+        # family scalars) must exist as an ordinary solver: declared
+        # conservative eps (idealization error IS its model error),
+        # declared domain (solid root region, aspect ratio box).
+        # G7: harness_pass violates that domain -> the idealization
+        # edge is OUT OF DOMAIN -> route must fall through to FEA on
+        # the realized geometry ref (blocked on the regolith payload
+        # channel; today: honest indeterminate naming the missing
+        # channel, NEVER a silently-wrong cantilever answer).
+        tip_sag: mech.deflection(formed.flange.tip,
+                     under=interface_envelope(InstrumentPad)) < 0.8mm
+        root_stress: peak(mech.stress.von_mises, at=formed.flange.root)
+                     < material.sigma_y / 2.0
+
+    require Survival:
+        # G8/OPEN-11: a frequency-domain claim -- needs modal solvers
+        # (Phase 3) and structured ports; listed here so the port
+        # design is pressured NOW, scheduled later.
+        stiff_enough: mech.first_mode > 90Hz

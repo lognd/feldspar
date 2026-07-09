@@ -1,0 +1,71 @@
+# Burin power cabinet -- mains in, three DC rails out, and the
+# MASTER of the hardwired e-stop loop (the mushroom button lives
+# here). Exercises: vendor bricks under one board-shaped artifact,
+# a rail-droop budget over structural contributors (elec 04 sec. 5
+# shape), inrush/brownout time-domain claims, and the ampacity
+# harness prose (G42) on every cabinet exit.
+
+import "contracts.cupr" (RailFeed, EStopNode)
+import std.elec.power (Fuse, Contactor, NtcInrush, Capacitor)
+
+board PowerPanel:
+    # a DIN-rail panel, not a PCB: `panel_assembly` is a process
+    # module like any other; its capability table carries wire-to-
+    # terminal ampacities instead of trace classes
+    stage assembled: process=panel_assembly(din_rail)
+
+    then:
+        f_main  = Fuse(10A, slow)
+        k_main  = Contactor(coil=24V, poles=2, i <= 16A)
+        ntc     = NtcInrush(r_cold=10ohm)
+        psu48   = vendor(mw_rsp_500_48)     # 48V 10.5A, the axis rail
+        psu24   = vendor(mw_ndr_75_24)      # 24V logic/contactor rail
+        psu5    = vendor(mw_mdr_20_5)       # 5V signal rail
+        c_bulk  = Capacitor(c=4700uF, v_rated >= 63V)
+        btn_stop = vendor(xb4_bs542)        # the mushroom, NC contact
+
+    impl RailFeed for self:
+        v48 = assembled.term_out.v48
+        v24 = assembled.term_out.v24
+        v5  = assembled.term_out.v5
+
+    impl EStopNode for self as loop_master:
+        loop_in  = btn_stop.nc              # the loop STARTS at the
+        loop_out = assembled.term_estop.out # mushroom's NC contact
+
+    event mains_on: v(k_main.out).crosses(180V)
+    event estop_break: state(loop_master.loop_out).crosses(open)
+
+    require Rails:
+        # regulation windows at the terminal blocks, worst load corner
+        # (all four drives at run current + spindle accel):
+        v48_window: v(term_out.v48) within [45.6V, 50.4V]
+        droop: peak(v(term_out.v48), within 5ms after load_step(6A/ms))
+                   > 44V
+        inrush: peak(i(f_main), within 100ms after mains_on) < 40A
+        # the NTC bounds the cap-bank charge surge under the slow
+        # fuse's i2t curve -- both records dereferenced at the check's
+        # worst corner, never spelled here (elec 04 sec. 4 note 1)
+
+    require Safety:
+        # the contactor drops mains within one relay time of the loop
+        # opening ANYWHERE (the chain claims live with the commander,
+        # machine_elec.cupr; this is the local actuator's piece):
+        kill: within 25ms after estop_break: state(k_main) = open
+
+    budget v48_droop: kind=noise
+        require: elec.min(v(term_out.v48)) > 44V
+                     during load_step(6A/ms)
+        members: [psu48, c_bulk, assembled.term_out]
+        allocate: cost_optimal
+        locked: c_bulk.value: 4700uF    # cabinet stock; not negotiable
+
+    # WO-34 harness notes (G42): three cabinet exits --
+    #  * 48V feed to the drive bay: 2.5mm2, 0.8m, bundle of 6, 60degC
+    #    cabinet: ampacity margin currently hand-asserted at 1.6x;
+    #    a `harness:` run would derive it from length + bundle factor.
+    #  * e-stop loop: 0.75mm2 yellow, routed OUTSIDE the drag chain
+    #    (see contracts.cupr EStopChain note).
+    #  * mains tail to the VFD: 3 x 1.5mm2 + shield, through the
+    #    line filter FIRST -- ordering constraints between runs are
+    #    also harness-grammar territory.

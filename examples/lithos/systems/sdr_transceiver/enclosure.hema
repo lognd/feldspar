@@ -1,0 +1,88 @@
+# Peregrine enclosure -- the small mech half (D119): a milled aluminum
+# case with an internal RF shield wall. Exercises the XDOMAIN pressure
+# chain: the board's PROMISED dissipation (board.cupr, RfDeck impl)
+# routes through the DeckMate mating's effects into this enclosure's
+# thermal load set; the enclosure's temperature-rise claim then feeds
+# the ELECTROLYTIC/PA DERATING chain back on the elec side -- the
+# derating pack consumes the LOCAL ambient this file promises, not the
+# system boundary's. Also: zones over machined faces, a boss-pattern
+# orbit binding a geom interface role, and a shielding claim.
+
+import "contracts.cupr" (DeckBay, DeckMate, AntennaFeed, AntennaFeedMate)
+import "board.cupr" (PeregrinePcb)
+import std.mech.cnc (cnc_mill)
+
+part CaseBody:
+    material: AL6061_T6
+
+    stage milled: process=cnc_mill(axes=3)
+        setup A:
+            hold: stock.sides
+            then:
+                cavity = Pocket(rect(124mm x 84mm), depth=22mm)
+            then:
+                bosses = PatternOf<Boss(dia 6mm, h=5mm,
+                             tapped=M3)>(n=6, rect(112mm x 72mm),
+                             frame=cavity.floor.center)
+                # the internal shield wall: PA compartment isolated
+                # from the LNA compartment (the self-desense killer):
+                shield = Rib(path=cavity.mid_line, w=2mm, h=18mm)
+                ant_bore = Bore(dia 6.5mm, through,
+                                axis=cavity.wall_east.center)
+
+    zones over milled.cavity.faces:
+        pa_bay:  .where(adjacent_to=milled.shield, side=east)
+        rf_bay:  remainder
+
+    impl DeckBay for self:
+        posts = milled.bosses.instances
+        promises:
+            thermal.sink: conductive, >= 1.4 W/K   # refines the 1.2 floor
+
+    impl AntennaFeed for self:
+        rf = milled.ant_bore
+
+    require Shielding:
+        # PA-to-LNA isolation through the wall + gasket; consumed by
+        # the rx_leak claim's discharge chain (rf_frontend.cupr):
+        isolation: emc.attenuation(milled.shield, at=437MHz) >= 60dB
+
+assembly SdrUnit:
+    parts:
+        case:  CaseBody
+        board: PeregrinePcb                # cross-language import (D23)
+    boundary:
+        ambient: [-20degC, 55degC]
+
+    connect:
+        mount: DeckMate(a=case.DeckBay, b=board.RfDeck)
+            # effects: route the board's promised dissipation (13.2W
+            # during tx) into the case's thermal load set -- pure
+            # quantity-core vocabulary crossing domains
+        feed: AntennaFeedMate(a=case.AntennaFeed, b=board.AntennaFeed)
+
+    require Thermal:
+        # The derating chain, link by link:
+        # 1. enclosure rise under the tx-mode promise (13.2W through
+        #    1.4 W/K conduction + case-to-ambient convection):
+        rise_tx: thermo.temperature(case.zones.pa_bay)
+                     - boundary.ambient <= 28K during op = tx
+        rise_rx: thermo.temperature(case.zones.rf_bay)
+                     - boundary.ambient <= 8K during op = rx
+        # 2. the LOCAL ambient the board's parts actually see (55degC
+        #    boundary + 28K rise = 83degC in the PA bay); the elec
+        #    derating packs (cuprite 04 sec. 3) evaluate their f(T)
+        #    intervals at THIS temperature, not the system boundary --
+        #    the PA's SOA and the polymer bulk caps' ripple-current
+        #    derating are the consumers:
+        local_ambient: thermo.temperature(board.RfDeck.local_env)
+                           <= 85degC forall op
+        # 3. the junction ceiling after derating (PA thermal
+        #    resistance from its record, evaluated at the derated
+        #    local ambient):
+        pa_junction: thermo.temperature(board.u_pa.junction)
+                         <= 150degC during op = tx, sf=1.2
+
+    require Mass:
+        total: mech.mass(all) <= 480g
+        # consumes the board's promised 118g -- promises, not actuals

@@ -1,0 +1,8 @@
+# BREAKS: a use-site generic instantiation supplying the wrong number
+#   of type arguments for its declaration (INV-11 monomorphization
+#   totality: an un-expandable point).
+# EXPECT: E0504
+interface Pair<a, b>:
+    x: 1
+part plain:
+    p = Pair<M3>()

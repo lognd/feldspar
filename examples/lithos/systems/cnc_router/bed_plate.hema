@@ -1,0 +1,79 @@
+# Burin bed plate -- the machined tooling plate the work rides on.
+# Exercises: bed-size VARIANTS (mech 02 sec. 7b, the molded_clip
+# precedent: externally-chosen axis, EVERY variant verifies, per-
+# variant lockfile sections), `when <variant>=<value>` construction
+# guards on large hole grids, a two-setup flip pipeline, zones over
+# the deck, and interval flatness claims the machine budget consumes.
+
+import "contracts.hema" (BedSeat)
+import std.mech.cnc (saw_stock, cnc_mill)
+
+part BedPlate:
+    material: AL5083_H111        # stress-relieved cast tooling plate:
+                                 # stays flat after pocketing, unlike
+                                 # rolled 6061
+    variant bed: {b600, b900}    # the orderer picks the work envelope;
+                                 # both sizes must verify (D119: the
+                                 # molded_clip precedent at plate scale)
+
+    stage stock: process=saw_stock(rect(980mm, 700mm, 20mm))
+        # one stock spec sized for the LARGER variant; the b600 build
+        # saws shorter -- the plate outline is variant-guarded below
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.bottom
+            then:
+                deck = FaceMill(on=stock.body.top, depth=1.5mm)
+            then:
+                # M6 clamp grid on 100mm centers -- the whole grid is
+                # one orbit per variant; ~braced counts are the real
+                # monomorphization load (35 vs 54 instances):
+                grid_600 = PatternOf<TappedHole<M6>>(n=35,
+                               grid(7, 5, 600mm x 400mm),
+                               frame=deck.center) when bed = b600
+                grid_900 = PatternOf<TappedHole<M6>>(n=54,
+                               grid(9, 6, 800mm x 500mm),
+                               frame=deck.center) when bed = b900
+            then:
+                # coolant drain channel around the work field
+                drain = Pocket(rect(620mm x 420mm) - rect(580mm x 380mm),
+                               depth=4mm, frame=deck.center) when bed = b600
+                drain_900 = Pocket(rect(820mm x 520mm) - rect(780mm x 480mm),
+                               depth=4mm, frame=deck.center) when bed = b900
+        setup B:
+            flip about X
+            hold: milled.deck
+            # refixture tolerance enters the deck-to-mounting-pad
+            # parallelism stack automatically (mech 02 sec. 3)
+            then:
+                relief = Pocket(rect(500mm x 380mm), depth=6mm,
+                                frame=milled.deck.center)
+                # mass relief; leaves a 6-pad waffle matching the
+                # frame's BedSeat pads
+            then:
+                mounts = PatternOf<CBore<M8>>(n=6,
+                             grid(3, 2, 460mm x 560mm),
+                             frame=milled.deck.center)
+
+    zones over milled.deck.faces:
+        work_field: .where(within=milled.drain)   # inside the drain moat
+        apron:      remainder                     # clamp margin + drain
+
+    impl BedSeat<6> for self:
+        pads = milled.mounts.instances
+
+    require Flatness:
+        # the budget contribution machine.hema spends -- claimed on the
+        # WORK FIELD zone only; the apron may do what it likes:
+        field_flat: geom.flatness(zones.work_field) <= 0.04mm
+        deck_parallel: geom.parallelism(milled.deck, to=milled.mounts.plane)
+                           <= 0.05mm
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=25) <= 480 USD
+        # tapping 54 holes in the b900 variant dominates cycle time --
+        # the cost claim must hold at BOTH variant points (sweep):
+        time:     mfg.cycle_time(milled) <= 4 h

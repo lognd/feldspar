@@ -1,0 +1,47 @@
+# small_office: panel + mechanical feeder (cuprite; the MEP power
+# leg of calcite/02 sec. 10). The panel binds the mech room's
+# offered Feeder contract; the pump/boiler circuits consume the
+# fluorite side's electrical demand promises through one chain.
+
+import std.intents
+import "program.calx" (MechRoom)
+import "hydronics.fluo" (HeatingLoop)
+
+system BuildingPower:
+    boundary:
+        supply:  utility(240V, split_phase, 200A)
+        ambient: [-5degC, 40degC]               # interior electrical rm
+        design_life: 25 yr
+
+    parts:
+        panel:  vendor(sqd_qo142m200)           # load center, catalog
+        pump_c: vendor(sqd_qo120)               # 20A pump circuit bkr
+        boil_c: vendor(sqd_qo230)               # 30A boiler circuit bkr
+
+    # The building offers a 40kW feeder at the mech room boundary
+    # (program.calx `offers: power`); the panel implements it. The
+    # demand side is the fluorite equipment's electrical promises --
+    # cross-track, one promise chain, no hand-copied watts.
+    impl Feeder<capacity=40kW> for panel as mech_feed
+
+    nets:
+        pump_ckt: panel.qo120 -> HeatingLoop.pump.motor
+        boil_ckt: panel.qo230 -> HeatingLoop.boiler.controls
+
+    require Capacity:
+        feeder: elec.power(mech_feed)
+                    >= HeatingLoop.pump.electrical_demand
+                     + HeatingLoop.boiler.electrical_demand, sf=1.25
+        # Building-wide energy: a D49 budget whose members span
+        # TRACKS (the mass/energy precedent) -- lighting and plug
+        # loads (calcite spaces) beside equipment (fluorite).
+    budget building_energy: kind=energy
+        members: [OpenOffice1, OpenOffice2, HeatingLoop.pump,
+                  HeatingLoop.boiler]
+        allocate: worst_case
+
+    require Cost:                               # D147 estimating axis:
+        # BOM cost at the declared profile; the profile (quantity,
+        # pricing records, rates) comes from magnetite.toml
+        # [profiles.cost.*] -- project-configurable, never hard-coded.
+        bom: mfg.cost(BuildingPower, profile=construction) <= 6000USD

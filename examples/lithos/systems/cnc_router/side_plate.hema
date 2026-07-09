@@ -1,0 +1,116 @@
+# Burin gantry side plate -- the shoulder connecting the X carriage
+# deck to the beam end. THE deep-pipeline stress file (D119): five
+# process stages (saw -> mill setup A -> flip to setup B -> drill ->
+# tap), with cross-stage references crossing three stage boundaries
+# (path rule, mech 02 sec. 2), a mirrored `hand` variant like
+# molded_clip, a profile-driven contour, and the corpus's deliberate
+# rung-7 waiver (mech 04 sec. I4: waive + basis + by evidence).
+
+import "contracts.hema" (ShoulderSeat, BeamEnd, AxisFoot)
+import std.mech.cnc (saw_stock, cnc_mill, cnc_drill, tap_rigid)
+
+profile ShoulderOutline:
+    # tall L: foot lands on the X carriage, ear carries the beam end.
+    # The throat radius r is the fatigue hot spot AND the waived DFM
+    # subject below -- one blend, two masters.
+    walk:
+        from foot_plane
+        line right                    # a: foot, 240mm
+        line up                       # b: heel rise
+        line left                     # c: step back over the carriage
+        arc tangent, bulge=left       # d: throat blend (the hot spot)
+        line up                       # e: neck
+        line left                     # f: ear top, beam seat width
+        line down                     # g: front edge
+        close                         # h
+    constraints:
+        a.length = 240mm
+        b.length = 40mm
+        c.length = 80mm
+        d.radius = in [8mm, 20mm]     # optimizer resolves against the
+                                      # fatigue claim + the DFM rule
+        e.length = 180mm
+        f.length = 160mm
+        g.length = 260mm
+    exports:
+        throat_ref: datum
+
+part SidePlate:
+    material: AL6082_T6
+    variant hand: {left, right}       # mirrored pair, one source; the
+                                      # machine binds one of each
+
+    stage stock: process=saw_stock(rect(420mm, 270mm, 20mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.bottom
+            then:
+                blank = Contour(ShoulderOutline, keep=inside, through)
+            then:
+                pocket = Pocket(rect(120mm x 90mm), depth=8mm,
+                                frame=blank.center)
+                # mass relief web; leaves 12mm floor
+        setup B:
+            flip about X
+            hold: milled.blank.foot_edge
+            datum B = milled.blank.foot_edge
+            then:
+                seat = FaceMill(on=milled.blank.ear_face, depth=0.8mm)
+                foot = FaceMill(on=milled.blank.foot_face, depth=0.8mm)
+        then:
+            mirrored = Mirror(all, about=milled.blank.mid_plane)
+                           when hand = right
+
+    stage drilled: process=cnc_drill, from=milled
+        # separate drill stage on the gang drill -- the shop's actual
+        # routing; refixture error from the drill fixture's capability
+        # table enters the bolt-pattern position stack (mech 02 sec. 2)
+        setup C:
+            hold: milled.foot
+            then:
+                seat_holes = PatternOf<Drill(dia 6.8mm)>(n=6,
+                                 rect(130mm x 60mm),
+                                 frame=milled.seat.center)
+                foot_holes = PatternOf<Drill(dia 6.6mm)>(n=4,
+                                 rect(180mm x 70mm),
+                                 frame=milled.foot.center)
+
+    stage tapped: process=tap_rigid, from=drilled
+        setup D:
+            hold: milled.foot
+            then:
+                seat_taps = Tap(M8, on=drilled.seat_holes.instances.all)
+                # foot holes stay clearance -- bolts come up from the
+                # carriage deck below
+
+    # DELIBERATE rung-7 deviation (the D117 lint fixture in the wild):
+    # the throat blend at d.radius's lower corner (8mm) violates the
+    # mill pack's corner-radius-vs-cutter rule for a 16mm rougher.
+    # The shop proved the 8mm finish path on lot 2 with a 12mm tool;
+    # keep the design freedom, carry the deviation with evidence:
+    waive dfm(corner_radius_vs_tool) on milled.blank.throat:
+        basis: "8mm throat finished with 12mm tool, proven FAI lot 2"
+        by test(fai_sideplate_lot2)
+
+    impl BeamEnd for self as beam_seat:
+        face  = milled.seat
+        bolts = tapped.seat_taps.instances
+
+    impl AxisFoot<n=4, span=180mm> for self:
+        feet = drilled.foot_holes.instances
+
+    require Structural:
+        trust: >= certified
+        # gantry accel + cutting reaction, through the throat:
+        throat_static: peak(mech.stress.von_mises,
+                            during interface_envelope(BeamEnd))
+                           < material.sigma_y / 1.8
+        throat_life: mech.life(milled.blank.throat,
+                         under=spectrum(duty_survey_r1)) >= 20000 h,
+                         scatter_factor=4
+
+    require Manufacture:
+        makeable: manufacturable(tapped)
+        cost:     mfg.unit_cost(qty=100) <= 140 USD

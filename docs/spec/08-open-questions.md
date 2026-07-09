@@ -132,7 +132,7 @@ when the implementing WO lands; only their RESIDUAL is still open.
   implemented.
 
 - **OPEN-13 given-resolution contract** (new 2026-07-07, friction G2
-  from the lithos pressure tests, examples/lithos/README.md):
+  from the lithos pressure tests, examples/lithos/feldspar-fixtures.md):
   obligations carry names (`material: AISI_304`,
   `interface_envelope(...)`); `DischargeRequest.inputs` carries
   scalar intervals; the resolution step between them (property-record
@@ -158,7 +158,7 @@ when the implementing WO lands; only their RESIDUAL is still open.
 
 - **OPEN-14 zone/station-indexed ports** (new 2026-07-07, friction
   G23/G24 from the regen-engine stress test,
-  examples/lithos/regen_engine/README.md): distributed 1-D/2-D
+  examples/lithos/systems/regen_engine/README.md): distributed 1-D/2-D
   quantities (wall temperature along the axis, zone-valued fields
   consumed as loads) are not routable ports. INTERIM DECIDED:
   marching solvers expose extremal boundary ports with internal,
@@ -176,7 +176,7 @@ when the implementing WO lands; only their RESIDUAL is still open.
   undesigned engine-side, blocks nothing before Phase 2's distributed
   thermal work. EXTENDED 2026-07-07 by
   the dune-buggy stress test (G36,
-  examples/lithos/dune_buggy/README.md): the same shape appears
+  examples/lithos/systems/dune_buggy/README.md): the same shape appears
   with a CONFIG variable as the index axis instead of space --
   camber(travel), toe(travel), motion_ratio(travel) are computed
   1-D curves over suspension travel consumed by sibling claims

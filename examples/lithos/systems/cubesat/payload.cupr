@@ -1,0 +1,76 @@
+# Kestrel payload -- camera + FPGA tile compressor. THE second
+# EOPEN-17 worked example (the frame grabber was the first): host
+# binding as capability matching with a REAL multi-bank IO problem --
+# sub-LVDS camera lanes need a 2.5V bank, the OBC-facing SPI needs a
+# 3.3V bank, and the two must be DIFFERENT banks of one part. The
+# match works on the cycle-4 shape (per-bank capability records) with
+# nothing new -> EOPEN-17 is settled by this file (D47).
+
+import "contracts.cupr" (StackCard)
+import std.elec.families (cmos_3v3, lvds_25)
+import std.elec.buses (BusAttach)
+
+block TileCompressor<w: int = 2048, h: int = 1536>:
+    ports:
+        cam_in:   bus(sublvds_4lane, domain=pix_clk)   # 2.5V differential
+        cam_ctl:  bus(i2c(fast))                       # sensor config
+        tiles:    bus(spi_slave(<= 40MHz))             # 3.3V, to OBC
+        pix_clk:  clock(96MHz)
+        core_clk: clock(120MHz)
+    spec:
+        on pix_clk.rise:
+            line_buf[wr] <= cam_in.data when cam_in.valid
+            wr <= wr + 1 when cam_in.valid
+        on core_clk.rise:
+            tiles.data <= rice_encode(line_buf[rd])
+            rd <= rd + 1 when tiles.ready
+    connect:
+        xing: async_fifo<depth=4096>(a=pix_clk.domain, b=core_clk.domain)
+    promises:
+        timing.latency(cam_in -> tiles): <= 4 lines
+        info.compression(tiles): >= 1.8   # lossless floor on test corpus
+
+impl TileCompressor by spec
+
+board PayloadPcb<bits: image>:            # artifact-typed param (F83/D54)
+    stage bare:      process=pcb_fab(jlc_6l)
+    stage assembled: process=smt_assembly(jlc_advanced), from=bare
+    stage programmed: from=assembled
+        bitstream = load(bits)
+
+    then:
+        u_fpga = vendor(lattice_ecp5_25k_cabga256)
+        u_cam  = vendor(ar0234_module)      # 2.3MP global shutter
+        u_osc  = vendor(sit8208_96m)
+
+    connect:
+        lanes: BusAttach<sublvds_4lane>(a=u_cam.data, b=u_fpga.pixel_in)
+        cfg:   BusAttach<i2c(fast)>(a=u_fpga.cam_ctl, b=u_cam.sccb)
+
+    # Host binding (EOPEN-17): ONE programmable part, so no pin is
+    # needed -- the planner allocates and the lockfile says so:
+    #   host TileCompressor -> u_fpga    cause: planner(host tiles)
+    # The capability match this example proves out:
+    #   demand: 4 x lvds_25 in (one bank, Vccio 2.5V)  <- cam lanes
+    #           6 x cmos_3v3 (a DIFFERENT bank, 3.3V)  <- tiles SPI + ctl
+    #           ~9k LUT, 2 x DSP, 96kb BRAM, fmax >= 120MHz
+    #   part record: per-bank rows (standards, Vccio, pin count);
+    #   the bank assignment is derived and lockfile-caused, exactly
+    #   like pin-mux. Infeasible mixes (both buses forced onto one
+    #   bank) die at the capability match, constructively.
+
+    impl StackCard for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        conn    = assembled.stack_conn
+        promises:
+            mass:  <= 88g
+            power: <= 1.4W during op = imaging   # dominates the budget
+
+image tile_bits:
+    realizes: impl(TileCompressor)
+    toolchain: yosys_nextpnr(0.7)
+    require Resources:
+        fit:  info.utilization(u_fpga) <= 70%
+        fmax: info.fmax(core_clk) >= 120MHz
+        # thin margin here forces post-route timing automatically

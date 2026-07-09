@@ -1,0 +1,60 @@
+# Burin spoilboard -- sacrificial MDF over the bed plate, with a
+# brass threaded-insert grid. Exercises: a SECOND variant axis that
+# must track the bed's (coordination happens at the machine binding,
+# machine.hema -- the language has no cross-part variant tie, which
+# is a deliberate pressure point; see README candidate findings), a
+# large insert orbit, non-metal material records, and consumable-part
+# claims (surfacing allowance as an interval that shrinks over life).
+
+import std.mech.cnc (saw_stock, cnc_router_3axis)
+
+part Spoilboard:
+    material: MDF_18mm
+    variant bed: {b600, b900}    # must be ordered to match the bed
+                                 # plate under it; nothing in-language
+                                 # ties the two axes together (README
+                                 # candidate finding CF-2)
+
+    stage stock: process=saw_stock(rect(830mm, 530mm, 18mm))
+        # one sheet spec sized for the larger variant, like the bed
+
+    stage routed: process=cnc_router_3axis, from=stock
+        # the machine surfaces its own spoilboard: the process module
+        # here is the router itself -- a capability table exists for
+        # it like any other process (mech 02 sec. 10)
+        setup A:
+            hold: stock.body.perimeter
+            then:
+                sheet = Contour(rect(620mm x 420mm), keep=inside,
+                                through) when bed = b600
+                sheet_900 = Contour(rect(820mm x 520mm), keep=inside,
+                                through) when bed = b900
+            then:
+                inserts_600 = PatternOf<Bore(dia 7.9mm, depth=13mm)>(
+                                  n=24, grid(6, 4, 500mm x 300mm),
+                                  frame=sheet.center) when bed = b600
+                inserts_900 = PatternOf<Bore(dia 7.9mm, depth=13mm)>(
+                                  n=40, grid(8, 5, 700mm x 400mm),
+                                  frame=sheet_900.center) when bed = b900
+            then:
+                surface = FaceMill(on=sheet.top, depth=0.5mm)
+                # the first of many surfacing passes; 6mm of the 18mm
+                # thickness is the declared consumable allowance
+
+    require Function:
+        # M6 x 13mm brass insert in 18mm MDF: pull-out from the insert
+        # vendor's MDF table; clamping a 25mm hardwood blank pulls
+        # ~900N through one insert at the survey corner
+        pullout: mech.pullout_force(routed.inserts_600.any) >= 1.8 kN,
+                     sf=2.0
+        # remaining thickness under the deepest insert bore after the
+        # full surfacing allowance is spent:
+        floor:   18mm - 13mm - 6mm >= -1.5mm
+        # (negative floor is FINE -- inserts sit proud of the final
+        # surfaced plane and get faced off; the claim documents the
+        # consumable math. Arithmetic claims over bare lengths are
+        # legal quantity-core expressions.)
+
+    require Manufacture:
+        makeable: manufacturable(routed)
+        cost:     mfg.unit_cost(qty=100) <= 35 USD

@@ -1,0 +1,149 @@
+# Burin shared contract pack (mech home) -- every structural file
+# imports THIS instead of importing each other (substrate 11 sec. 9
+# rule 3: contracts break dependency cycles; the axis module needs the
+# gantry's mounting deck and the gantry needs the axis's carriage --
+# both import this pack, neither imports the other). Interface shape
+# per mech 02 sec. 5 / substrate 10; promise slots carry the loads and
+# stiffnesses the machine-level positioning budget consumes.
+
+# ---- Axis module boundary: what an axis bolts DOWN to and what rides
+#      ON it. Parametric contracts monomorphize with the axis (D119:
+#      generic module under real load).
+
+interface AxisFoot<n: int, span: length>:
+    frame:
+        origin: feet.pattern_center
+        z: feet.plane.normal
+    roles:
+        feet: geom.hole_pattern(dia 6.6mm, n=n, along(span))
+    tolerances:
+        feet: geom.position(+-0.1mm, to=frame)
+    loads:
+        # worst cutting reaction routed through the mount, promised by
+        # the axis, consumed by the frame/gantry stress claims:
+        shear:  derived(sf=1.5)
+        moment: derived(sf=1.5)
+
+interface CarriageDeck<w: length>:
+    frame:
+        origin: deck.center
+        z: deck.normal
+    roles:
+        deck:  geom.plate(w x 90mm, t=15mm)
+        holes: geom.hole_pattern(tapped=M5, n=4, rect(0.75 * w x 70mm))
+    tolerances:
+        deck: geom.flatness(0.02mm)
+    stiffness:
+        # the axis promises how stiff its moving deck is; the
+        # positioning budget spends it (mech 02 sec. 5 promise slots):
+        lateral: >= 20 kN/mm
+
+interface NutSeat<circle: length>:
+    # ballnut flange seat on the carriage: pilot bore + flange taps
+    frame:
+        origin: pilot.axis
+        z: pilot.axis
+    roles:
+        pilot: cylindrical(d=28mm), internal
+        taps:  geom.hole_pattern(tapped=M5, n=6, circular(circle))
+    tolerances:
+        pilot: tol_class(H7)
+
+# ---- Gantry structure.
+
+interface BeamEnd:
+    frame:
+        origin: face.center
+        z: face.normal
+    roles:
+        face:  geom.plate(160mm x 80mm, t=8mm)
+        bolts: geom.hole_pattern(tapped=M8, n=6, rect(130mm x 60mm))
+    tolerances:
+        face: geom.perpendicularity(0.03mm, to=frame)
+
+interface ShoulderSeat:
+    frame:
+        origin: seat.center
+        z: seat.normal
+    roles:
+        seat:  geom.plate(160mm x 80mm, t=20mm)
+        bolts: geom.hole_pattern(dia 8.4mm, n=6, rect(130mm x 60mm))
+
+# ---- Spindle mounting: the clamp ring bore on the Z carriage vs the
+#      purchased spindle's ground body. The spindle side is a
+#      RETRO-CONTRACT over a sealed STEP import (mech 02 sec. 2).
+
+interface ClampBore<d: length>:
+    frame:
+        origin: bore.axis
+        z: bore.axis
+    roles:
+        bore: cylindrical(d=d), internal
+    tolerances:
+        bore: tol_class(H7)
+
+interface SpindleBody<d: length>:
+    frame:
+        origin: body.axis
+        z: body.axis
+    roles:
+        body: cylindrical(d=d), external
+        nose: geom.plane(at=body.bottom)
+    thermal:
+        # dissipation promise chain (D119): the VFD file promises the
+        # electrical loss, the spindle's zones receive it, the machine
+        # thermal-growth claim spends it. Value arrives by catalog.
+        dissipation: <= 180 W
+
+# ---- Bed and frame seats.
+
+interface BedSeat<n: int>:
+    frame:
+        origin: pads.pattern_center
+        z: pads.plane.normal
+    roles:
+        pads: geom.hole_pattern(dia 8.4mm, n=n, rect(560mm x 460mm))
+    tolerances:
+        pads: geom.flatness(0.08mm)     # frame-side machined pads
+
+# ---- Matings. dof ledgers per mech 03; capability = provider
+#      envelope, demand <= capability as everywhere.
+
+mating AxisMount:
+    between: a: ShoulderSeat, b: AxisFoot
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    capability:
+        shear:  <= 4 kN
+        moment: <= 120 N*m
+
+mating CarriageMount:
+    between: a: CarriageDeck, b: AxisFoot
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+
+mating BeamJoint:
+    between: a: ShoulderSeat, b: BeamEnd
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    preload: 12 kN, scatter=[0.75, 1.25]   # 6 x M8 at 22 N*m, dry
+
+mating SpindleClamp:
+    between: a: ClampBore, b: SpindleBody
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    fit:     H7/h6                          # clamp closes the last microns
+    effects:
+        # the clamp ring is the spindle's conduction path into the Z
+        # carriage; heat routing consumed by machine.hema thermal claims
+        model<clamped_ring_conduction>(w=20mm)
+            applies -> a: heat(b.thermal.dissipation)
+
+mating BedMount:
+    between: a: BedSeat<6>, b: BedSeat<6>
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    redundant(normal)   # 6 pads on a 20mm plate: statically indeterminate
+                        # by design; routes through the compliance solve
+                        # and couples pad flatness misfit into bed loads
+                        # (mech 04 sec. E `redundant`)

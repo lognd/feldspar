@@ -1,0 +1,14 @@
+# BREAKS: a declaration body statement that cannot start any grammar
+#   production (regolith-syntax grammar; a genuine in-body malformation).
+# EXPECT: E0193
+# The `bad` part is poisoned; `good` is a clean sibling subject in the
+# SAME file and must still lower to an obligation (INV-20 check gating:
+# a poisoned subject does not block an unrelated clean one).
+part bad:
+    )
+    x: 1
+
+part good:
+    material: AISI_304
+    require Structural:
+        clean: 1N <= 5N

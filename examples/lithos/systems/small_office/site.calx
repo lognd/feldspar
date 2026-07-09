@@ -1,0 +1,20 @@
+# small_office: site truth + shared datums (calcite/02 sec. 1).
+# One `site` per project root; every other file consumes these
+# entries by import -- declared once, record-cited, never repeated.
+
+site ElmStreet:
+    boundary:
+        wind_speed:   [0m/s, 49m/s]             by catalog(asce7_fig26)
+        ground_snow:  2.2kPa                    by catalog(asce7_fig7)
+        seismic_sdc:  C                         by catalog(usgs_2023)
+        frost_depth:  1.1m                      by catalog(county_gis)
+        climate_zone: 5A                        by catalog(iecc_fig301)
+    soil:
+        bearing:      [150kPa, 210kPa]          by test(geotech_e0088)
+        class:        registry(site_class_d)
+
+grid cols: A, B, C, D spacing 7.2m
+grid rows: 1, 2, 3 spacing 6.0m
+level ground: 0m
+level second: 3.6m
+level roof:   7.2m

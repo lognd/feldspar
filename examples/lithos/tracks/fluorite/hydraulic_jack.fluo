@@ -1,0 +1,40 @@
+# Bottle-jack hydraulic circuit -- exercises: the `Imposer` cross-track
+# component (driven_by= a mech handle-force promise, fluorite/02 sec.
+# 3), a volume_consumed compliance budget (fluorite/02 sec. 6 budget
+# form), and a `peak` claim on the release event (fluorite/03 sec. 4
+# structural coupling).
+
+import std.fluorite (Pipe, Imposer, CheckValve, Valve)
+
+medium HydOil: liquid
+    props: registry(iso_vg32_hydraulic)
+
+flownet JackCircuit(medium=HydOil):
+    reference: ambient(101kPa, 293K)
+    nodes: pump_out, cv_out, ram_in
+    edges:
+        pump:   Imposer(p=handle_force * lever_ratio / area(19.05mm),
+                         driven_by=handle.applied_force)
+                                                 (ambient -> pump_out)
+        cv:     CheckValve(crack_dp=50kPa)      (pump_out -> cv_out)
+        ram:    Pipe(from=ram_tube.run)         (cv_out -> ram_in)
+        release: Valve(cv=8.5, states={open, closed} | position in [0,1])
+                                                 (ram_in -> ambient)
+    states:
+        release.position in {closed, open}
+        event release.open: commanded by op.release_lever
+
+require Capacity:
+    # the ram must reach rated lift pressure at full handle stroke.
+    lift: fluids.pressure(ram_in) >= 15MPa
+    # compliance budget: the hose/tube network must not consume more
+    # volume than the pump's per-stroke displacement (fluorite/02 sec.
+    # 6 budget form; E0432 family per fluorite/03 sec. 1).
+    budget: fluids.volume_consumed([pump, cv, ram], at=15MPa)
+                < 0.85 * pump_stroke_displacement
+
+require Release:
+    # worst pressure spike on lowering (adverse-direction peak,
+    # fluorite/02 sec. 6 temporal note).
+    hammer: peak(fluids.pressure(ram_in),
+                within 50ms after release.open) < 18MPa

@@ -1,0 +1,14 @@
+# BREAKS: an under-determined/disconnected stiffness or statics network
+#   (WO-23 numeric solve: a singular or rank-deficient assembly).
+# EXPECT-TODO: E0440
+# Self-calibration: `SINGULAR_SYSTEM` (E0440) is wired and unit-tested
+# directly against `regolith_ir::solve` (`stiffness.rs`, `statics.rs`,
+# `sketch.rs`), but reproducing it through a real `.hema` source file
+# needs a full part/stage/mating pipeline reaching the numeric solver;
+# no such minimal source-level trigger was found within this authoring
+# pass. Recorded as EXPECT-TODO pending a source-level fixture. See
+# README candidate finding.
+part p:
+    material: AISI_304
+    require Structural:
+        floating: mech.deflection(p.tip, under=1N) < 0.1mm

@@ -1,0 +1,10 @@
+# BREAKS: an illegal logarithmic-unit sum -- two power-in-dBm terms
+#   summed leaves more than one reference surviving (regolith/02 sec. 5a).
+# EXPECT: E0104
+block Amp:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+    require Gain:
+        bad: 10dBm + 10dBm <= 30dBm

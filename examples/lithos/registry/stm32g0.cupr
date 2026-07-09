@@ -1,0 +1,59 @@
+# Component record #1 of 3 for EOPEN-12 (settled, cycle 7): how
+# alternate functions, speed grades, and mode-dependent capability are
+# declared so pin-mux stays a clean monomorphized matching problem.
+# The STM32G0's functions are ATOMIC (uart2.tx is one assignable
+# thing), so the flat pin->function table below suffices and no
+# `function_modes:` table is needed. Records whose function instances
+# constrain roles per mode (SAMD21 SERCOM pads) or follow column rules
+# / wildcards (RP2040 PIO) add `function_modes:` -- see atsamd21.cupr
+# (F85) and rp2040.cupr.
+#
+# NOTE: package pin maps legitimately live HERE, in the registry --
+# "pins never appear in source" means DESIGN source. The record is the
+# one place a human transcribes the datasheet; every design consumes it
+# by reference.
+
+component st.stm32g071cb:
+    class: mcu(cortex_m0plus)
+    evidence: by catalog(st_ds12232_rev6)      # hash-pinned datasheet
+
+    limits:                                    # absolute-max as intervals
+        vdd:   [1.7V, 3.6V]
+        t_j:   [-40degC, 125degC]
+        i_pin: <= 20mA
+        i_vdd: <= 100mA
+
+    derating:
+        i_pin: f(t_j)                          # table ref in the pack
+        f_max: f(vdd)                          # 64MHz above 2.7V, else 16MHz
+
+    resources:                                 # computer-track promises
+        executor: >= 59Mops i32 sustained, by test(coremark_g071)
+        sram:     36kB
+        flash:    128kB, endurance >= 1e4 cycles
+        movers:   dma x 7
+
+    functions:                                 # what pin-mux allocates
+        buses:  uart x 4, spi x 2, twi x 2
+        timers: pwm_capable x 11
+        analog: adc(12bit, 2.5Msps) x 1 (in x 16)
+
+    packages:
+        lqfp48:
+            # Table-valued roles (EOPEN-12, settled D58): each pin lists
+            # the function instances it can carry. The pin-mux solver
+            # assigns function -> port -> pin over these tables,
+            # subject to the ERC ledgers; every assignment is
+            # lockfile-caused (planner(pinmux ...)).
+            pa2:  {uart2.tx, tim15.ch1, adc.in2}
+            pa3:  {uart2.rx, tim15.ch2, adc.in3}
+            pb6:  {twi1.scl, uart1.tx, tim16.ch1}
+            pb7:  {twi1.sda, uart1.rx}
+            # ... (full table transcribed by the pack, not by users)
+
+    straps:                                    # must be bound or defaulted
+        boot0: {flash_boot: low, sysmem_boot: high}, default=flash_boot
+
+    models:
+        power: model<mcu_power_modes>(run, stop0, stop1, standby)
+        # per-mode current intervals f(vdd, f_clk); feeds energy claims

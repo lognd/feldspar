@@ -1,0 +1,21 @@
+# BREAKS: an exactly-constrained sketch whose declared constraint values
+#   leave a nonzero closure residual (WO-23, hematite/07 OPEN-5/D65:
+#   mutually inconsistent constraints, not merely under/over-counted).
+# EXPECT-TODO: E0441
+# Self-calibration: `SKETCH_RESIDUAL_INCONSISTENT` (E0441) is wired and
+# unit-tested directly against `regolith_ir::solve::sketch`, but a
+# profile-only fixture (no owning stage) lowers clean -- the solver
+# only runs once a profile is consumed by a real stage. Recorded as
+# EXPECT-TODO pending a source-level trigger. See README candidate
+# finding.
+profile Bad:
+    walk:
+        from left_edge
+        line right
+        line up
+        line left
+        close
+    constraints:
+        a.length = 80mm
+        b.length = 50mm
+        a.length = 90mm

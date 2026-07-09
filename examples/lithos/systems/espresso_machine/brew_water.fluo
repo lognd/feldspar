@@ -1,0 +1,156 @@
+# Brew water path -- reservoir -> pump -> flowmeter -> brew boiler ->
+# three-way valve -> gicleur -> group -> puck. Fluorite customer #5,
+# the FIRST written against the RATIFIED spec (docs/spec/fluorite/02, D93)
+# rather than the draft. Exercises: pump as curve-record imposer, a
+# declared net-level line-up variable for the three-way solenoid,
+# free-parameter gicleur resolved by the claims, the water-hammer
+# peak that FEEDS the mech vessel boundary (fluorite 03 sec. 4),
+# settles() on brew ramp, NPSH at the hot-tank corner, and the
+# volume-compliance + leak budgets.
+#
+# NOT checkable until WO-31 (the extension registry ignores .fluo);
+# hand-validated against docs/spec/fluorite/02 -- every construct below
+# appears there or in the quantity-core claim vocabulary 02 sec. 6
+# imports wholesale. Gaps met while writing are RECORDED in
+# README.md ("Candidate findings"), never invented around.
+
+medium BrewWater: liquid
+    props: registry(water_iapws_liquid)     # rho(T), mu(T), pv(T)
+
+flownet BrewPath(medium=BrewWater):
+    reference: reservoir(101kPa, 296K)
+    # ONE reference node stands in for three physically distinct
+    # atmospheric terminations (tank surface, drip tray, cup) --
+    # 02 sec. 4 admits ">= 1" reference per subnet but names no
+    # syntax for a second; see README CF-4.
+    nodes: pump_in, pump_out, fm_out, ck_out, boiler_in, boiler_out,
+           v3_com, group_in, group_out, fill_in, svc_liq
+    edges:
+        pickup:  Pipe(from=Reservoir.pickup)     (reservoir -> pump_in)
+        pump:    Pump(curve=registry(ulka_ex5_230v_50hz))
+                                                 (pump_in -> pump_out)
+                 # 48W vibratory pump; head-flow + NPSH_r curves from
+                 # the vendor record, hash-pinned
+        fm:      vendor(digmesa_fhksc)           (pump_out -> fm_out)
+                 # gear flowmeter: hydraulically a datasheet dp curve.
+                 # Its PULSE OUTPUT is the controller's sense_flow
+                 # intent -- fluorite has no sensing crossing, only
+                 # actuation events (02 sec. 5); README CF-3.
+        opv:     CheckValve(crack_dp=1.1MPa)     (pump_out -> reservoir)
+                 # expansion/OPV: 11 bar gauge static ceiling, spills
+                 # back to the tank
+        ck:      CheckValve(crack_dp=20kPa)      (fm_out -> ck_out)
+        line:    Hose(compliance=registry(ptfe_braided_4mm))
+                                                 (ck_out -> boiler_in)
+                 # record-bound compliance: the braided supply line's
+                 # swell is a first-class edge parameter (02 sec. 3)
+        boiler:  Plenum(v=0.8L)                  (boiler_in -> boiler_out)
+                 # the brew vessel runs flooded; its wall compliance
+                 # extraction (03 sec. 1) feeds the swell budget below
+        v3_sup:  Valve(cv=0.25, states={open, closed})
+                                                 (boiler_out -> v3_com)
+        v3_vent: Valve(cv=0.25, states={open, closed})
+                                                 (v3_com -> reservoir)
+                 # v3_sup + v3_vent ARE one three-way solenoid; the
+                 # complementary binding of their positions to the
+                 # declared line-up variable below is not expressible
+                 # in 02 -- README CF-1
+        gicleur: Orifice(cd=0.62, dia=free)      (v3_com -> group_in)
+                 # free: resolved by the orchestrator's lazy loop
+                 # against the ramp + flow claims (02 sec. 3);
+                 # expected resolution ~0.6mm
+        chamber: Pipe(from=GroupHead.brew_gallery)
+                                                 (group_in -> group_out)
+        puck:    Orifice(cd=0.62, dia=0.35mm)    (group_out -> reservoir)
+                 # the coffee puck, hand-pinned at a nominal grind:
+                 # its resistance is really a per-shot BOUNDARY
+                 # DOMAIN, a parameter kind 02 does not have --
+                 # README CF-6
+        fill_v:  Valve(cv=0.2, states={open, closed})
+                                                 (pump_out -> fill_in)
+        fill_ck: CheckValve(crack_dp=30kPa)      (fill_in -> svc_liq)
+        svc_bp:  Imposer(p=shell_p, driven_by=SteamService.shell_p)
+                                                 (reservoir -> svc_liq)
+                 # the autofill line pushes against the service
+                 # boiler's liquid side; its back-pressure is the
+                 # steam net's shell-pressure PROMISE entering
+                 # through driven_by= -- a cross-FLOWNET promise, a
+                 # chain 03 only demonstrates cross-TRACK; README
+                 # CF-5
+    states:
+        v3_sup.position  in {open, closed}
+        v3_vent.position in {open, closed}
+        fill_v.position  in {open, closed}
+        state v3 in {brew, release}      # declared net-level line-up
+                                         # variable (02 sec. 4); brew =
+                                         # sup open/vent closed,
+                                         # release = the complement
+                                         # (the CF-1 binding, prose-
+                                         # only today)
+
+# The one event ledger, fluid side (02 sec. 5: the cuprite crossing).
+# These are THE SAME datums controller.cupr's sequencing emits.
+event v3.brew:    commanded by EspressoController.cmd_v3
+event v3.release: commanded by EspressoController.cmd_v3
+event fill.open:  commanded by EspressoController.cmd_fill
+event fill.close: commanded by EspressoController.cmd_fill
+
+require Extraction:
+    # all pressures ABSOLUTE; espresso-speak gauge in comments
+    pressure: fluids.pressure(group_in) in [950kPa, 1050kPa]
+                  given v3 = brew
+              # 8.5..9.5 bar gauge at the group: THE number espresso
+              # lives by; pump curve minus supply-chain dp at shot flow
+    flow:     fluids.mdot(puck) in [1.5g/s, 2.5g/s]
+                  given v3 = brew
+              # ~2mL/s nominal shot flow at the pinned puck
+    supply_dp: fluids.dp(pump_out -> boiler_in) <= 30kPa
+                  given v3 = brew
+              # flowmeter + check valve + braided line losses stay
+              # inside 0.3 bar so the OPV, not the plumbing, sets
+              # the ceiling
+
+require Pump:
+    npsh: fluids.npsh_margin(pump) > 1.5m, sf=1.3
+              given T_tank = 45degC
+          # the HOT-inlet corner: interior soak (machine.hema TS-2)
+          # warms the reservoir; pv(45degC) ~ 9.6kPa eats the
+          # suction margin of an above-tank vibratory pump
+
+require Lineup:
+    vented: fluids.pressure(group_in) <= 120kPa
+                given v3 = release
+            # group blows down through v3_vent to the tray: < 0.2 bar
+            # gauge residual before the portafilter unlocks
+
+require Transients:
+    hammer: peak(fluids.pressure(boiler_out),
+                within 50ms after v3.release) < 1.4MPa
+            # water hammer at solenoid close: THE promise the mech
+            # side consumes -- machine.hema's brew_pressure ceiling
+            # (14 bar) and both vessels' hoop claims sit on this peak
+            # (fluorite 03 sec. 4, fluid -> structural crossing).
+            # Wave speed comes from the line/gallery compliance
+            # extraction (03 sec. 1).
+    ramp:   settles(fluids.pressure(group_in), to=+-3%,
+                within 1500ms after v3.brew)
+            # brew ramp: compliance budget + gicleur sizing close
+            # this; slower than 1.5s tastes like channeling, faster
+            # hammers the puck
+
+require Fill:
+    fill_flow: fluids.mdot(fill_ck) in [4g/s, 10g/s]
+                   given fill_v.position = open, v3 = release
+               # autofill tops the service boiler between shots
+
+require Budgets:
+    swell: fluids.volume_consumed(all_edges, at=950kPa) < 3mL
+           # E61-group compliance budget: hose swell + group chamber
+           # + boiler wall growth consume pump strokes before the
+           # puck sees pressure; 3mL is 1.5s of nominal shot flow --
+           # the ramp claim's twin (compliance budget form, 02 sec. 6)
+    leaks: fluids.leak_total(BrewPath) < 0.2mL/min
+           # budget over the fitting/seal contributors; each
+           # FittingPort's 0.02mL/min promise (fittings.hema) enters
+           # through the promise chain -- one quantity kind, one
+           # budget owner: this flownet (D93)

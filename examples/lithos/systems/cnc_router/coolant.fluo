@@ -1,0 +1,100 @@
+# Burin flood-coolant circuit -- the D119 fluorite pressure test.
+# Written against the RATIFIED fluorite spec (fluorite 02/03, cycle
+# 20 / D93). NOTE: `.fluo` is invisible to `regolith check` until
+# WO-31 registers the extension -- this file is a SPEC pressure test,
+# not a checked artifact; see README.
+#
+# Topology: tank -> strainer -> pump (curve imposer) -> filter ->
+# solenoid valve -> tee -> two nozzle orifices at the tool, gravity
+# return to the tank over the bed drain moat. The pump/valve states
+# bind to machine_elec.cupr's `m8_flood` event -- one event ledger
+# across tracks (fluorite 02 sec. 5).
+
+medium CoolantMix: liquid
+    props: registry(semisynthetic_5pct)   # rho(T), mu(T), pv(T);
+                                          # 5% emulsion, 15-40degC
+                                          # published range = domain
+
+flownet FloodCoolant(medium=CoolantMix):
+    reference: ambient(101kPa, 298K)      # open tank surface: the
+                                          # pressure/temperature
+                                          # reference (>=1 per subnet)
+    nodes: tank_out, pump_in, pump_out, filt_out, mv_dn,
+           tee, noz_a_in, noz_b_in
+    edges:
+        strain: Filter(dp_curve=registry(mesh_500um))
+                    (tank_out -> pump_in)
+        pump:   Pump(curve=registry(cw_2506_40w))
+                    (pump_in -> pump_out)
+                # 40W centrifugal: 8 L/min free flow, 3.2m shutoff
+                # head; the curve record is the subnet's pressure
+                # imposer (fluorite 02 sec. 4 discipline)
+        filt:   Filter(dp_curve=registry(paper_25um))
+                    (pump_out -> filt_out)
+        mv:     Valve(cv=1.2, states={open, closed})
+                    (filt_out -> mv_dn)
+        line:   Hose(compliance=registry(pvc_braided_10mm))
+                    (mv_dn -> tee)
+                # 2.8m braided PVC up the drag chain; record-bound
+                # compliance feeds the valve-slam transient claim
+                # (fluorite 03 sec. 1: record precedence over wall
+                # extraction; there is no TubeRun part to extract
+                # from in this corpus)
+        leg_a:  Hose(compliance=registry(pvc_braided_10mm))
+                    (tee -> noz_a_in)
+        leg_b:  Hose(compliance=registry(pvc_braided_10mm))
+                    (tee -> noz_b_in)
+        noz_a:  Orifice(cd=0.65, dia=1.5mm)
+                    (noz_a_in -> tank_out)
+        noz_b:  Orifice(cd=0.65, dia=1.5mm)
+                    (noz_b_in -> tank_out)
+                # both nozzles discharge to tank pressure: the return
+                # path closes through the reference -- arrow sense is
+                # NAMING, not flow assertion (fluorite 02 sec. 4)
+    states:
+        mv.position in {closed, open}
+        # bound to machine_elec.cupr's `m8_flood` event: the commanded
+        # transition is `event mv.open: commanded by
+        # RouterControl.m8_flood` -- the cuprite crossing, one datum
+        # in one ledger (fluorite 02 sec. 5)
+
+require Flood:
+    # delivered flow at the tool, both nozzles, worst corner (hot
+    # emulsion, dirty filter end-of-life dp):
+    flow:    fluids.mdot(noz_a) + fluids.mdot(noz_b) >= 2.5 L/min
+    balance: fluids.flow_imbalance([noz_a, noz_b]) < 10%
+             # INV-4 givens-invariance: the tee legs differ (0.4m vs
+             # 0.7m), so symmetry does NOT license verify-one; both
+             # legs solve (fluorite 03 sec. 3)
+    jet:     fluids.dp(noz_a_in -> tank_out) >= 55kPa
+             # 1.5mm jet needs ~10 m/s to clear chips at the flute
+    margin:  fluids.dp(pump_out -> tank_out) <= 28kPa
+             # line + filter losses must leave the nozzles their share
+             # of the pump's 32kPa at the 2.5 L/min operating point
+
+require Pump:
+    npsh:   fluids.npsh_margin(pump) > 1.5m, sf=1.3
+            # hot tank corner: 40degC emulsion pv(T) against a 0.3m
+            # static lift from a low tank -- the classic dry-Monday
+            # failure, caught by the record's vapor curve
+    regime: fluids.reynolds(line) in [3e3, 1e5]
+            # tag-shaped screening; the discharging model reports
+            # which correlation-domain tags hold (D97 regime channel)
+    prime:  settles(fluids.mdot(noz_a), to=+-5%,
+                within 3s after mv.open)
+
+require Transient:
+    # solenoid slams in ~15ms: the braided-line compliance (record)
+    # bounds the surge at the filter bowl -- plastic bowls crack
+    # around 400kPa:
+    slam: peak(fluids.pressure(mv_dn), within 50ms after mv.close)
+              < 250kPa
+
+require Housekeeping:
+    leaks: fluids.leak_total(FloodCoolant) < 5scc/s
+           # budget over fitting/seal contributors; each fitting's
+           # own seal leakage arrives as a mech interface promise
+           # through the ordinary promise chain (D93)
+    drain: fluids.volume_consumed(all_edges, at=101kPa) < 0.4 L
+           # the drag-chain loop must not hold enough coolant to
+           # flood the Z bellows when the machine parks nose-down

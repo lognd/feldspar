@@ -1,0 +1,72 @@
+# Digitally-controlled buck converter -- THE continuous-discrete
+# feedback pressure test that decided EOPEN-7 (event-bounded hybrid
+# semantics, D32): a continuous plant (LC + load), a sampled control
+# loop (`adc` port + clocked PI law), and a discrete-to-continuous
+# actuator (`pwm` port). Every coupling between the worlds is a
+# declared converter port; converters are non-instantaneous by
+# construction, so algebraic loops across the boundary cannot form.
+
+import std.elec.power (Inductor, Capacitor, Mosfet, Diode)
+
+block DigitalBuck<v_out: voltage = 3.3V, i_max: current = 3A>:
+    ports:
+        vin:      supply(in, [6V, 18V])
+        out:      supply(out, v_out +- 1.5%, i <= i_max)
+        gnd:      reference
+        ctrl_clk: clock(200kHz)
+    params:
+        l:  inductance  = in [4.7uH, 22uH]
+        c:  capacitance = in [22uF, 100uF]
+        kp: ratio       = in [0.01, 0.5]
+        ki: ratio       = in [1e-4, 1e-2]
+
+    spec:
+        # --- continuous plant: DAE between event instants ---
+        continuous:
+            i(l1) ' = (v(sw) - v(out)) / l
+            v(out) ' = (i(l1) - i(load)) / c
+
+        # --- converter ports: the ONLY continuous/discrete contact ---
+        vs = adc(v(out), sample=ctrl_clk.rise, bits=12,
+                 err=+-2 lsb)               # error feeds the reg budget
+        sw = pwm(duty, update=ctrl_clk.rise, model=zoh)
+        # sample takes the pre-instant value; the duty update takes
+        # effect after the instant (ZOH) -- non-instantaneous by
+        # construction (D32 rule 4)
+
+        # --- sampled control law: synchronous-reactive at ctrl_clk ---
+        on ctrl_clk.rise:
+            err_acc <= err_acc + (v_ref - vs)
+            duty    <= clamp(kp * (v_ref - vs) + ki * err_acc, 0.05, 0.95)
+        # NOTE: writing `v(out)` here directly (not `vs`) is a compile
+        # error naming the converter port kinds -- the continuous/
+        # discrete analog of an undeclared clock-domain crossing.
+
+    event load_step: step(i(out), 1A/us)
+
+    require Regulation:
+        settle:  settles(v(out), to=+-1.5%, within 300us after load_step)
+        ripple:  rms(v(out), band=[100kHz, 20MHz]) < 15mV
+    require Stability:
+        # discrete-time loop claim (F44); cheap tier: averaged
+        # small-signal model; expensive tier: time-domain limit-cycle
+        # simulation. Margin-driven selection as everywhere.
+        margin:  elec.phase_margin(loop(vs -> sw)) >= 45deg
+        no_limit_cycle: elec.limit_cycle(loop(vs -> sw)) = none
+        # `= none` is discrete equality (an enum), not the banned
+        # continuous ==
+
+impl DigitalBuck by circuit:
+    then:
+        q1 = Mosfet(kind=nmos, v_ds >= 30V, r_ds_on <= 20mohm)
+        d1 = Diode(kind=schottky, v_r >= 30V, i_f >= 1.2 * i_max)
+        l1 = Inductor(l=l, i_sat >= 1.3 * i_max)
+        c_o = Capacitor(c=c, v_rated >= 6.3V, x7r)
+    nets:
+        swn:  (q1.source, d1.cathode, l1.a)
+        inn:  (vin, q1.drain)
+        outn: (l1.b, c_o.a, out)
+        gndn: (gnd, d1.anode, c_o.b)
+    # gate drive for q1 realizes from the pwm converter port; the
+    # driver block is derived (or written explicitly by whoever wants
+    # this stage of the chain to be theirs).

@@ -1,0 +1,62 @@
+# Engine assembly -- system claims: performance, transients, 2-D
+# operating domain, proof factors. Anchors: G29 (2-D grid coverage),
+# G30 (performance chain = pure cross-namespace routing), G31
+# (referenced units: Isp), G32 (proof-vs-operating claim pairs).
+
+import Liner (from chamber.hema)
+import InjectorHead (from injector.hema)
+import FuelFeedTube (from feed_lines.hema)
+import EngineController (from engine_controller.cupr)
+
+assembly RegenEngine:
+    parts:
+        liner:    Liner
+        injector: InjectorHead
+        feed:     FuelFeedTube
+        ctrl:     EngineController
+
+    boundary:
+        pc:       [18bar, 22bar]
+        mr:       [2.0, 2.6]                  # O/F mixture ratio, "1"
+        throttle: [0.6, 1.0]
+        ambient:  [230K, 320K]
+        design_life: 300 starts, 8hr hotfire
+
+    event startup:  ramp(thermo.pressure(chamber), 0 -> pc, 400ms)
+    event shutdown: ramp(thermo.pressure(chamber), pc -> 0, 150ms)
+
+    require Performance:
+        # G30: the chain c*(CEA equilibrium, external tool tier) ->
+        # Cf(nozzle relations) -> thrust -> Isp is a pure feldspar
+        # ROUTE across thermo/fluids/prop namespaces; regolith sees
+        # one claim per line. G31: Isp "s" is a g0-REFERENCED unit
+        # (ve/g0) -- an ingest view, like dB (regolith/02 sec. 5a).
+        thrust: prop.thrust(engine) >= 2.0kN at throttle=1.0
+        isp:    prop.isp_vac(engine) >= 285s
+        cstar:  forall mr in [2.0, 2.6], throttle in [0.6, 1.0]:
+                    prop.cstar_efficiency(engine) >= 0.92
+        # G29: a 2-D forall -> ONE swept obligation over a 2-D domain;
+        # coverage must state grid(k x m) or corner+monotonicity PER
+        # AXIS -- the bare-float coverage gap (OPEN-8) squared.
+
+    require Transients:
+        start_ok: settles(thermo.pressure(chamber), to=+-5%,
+                      within 600ms after startup)
+        no_spike: peak(thermo.pressure(chamber), during startup)
+                      < 1.3 * pc
+        chill_ok: stays_within(thermo.temperature(liner.throat_band),
+                      mask=startup_envelope, during startup)
+
+    require Proof:
+        # G32: proof-test claims are the OPERATING claims re-run at
+        # scaled givens (1.5x pc, ambient T) -- a claim TRANSFORM, not
+        # new physics. Today: written out longhand as near-duplicates
+        # of Structural.* with scaled boundaries (duplication smell;
+        # candidate lithos sugar, NOT a feldspar concern -- the
+        # solver graph answers both from the same registrations).
+        proof_stress: peak(mech.stress.von_mises, at=liner.throat_band)
+                          < material.sigma_y(T_ambient) / 1.1
+                          given pc = 33bar, coolant = flowing
+
+    require Fatigue:
+        life: mech.life(all, under=boundary.design_life) >= 1.0, sf=4

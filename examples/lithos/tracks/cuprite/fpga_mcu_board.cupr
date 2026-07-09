@@ -1,0 +1,142 @@
+# FPGA + MCU frame grabber -- exercises: two clock domains with a
+# declared CDC crossing, `arbitrate` on a real bidirectional bus,
+# `bind` mixing buy (MCU) and build (RTL on a purchased FPGA), host
+# binding of a synthesized block (EOPEN-17), two images loaded in one
+# `programmed` stage, level-shift fit, `discard`, and the analog net
+# discipline at board level (elec 03 sec. 2). This example's cycle-2
+# observations fed the now-settled event-bounded hybrid semantics
+# (elec 03 sec. 1a); the continuous-discrete half was decided by
+# sampled_buck.cupr.
+
+import std.intents
+import std.elec.families (cmos_3v3, lvcmos18)
+import std.elec.buses (BusAttach, LevelShift, async_fifo)
+import std.compute (executor, mover)
+
+system FrameGrabber:
+    boundary:
+        supply:  dc(5V +- 5%, usb_powered)
+        ambient: [0degC, 60degC]
+        emc:     residential(CISPR_11_B)
+
+    intents:
+        capture: sense(image(vga_8bit, 30fps)):
+            latency: <= 40ms
+        crunch: compute(threshold_filter):
+            rate:    30fps
+            latency: <= 10ms
+        offload: communicate(usb_device):
+            rate: >= 9.2MB/s
+
+    flows:
+        capture -> crunch
+        crunch -> offload
+
+# ---- The built block: an abstract contract with an RTL spec spanning
+#      two clock domains; the crossing is a declared mating, never
+#      implicit. ----
+
+block PixelPipe<w: int = 640, h: int = 480>:
+    ports:
+        pix_in:   bus(dvp, domain=cam_clk)
+        pix_out:  bus(fmc_slave, domain=core_clk)
+        cam_clk:  clock(24MHz)
+        core_clk: clock(100MHz)
+    spec:
+        on cam_clk.rise:
+            line_buf[wr_ptr] <= pix_in.data when pix_in.valid
+            wr_ptr <= wr_ptr + 1 when pix_in.valid
+        on core_clk.rise:
+            pix_out.data <= 255 when line_buf[rd_ptr] > thresh else 0
+            rd_ptr <= rd_ptr + 1 when pix_out.ready
+    connect:
+        # the ONLY path between the domains:
+        xing: async_fifo<depth=1024>(a=cam_clk.domain, b=core_clk.domain)
+    promises:
+        timing.latency(pix_in -> pix_out): <= 2 lines
+    require Throughput:
+        keep_up: info.data_rate(pix_out) >= 9.2MB/s
+
+impl PixelPipe by spec        # synthesizable subset; RTL path
+
+# ---- Computer track: buy the control side, build the pixel side. ----
+
+computer GrabCtl:
+    workloads:
+        pipe: stream(9.2MB/s, latency <= 10ms) realizes crunch
+        usb:  stream(out, 9.2MB/s, latency <= 30ms) realizes offload
+    require Capacity:
+        headroom: info.utilization(all) <= 70%
+
+bind GrabCtl:
+    cpu0 = vendor(stm32f723)            # buy: catalog + coremark evidence
+    pipe = PixelPipe() hosted_on u_fpga
+    # PixelPipe has exactly one impl (the implicit-eligible `by spec`
+    # above), so no `use` pin is needed; several coexisting impls would
+    # take `as` names and a `use <name>` pin (see mux6to64.cupr).
+    # Host binding (EOPEN-17): normally planner-allocated
+    # (cause: planner(host pipe -> u_fpga)); pinned here because the
+    # DVP port's lvcmos18 standard forces a bank whose Vccio is 1.8V
+    # -- the IO-banking half of the capability match. The bank
+    # assignment itself stays derived and lockfile-caused.
+
+board FrameGrabberPcb:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+    stage programmed: from=assembled
+        firmware  = load(grab_fw)       # two independent loads, one
+        bitstream = load(pix_bits)      # scope; each hash-pinned
+
+    # Mixed-altitude escape: the two big parts written structurally.
+    then:
+        u_mcu  = vendor(stm32f723)
+        u_fpga = vendor(ice40up5k)
+        cam    = vendor(ov7670_module)
+
+    connect:
+        # Bidirectional external memory bus: the data lanes are shared
+        # drive BY PROTOCOL; the arbitration is declared, and "no two
+        # drivers enabled" becomes a checkable claim against the
+        # protocol's direction rule -- not a hope.
+        grab: BusAttach<fmc_8080>(a=u_mcu.fmc, b=u_fpga.fmc_slave)
+        arbitrate grab.data: bidir(granted_by=fmc_8080.direction)
+
+        dvp:  BusAttach<dvp>(a=cam.dvp, b=u_fpga.bank2)
+        lvl:  LevelShift<lvcmos18, cmos_3v3>(a=cam.io_domain,
+                                             b=u_mcu.i2c_domain)
+        cfg:  BusAttach<i2c(fast)>(a=u_mcu.twi1, b=cam.sccb)
+
+    discard u_fpga.rgb_led              # intentionally unused outputs:
+    discard cam.strobe                  # explicit, or it is an error
+
+image grab_fw:
+    realizes: schedule(GrabCtl)
+    toolchain: gcc_arm(13.2, -O2)
+    require Resources:
+        fit:   size(text + ro) <= partitions.app.size
+        stack: info.stack_depth(usb) <= 4kB
+    partitions:
+        boot: flash[0 .. 32kB]
+        app:  remainder               # the complement, exactly once --
+                                      # same `remainder` rule as zones
+
+image pix_bits:
+    realizes: impl(PixelPipe)         # the block's one impl; with
+                                      # several, name it: impl(Mux, HandRtl)
+    toolchain: yosys_nextpnr(0.7)       # hash-pinned realizer
+    require Resources:
+        fit:  info.utilization(u_fpga) <= 80%
+        fmax: info.fmax(core_clk) >= 100MHz
+        # discharged by synthesis-report harness models; thin margin
+        # forces post-route timing analysis automatically
+
+# ---- Behavioral-semantics notes (settled; elec 03 sec. 1a) ----
+# What this example exercises in the event-bounded hybrid semantics:
+#   1. synchronous-reactive composition WITHIN a domain: both `on
+#      core_clk.rise:` statements see one coherent pre-edge state;
+#   2. NO implicit cross-domain visibility: line_buf is written in
+#      cam_clk and read in core_clk -- legal only because the declared
+#      async_fifo mating carries it; removing `xing` is E0420;
+#   3. continuous quantities never appear here; the continuous/discrete
+#      half of the semantics was decided by sampled_buck.cupr
+#      (converter-port-only coupling, non-instantaneous converters).

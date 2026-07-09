@@ -1,0 +1,46 @@
+# IMU sensor board -- the elec half of the SOPEN-2 mechatronic pressure
+# test (see sensor_pod.hema). The board implements a MIXED-DOMAIN
+# interface: geometric roles (hole pattern, outline) expressed purely in
+# quantity-core geom vocabulary, plus electrical and thermal promises.
+# Per substrate 10 sec. 3: the interface lives in ONE home language
+# (here: declared in a cross-domain pack, bound below through this
+# language's normal impl machinery).
+
+import std.intents
+import pods.interfaces (PodMount)     # the shared mixed-domain contract
+
+system ImuBoard:
+    boundary:
+        supply:  dc(3.3V +- 5%, from_connector)
+        ambient: [-20degC, 70degC]
+
+    intents:
+        sense_att: sense(geom.orientation):
+            rate:     >= 1kHz
+            accuracy: <= 0.1deg
+        relay: communicate(host_link):     # boundary: the far end is
+            rate: >= 1kHz                  # the pod's main computer
+            latency: <= 500us
+
+    flows:
+        sense_att -> relay
+
+board ImuBoardPcb:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    # Mixed-domain conformance: geometric roles are T2-measured on the
+    # realized board (outline, hole positions) exactly like any other
+    # role; the thermal promise is an ordinary T3 obligation.
+    impl PodMount<pattern=rect(40mm x 40mm), screw=M2> for self:
+        holes    = bare.mount_holes.instances
+        outline  = bare.outline
+        # Inline promise refinement (F31): PodMount's base promise is
+        # dissipation <= 1W / mass <= 25g; this impl narrows it. A
+        # consumer binding THIS impl sees the refined values; one
+        # binding the bare interface sees the base. Existing `refines`
+        # semantics, spelled inline.
+        promises:
+            thermal.dissipation: <= 0.4W       # feeds the enclosure's
+                                               # thermal claims (mech)
+            mass: <= 12g

@@ -1,0 +1,72 @@
+# Flight controller platform -- exercises: workloads, architecture of
+# promised resources, peripheral demand vector, buy-binding with catalog
+# evidence, firmware image claims (stack/WCET/fit), boot claim, modes.
+#
+# NOTE (EOPEN-15): this file declares workloads directly; in a full
+# product the enclosing system's compute intents produce them via
+# `realizes` (see examples/elec/motor_drive.cupr). The peripheral
+# demand vector below likewise arrives from the system's flows.
+
+import std.compute (executor, memory, mover)
+
+computer FlightController:
+    workloads:
+        control:   loop(rate=1kHz, work=200kops f32, jitter <= 50us,
+                        state: 64kB)
+        estimator: loop(rate=500Hz, work=1.2Mops f32)
+        telemetry: stream(out, 20kB/s, latency <= 100ms)
+        logging:   stream(store, 100kB/s, retention >= 2h)
+        failsafe:  event(rate <= 200/s, deadline 2ms)
+
+    require Timing:
+        control_deadline: info.latency(control) < 1ms, sf=2
+    require Capacity:
+        headroom: info.utilization(all) <= 60%
+
+architecture for FlightController:
+    resources:
+        cpu0: executor(promises: >= 4Mops f32 sustained,
+                       context_switch <= 5us)
+        dma:  mover(promises: >= 1MB/s, independent of cpu0)
+    memories:
+        sram:  memory(64kB, promises: latency <= 2 cycles)
+        flash: memory(2MB, persistent, endurance >= 1e5 cycles)
+    peripherals:                      # demand vector; fed by system flows
+        buses:  spi(>= 8MHz) x 1, twi x 1
+        timers: pwm x 4
+        analog: adc(12bit, >= 10ksps) x 2
+    schedule:
+        control  -> cpu0: static_priority(highest)
+        failsafe -> cpu0: static_priority(high)
+        estimator -> cpu0
+        telemetry -> dma
+    # L2 verifies on promises alone: utilization/RTA feasibility,
+    # capacity sums, peripheral-class availability. No silicon chosen.
+
+# ---- Binding: buy. Promises discharged by catalog + benchmark evidence.
+
+bind FlightController:
+    cpu0  = vendor(stm32g474)         # ops/s by test(coremark_ref)
+    sram  = vendor(stm32g474).sram
+    flash = vendor(stm32g474).flash
+    dma   = vendor(stm32g474).dma.instances.any
+    # peripherals: pin-mux matching is derived at L4;
+    # lockfile: cause: planner(pinmux u_mcu)
+
+# ---- Firmware as a realized, measured artifact ----
+
+image ctl_fw:
+    realizes: schedule(FlightController)
+    toolchain: gcc_arm(13.2, -O2)     # hash-pinned realizer
+    partitions:
+        # owned regions; [a .. b] is half-open; overlap = borrow conflict
+        boot: flash[0 .. 32kB]
+        app:  flash[32kB .. 1MB]
+        log:  remainder               # the complement, exactly once
+                                      # (same `remainder` rule as zones)
+    require Resources:
+        fit:   size(text + ro) <= partitions.app.size
+        stack: info.stack_depth(control) <= 8kB       # static analysis model
+        wcet:  info.wcet(control, on=cpu0) <= 600us   # conservative bound model
+    require Boot:
+        alive: within 500ms after supply.on: telemetry.alive

@@ -1,0 +1,75 @@
+# assertions_map -- D120 fixture pair. PROVES cuprite/09 sec. 2 rows:
+#   SVA immediate assertions    -> `require:` comparisons (FULL)
+#   SVA concurrent properties   -> temporal claim vocabulary (PARTIAL:
+#       bounded windows map; deep sequence algebra does NOT)
+#   covergroups                 -> coverage encoding on evidence
+#       (DIFFERENT BY DESIGN)
+# Foreign original: assertions_map.sv (committed beside this file),
+# carrying BOTH properties: the one that maps and the one that does
+# not. HONESTY IS THE FIXTURE: the non-mapping property is not
+# translated -- it stays in the SV, and its simulation run enters as
+# extern-bound `by test(...)` evidence with a coverage statement.
+
+block ReqGntArbiter:
+    ports:
+        clk:   clock(100MHz, domain=core)
+        rst_n: digital(in)
+        req:   digital(in)
+        gnt:   digital(out)
+        busy:  digital(out)
+        done:  digital(out)
+        valid: digital(out)
+        prio:  digital(in, width=2)
+    spec:
+        on clk.rise:
+            gnt  <= arb(req, prio)
+            busy <= burst_active
+            done <= burst_end
+            valid <= burst_active or burst_end
+
+    require Immediate:
+        # SVA immediate assertion row (FULL): a plain comparison
+        # claim; `prio` is discrete, so exact inequality is legal:
+        prio_legal: prio != 3
+
+    require Bounded:
+        # p_grant_bounded, mapped 1:1 (FULL for bounded windows):
+        # `req |-> ##[1:4] gnt` under disable iff (!rst_n) becomes a
+        # within-window claim; the reset disable is the window's
+        # enclosing condition:
+        grant_bounded: within 4 cycles after req.rise: gnt = 1
+        # and the claim is STRONGER here than in SV: it participates
+        # in budgets (the grant latency joins timing chains) and its
+        # discharge tier is chosen by margin, not by which testbench
+        # happened to run.
+
+    require BurstShape:
+        # p_burst_shape does NOT map: `[*2:5]` consecutive repetition
+        # and `throughout` are sequence algebra the temporal claim
+        # vocabulary deliberately omits (matrix sec. 2 verdict:
+        # PARTIAL; the reopen path is a failing example that cannot
+        # take the extern route). The claim names the OBLIGATION; the
+        # SVA stays in the foreign file; the discharge is the
+        # simulation run, entering as test evidence with attribution
+        # (WO-21) and a coverage statement over the claim domain:
+        burst_shape: sequence_conforms(gnt.burst, ref=p_burst_shape)
+            by test(sva_sim(assertions_map.sv, run=nightly_regr),
+                    coverage=swept(prio, req_density))
+        # Below that coverage the discharge is INDETERMINATE, not
+        # passed -- the same honesty rule as every other evidence
+        # clause. Nothing here pretends the property was translated.
+
+    # Covergroup row (DIFFERENT BY DESIGN): cg_prio's bins measure
+    # STIMULUS coverage of the testbench; regolith instead states
+    # coverage of the CLAIM domain (the `coverage=` clause above and
+    # swept-obligation domains). The two compose -- the covergroup
+    # report is part of the `by test` evidence bundle -- but they are
+    # not the same idea, and no mapping is claimed.
+
+impl ReqGntArbiter by spec
+
+# The checker itself is NOT an impl of the arbiter -- it is bound
+# VERIFICATION content. It rides the evidence clause above, not an
+# `impl ... by extern`: embedding a checker as a realization would
+# claim the wrong thing. (That distinction -- realization extern vs
+# verification extern -- is this fixture's second point; see README.)

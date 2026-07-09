@@ -1,0 +1,19 @@
+# BREAKS: cuprite/03 sec. 3 -- port kinds carry a direction word from a
+#   fixed vocabulary (`digital(family, in|out, width)`); an unrecognized
+#   direction token names no real port role.
+# EXPECT-TODO: E0301
+# Self-calibration (WO-36 deliverable 4): `ports:` fields lower as
+# ordinary typed CST (`Field` + `CallExpr` args) -- WO-36 promotes the
+# GRAMMAR of `ports:`/`spec:`/converter/`on`-event bodies to typed CST
+# for the ConverterGraph/INV-16 seam (its stated goal), never new
+# semantic validation of individual argument values (WO-36 non-goals:
+# "New behavioral SEMANTICS"). No check inspects a `digital(...)`
+# call's direction argument against the port-kind vocabulary anywhere
+# in the checked pipeline today; `sideways` lowers clean (ok=True, zero
+# diagnostics). Demand signal for a future port-kind-vocabulary check
+# (WO-24/WO-35 lineage or a dedicated rule pack).
+block BadPort:
+    ports:
+        sig: digital(sideways, width=4)
+    spec:
+        sig = 0

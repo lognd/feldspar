@@ -1,0 +1,155 @@
+# Burin -- the machine. THE integration file: the generic axis
+# monomorphized THREE ways across FOUR instances (dual-driven X pair
+# shares one monomorph -- shared evidence by content address, mech 02
+# sec. 7b machinery), machine-size variant passed DOWN into the bed
+# and spoilboard variant axes, the POSITIONING-ERROR BUDGET spanning
+# backlash / coupling windup / frame stiffness / thermal growth (the
+# E0432 interval-contributions-vs-limit shape, D119), kinematic
+# claims swept over the exposed axis positions, and the machine-level
+# expert-ladder story: policy (rung 3), locked fits (rung 2), a
+# forced model (rung 5), an assume! with a named replacement test.
+
+import "contracts.hema" (AxisMount, CarriageMount, BeamJoint,
+                         SpindleClamp, BedMount)
+import "frame.hema" (BaseFrame)
+import "bed_plate.hema" (BedPlate)
+import "spoilboard.hema" (Spoilboard)
+import "gantry_beam.hema" (GantryBeam)
+import "side_plate.hema" (SidePlate)
+import "axis_module.hema" (LinearAxis)
+import "z_carriage.hema" (SpindleMount)
+import "spindle.hema" (Spindle22)
+
+assembly Burin:
+    variant size: {s600, s900}    # the catalog SKU axis: work envelope.
+                                  # Passed down into the bed and the
+                                  # spoilboard (variant pass-through);
+                                  # X/Y travels branch with `when`.
+
+    parts:
+        frame:   BaseFrame
+        bed:     BedPlate(bed=size)      # variant follows the machine's
+        spoil:   Spoilboard(bed=size)    # (see README CF-2: the tie is
+                                         # positional, not checked)
+        beam:    GantryBeam
+        plate_l: SidePlate(hand=left)
+        plate_r: SidePlate(hand=right)
+        # the dual-driven X pair: SAME parameters, ONE monomorph, TWO
+        # instances -- axis evidence discharges once and is shared:
+        x_p: LinearAxis<travel=620mm, pitch=10mm> when size = s600
+        x_m: LinearAxis<travel=620mm, pitch=10mm> when size = s600
+        x_p: LinearAxis<travel=920mm, pitch=10mm> when size = s900
+        x_m: LinearAxis<travel=920mm, pitch=10mm> when size = s900
+        y_ax: LinearAxis<travel=520mm, pitch=10mm>
+        # Z: different pitch, nut circle, screw record, motor record --
+        # the full generic surface exercised at once:
+        z_ax: LinearAxis<travel=120mm, pitch=4mm, nut_c=30mm,
+                         screw=vendor(hiwin_r1204_c7),
+                         motor=vendor(ldo_nema23_1p2nm)>
+        zmount:  SpindleMount
+        spindle: Spindle22
+
+    boundary:
+        # survey-corner cutting force at the tool point (hardwood,
+        # 6mm 2-flute at 24 krpm full slot is the governing case):
+        cutting: [0, 800 N], structure: spectrum(duty_survey_r1)
+        ambient: [15degC, 30degC]
+        # spindle wall temperatures as ZONE-VALUED boundary truth
+        # (torch-igniter precedent) -- each zone claim checks at its
+        # own hot corner; values from the thermal soak test:
+        spindle_wall: zones(spindle.zones.nose:   [30degC, 55degC],
+                            spindle.zones.barrel: [28degC, 48degC],
+                            spindle.zones.fins:   [28degC, 62degC])
+        design_life: 20000 h
+
+    assume!(spectrum(duty_survey_r1) covers reduced-width aluminum jobs,
+            basis="shop survey r1; replace by test(force_dyno_campaign)")
+
+    policy:                                  # rung 3: soft + global
+        prefer vendor(hiwin) over vendor(generic_linear)
+        forbid vendor(unbranded_bearings)
+        minimize total_cost
+
+    locked:                                  # rung 2: pins, own block
+        clamp.fit: H7/h6                     # spindle ring: never let
+                                             # the optimizer trade it
+
+    connect:
+        # X pair onto the frame's machined shoulder lands:
+        seat_xp: AxisMount(a=frame.shoulder_l, b=x_p.AxisFoot)
+        seat_xm: AxisMount(a=frame.shoulder_r, b=x_m.AxisFoot)
+        # gantry shoulders ride the X carriages:
+        ride_l: CarriageMount(a=x_p.CarriageDeck, b=plate_l.AxisFoot)
+        ride_r: CarriageMount(a=x_m.CarriageDeck, b=plate_r.AxisFoot)
+        # beam bolts between the shoulders:
+        joint_l: BeamJoint(a=plate_l.beam_seat, b=beam.end_left)
+        joint_r: BeamJoint(a=plate_r.beam_seat, b=beam.end_right)
+        # Y axis on the beam's machined land, Z on the Y carriage:
+        seat_y: AxisMount(a=beam.y_axis_seat, b=y_ax.AxisFoot)
+        seat_z: CarriageMount(a=y_ax.CarriageDeck, b=z_ax.AxisFoot)
+        # spindle mount on the Z carriage, spindle in the ring:
+        seat_sp: CarriageMount(a=z_ax.CarriageDeck, b=zmount.AxisFoot)
+        clamp: SpindleClamp(a=zmount.ClampBore, b=spindle.SpindleBody)
+        # bed onto the frame pads (redundant -- compliance-solved):
+        seat_bed: BedMount(a=frame.BedSeat, b=bed.BedSeat)
+        # the spoilboard bolts into the bed's clamp grid; there is no
+        # contract for "consumable sheet on tapped grid" in std yet --
+        # the joint is real, the mating is missing (README CF-6)
+
+    require Kinematics:
+        # swept over the exposed axis config variables (FIX-7
+        # namespacing: <part>.<connection>.<var>); corner discipline
+        # picks the worst gantry pose per claim:
+        square_xy: forall x_p.ride.pos, y_ax.ride.pos:
+                       geom.perpendicularity(beam.land_ref,
+                           to=frame.machined.seat_l) <= 0.02mm,
+                       @hint(symmetry=gantry_midplane)
+        # dual-drive racking: the two X screws may disagree by at most
+        # the frame's torsional give before the trucks bind:
+        rack: forall x_p.ride.pos:
+                  mech.skew(x_p.ride, x_m.ride) <= 0.05mm
+        tram: geom.perpendicularity(spindle.collet_ax,
+                  to=bed.milled.deck) <= 0.03mm / 100mm
+
+    require Dynamics:
+        # chatter floor: lowest structural mode at full gantry reach,
+        # forced to the expensive model (rung 5) because the closed-
+        # form beam mode was within 12% of the limit on the s900
+        # corner -- margin math unchanged, it can only cost time:
+        first_mode: mech.first_mode >= 45Hz, model=fea_modal
+        accel: forall y_ax.ride.pos:
+                   mech.accel_capability(x_p.ride) >= 4 m/s2
+
+    # ---- THE budget (D119): tool-point positioning error as interval
+    # contributions vs one limit -- the E0432 failure shape names the
+    # worst contributors when it dies. Members span FOUR mechanisms:
+    # screw backlash (axis promise), coupling windup (axis connection),
+    # structure compliance (frame/beam/plate claims), thermal growth
+    # (spindle promise chain + screw expansion over the ambient span).
+    budget positioning: kind=error
+        require: geom.position_error(spindle.collet_ax,
+                     over=boundary.cutting) <= 0.10mm
+        members: [x_p, x_m, y_ax, z_ax, frame, beam,
+                  plate_l, plate_r, spindle]
+        allocate: cost_optimal
+        locked: spindle.growth: 0.012mm     # catalog number; not up
+                                            # for reallocation
+        locked: z_ax.backlash: 0.02mm       # ground-screw floor: the
+                                            # allocator must not demand
+                                            # better than purchasable
+
+    budget z_droop: kind=deflection
+        # tool-point sag when the gantry parks overnight: the Z screw
+        # must hold the spindle's 4.2 kg against nut friction alone
+        require: mech.creep(z_ax.ride, under=weight(spindle)) <= 0.01mm
+        members: [z_ax, zmount]
+        allocate: worst_case
+
+    require Mass:
+        # moving mass caps what the accel claim can promise:
+        gantry_moving: mech.mass([beam, plate_l, plate_r, y_ax,
+                                  z_ax, zmount, spindle]) <= 38 kg
+
+    require Manufacture:
+        makeable: manufacturable(all)
+        cost: mfg.unit_cost(qty=25) <= 6800 USD

@@ -1,0 +1,16 @@
+# BREAKS: a subnet with no pressure imposer (fluorite/02 sec. 4: "at
+#   least one pressure IMPOSER ... per subnet -- otherwise the network
+#   is singular by construction and rejected at compile time").
+# EXPECT: E0201
+# Self-calibration (WO-31 D3): the flownet has no `reference:` field and
+# no imposing edge, so the AD-23 fluid discipline (net_core) flags the
+# imposer-free subnet at compile time. Verified against live output.
+import std.fluorite (Pipe)
+
+medium Water: liquid
+    props: registry(potable_water_nist)
+
+flownet NoRef(medium=Water):
+    nodes: a, b
+    edges:
+        pipe: Pipe(from=line.run) (a -> b)

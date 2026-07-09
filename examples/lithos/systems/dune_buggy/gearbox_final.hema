@@ -1,0 +1,58 @@
+# Reduction gearbox + chain final drive -- AGMA gears, chain capacity
+# tables, lubrication records. Anchors: gear bending/pitting (07
+# gears), power-transmission tables (t), splash-lube thermal balance.
+
+import std.mech.gear (SpurGear)
+import std.mech.turned (Shaft)
+
+part ReductionBox:
+    material: AISI_8620_CARB     # carburized gear record: case/core
+                                 # properties are CONDITION variants
+                                 # of one material record
+
+    stage machined: process=gear_hob
+        then:
+            input_gear  = SpurGear(module 2.5mm, teeth 21, face 22mm)
+            output_gear = SpurGear(module 2.5mm, teeth 47, face 22mm)
+            input_shaft  = Shaft(dia 25mm, length 160mm)
+            output_shaft = Shaft(dia 30mm, length 170mm)
+
+    boundary:
+        torque_in: [0N*m, 95N*m]             # post-CVT envelope
+        shock_factor: 1.6                    # chain/gear application factor (t)
+        structure: spectrum(drive_torque_spectrum)
+
+    require Gears:
+        # AGMA bending (Lewis + J) and contact (pitting): the two
+        # published-standard solvers with their K-factor TABLES; the
+        # standard's own reliability factors, not invented ones.
+        bending: mech.gear.bending_margin(machined.output_gear,
+                     per=agma_2001) >= 1.4
+        pitting: mech.gear.pitting_life(machined.output_gear,
+                     per=agma_2001, over=boundary.structure)
+                     >= 400hr
+
+    require Shafts:
+        crit_speed: mech.critical_speed(machined.input_shaft,
+                        carrying=input_gear) > 1.4 * 9200rpm
+        deflection: peak(mech.deflection(machined.output_shaft))
+                        < 0.10mm             # mesh alignment bound
+                        given torque = 95N*m * 1.6
+
+    require Lube:
+        # Splash-lube thermal balance: churning + mesh loss ->
+        # case convection; oil record viscosity f(T) closes the
+        # loop (a SMALL fixed point -- envelope-breakable at the
+        # cheap tier, G20 pattern, no CoupledGroup needed).
+        oil_temp: thermo.temperature(sump_oil) < 110degC
+
+part ChainFinal:
+    require Drive:
+        # Roller-chain capacity: manufacturer power tables (t) with
+        # the published service-factor discipline; sand ingress
+        # derating is a RECORD (environment factor), not a guess.
+        capacity: mech.chain.power_margin(520_oring,
+                      under=drive_torque_spectrum,
+                      env=sand_derate) >= 1.3
+        elongation_life: mech.chain.wear_life(520_oring,
+                             under=drive_torque_spectrum) >= 150hr

@@ -1,0 +1,37 @@
+# Dual-circuit hydraulic brake -- exercises: the `Imposer` cross-track
+# component (a master cylinder driven_by= a mech pedal-force promise,
+# fluorite/02 sec. 3), dual-circuit `state` variables, and a `forall`
+# sweep over declared state refs (the dual-circuit failure idiom,
+# fluorite/02 sec. 5). Self-contained brake shape (WO-31 D5).
+
+import std.fluorite (Pipe, Imposer, Valve)
+
+medium BrakeFluid: liquid
+    props: registry(dot4_brake_fluid)            # fluorite/02 sec. 1
+
+flownet BrakeCircuit(medium=BrakeFluid):
+    reference: ambient(101kPa, 293K)
+    nodes: mc_out, front_split, rear_split, front_cal, rear_cal
+    edges:
+        # master cylinder: pressure imposer whose value is an ordinary
+        # quantity-core derivation over a promised pedal force.
+        mc:     Imposer(p=pedal_force * pedal_ratio / area(22.2mm),
+                        driven_by=pedal.applied_force)
+                                                 (ambient -> mc_out)
+        fsplit: Pipe(from=front_line.run)        (mc_out -> front_split)
+        rsplit: Pipe(from=rear_line.run)         (mc_out -> rear_split)
+        fcal:   Valve(cv=6.0, states={open, closed} | position in [0,1])
+                                                 (front_split -> front_cal)
+        rcal:   Valve(cv=6.0, states={open, closed} | position in [0,1])
+                                                 (rear_split -> rear_cal)
+    states:
+        state front_circuit in {intact, failed}
+        state rear_circuit in {intact, failed}
+
+require BrakingAuthority:
+    # both circuits must still deliver caliper pressure when the OTHER
+    # circuit fails: sweep the two declared circuit-state variables and
+    # require a floor at each caliper (fluorite/02 sec. 5 forall-over-
+    # state-refs idiom).
+    forall circuit in {front_circuit, rear_circuit}:
+        floor: fluids.pressure(front_cal) >= 4MPa

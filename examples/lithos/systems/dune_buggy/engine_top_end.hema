@@ -1,0 +1,69 @@
+# Engine top end -- head + valvetrain: cam-follower Hertz contact,
+# valve-spring surge, port flow, head thermal. Anchors: contact
+# stress (07 Hertz), kinematics-driven dynamic loads (cam), the
+# thermo/fluids port-flow chain, and a small coupled thermal loop.
+
+import std.mech.cast (Casting)
+import std.mech.spring (HelicalCompression)
+
+part CylinderHead:
+    material: AL_A356_T6
+
+    stage cast: process=investment_cast
+        head = Casting(head_450_pattern)
+    stage machined: process=cnc_mill(axes=5), from=cast
+        then:
+            cam_bores  = Bore(dia 24mm, line_bored)
+            seats      = 2 x ValveSeat(intake dia 36mm, exhaust dia 31mm)
+            ports      = 2 x PortContour(from=cast.head.cores)
+
+    zones over machined.head:
+        bridge: .where(between=(seats.intake, seats.exhaust))
+        deck:   .where(within=(fire_face, 8mm))
+
+    require Thermal:
+        # The exhaust-bridge hot spot: gas-side convection -> head
+        # conduction -> coolant-side convection -- a small CoupledGroup
+        # (the regen-wall pattern at 1/10 scale; M8 customer #3).
+        # Boundary conditions come from cooling.fluo's jacket edge
+        # (the fluorite HxSegment names THIS zone -- cross-track).
+        bridge_temp: peak(thermo.temperature(bridge)) < 210degC
+
+    require Structural:
+        # Head-bolt clamp vs fire pressure: VDI 2230 again; deck
+        # distortion is a flatness claim the seats inherit.
+        clamp: mech.bolt.separation_margin(machined.head.bolt_joint,
+                   under=p_cyl(95bar)) >= 1.3
+        seat_distortion: mech.flatness(seats.all) < 0.02mm
+                         given T = worst(Thermal)
+
+    require Breathing:
+        # Port flow: incompressible orifice chain at low lift ->
+        # compressible (choked) check at high lift/overlap -- the
+        # fluids tier competition, with the ISO 5167-style discharge
+        # record cited (published uncertainty IS the accuracy).
+        flow: fluids.effective_area(ports.intake, at=lift(9mm))
+                  >= 620mm^2
+
+part ValveSpring:
+    material: chrome_silicon_vdscr
+
+    stage wound: process=cnc_coiler
+        spring = HelicalCompression(wire_dia 4.2mm, od 28mm,
+                     free_length 44mm, coils 6.8, ends closed_ground)
+
+    boundary:
+        speed: omega_cam in [600rpm, 4600rpm]
+
+    require Dynamics:
+        # No-float: spring force must exceed follower inertia over
+        # the WHOLE cam profile and speed band (a config-domain
+        # forall whose inner quantity is the cam-follower kinematics
+        # solve -- dynamics: cam-follower loading). Surge: first
+        # spring mode clear of cam harmonics (vibration tier;
+        # LOWER-bound claim).
+        no_float: forall omega_cam in [600rpm, 4600rpm]:
+            mech.spring.force_margin(wound.spring,
+                against=cam_inertia(profile_450)) >= 1.15
+        surge: vibration.spring_surge_freq(wound.spring)
+                   > 13 * (4600rpm / 60s)

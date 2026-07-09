@@ -1,0 +1,55 @@
+# Cantilever retaining wall -- exercises: calcite/02 record-driven
+# geotech consumption (charter sec. 8): every soil number is a
+# `by test` record with a trust tier; stability is the existing
+# `equilibrium(...): stable` claim form (hematite/04 sec. F, shared);
+# lateral earth pressure comes from a pack model, never hand math.
+# std.civil names are WO-48 content (phantom until the pack lands).
+
+import std.civil (Moment, Bearing)
+
+site HillCut:                                   # 02 sec. 1
+    boundary:
+        frost_depth: 1.0m                       by catalog(county_gis)
+    soil:
+        bearing:     [140kPa, 190kPa]           by test(geotech_r2071)
+        class:       registry(site_class_d)
+        backfill:    registry(granular_gm)      by test(geotech_r2071)
+                                                # unit weight + phi as
+                                                # interval record fields
+
+grid line: A spacing 1.0m                       # per-meter design strip
+level base: 0m
+level top:  2.8m
+
+member Stem: wall                               # 02 sec. 4
+    section:  registry(rc_wall_250mm)
+    material: registry(concrete_c30)
+    from (A, base) to (A, top)
+
+member Heel: footing
+    section:  registry(rc_footing_1800x350)
+    material: registry(concrete_c30)
+    from (A, base) to (A, base)
+
+structure Wall:                                 # 02 sec. 6
+    support: SG: footing                        # subgrade reference
+    members: Stem, Heel
+    transfers:
+        stem_heel: Moment()                 (Stem -> Heel)
+        heel_sg:   Bearing()                (Heel -> SG)
+
+loads:                                          # 02 sec. 7: the lateral
+    dead:      derived                          # case is a PACK MODEL over
+    earth:     site.soil.backfill -> std.civil.geo.rankine_active
+    surcharge: 4.8kPa on [Stem]                 by catalog(aashto_ls)
+
+require Stability:                              # 02 sec. 9; 03 sec. 5
+    # Overturning: the potential-energy stability claim form, shared
+    # vocabulary -- no new civil spelling.
+    overturn: equilibrium(Wall, under=std.civil.geo.stability): stable
+    sliding:  civil.utilization(heel_sg, under=std.civil.geo.sliding) <= 1.0
+    bearing:  civil.bearing_pressure(Heel) <= site.soil.bearing
+    trust: >= tested                            # geotech data floor:
+                                                # community-tier soil
+                                                # numbers must not
+                                                # underwrite a wall

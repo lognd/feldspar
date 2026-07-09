@@ -1,0 +1,65 @@
+# Spaceframe -- tubular weldment: the structural backbone.
+# Pressure: multi-piece weldment (pieces/joins), torsional stiffness
+# as a LOWER-bound claim (G4 sense discipline end to end), weld
+# fatigue under the terrain spectrum, matrix-stiffness reduced tier
+# (mech.struct) before any FEA.
+
+import std.mech.tube (TubeProfile, Notch, Bend)
+import std.mech.joining (Weld)
+
+part SpaceFrame:
+    pieces:
+        main_rails:   2 x TubeStock(od 38mm, wall 2.4mm), material: AISI_4130_N
+        cross_tubes:  6 x TubeStock(od 32mm, wall 2.0mm), material: AISI_4130_N
+        susp_pickups: 12 x PlateStock(t 4mm),             material: AISI_4130_N
+
+    stage cut: process=tube_laser
+        then:
+            rails  = PatternOf<Notch(profile=fishmouth)>(on=main_rails)
+            crosses = PatternOf<Notch(profile=fishmouth)>(on=cross_tubes)
+
+    stage welded: process=gtaw, joins=[main_rails, cross_tubes, susp_pickups]
+        then:
+            chassis = Weld(fillet 3mm, all_notches)
+        align:
+            jig = fixture(frame_jig_rev_c)
+
+    datum front_axle_plane = welded.chassis.pickup_plane(front)
+    datum rear_axle_plane  = welded.chassis.pickup_plane(rear)
+
+    boundary:
+        T_env: [-10degC, 55degC]
+        structure: spectrum(whoops_psd)      # terrain PSD payload, from
+                                             # vehicle.hema boundary
+
+    require Structural:
+        # Reduced tier FIRST: matrix direct stiffness on the tube
+        # graph (mech.struct (r)) -- the frame is exactly the
+        # truss/frame case that tier exists for. FEA only if a joint
+        # detail goes thin-margin.
+        rail_stress: peak(mech.stress.von_mises, at=welded.chassis.all)
+                         < material.sigma_y / 2.0
+
+        # G4/LOWER: torsional stiffness is a LOWER-bound claim -- any
+        # envelope edge in this route must be conservative_for=lower;
+        # a tip-load style UPPER envelope is out-of-domain here by
+        # construction (audit A-2: one-sided edges terminal-only).
+        torsion: mech.stiffness.torsional(front_axle_plane,
+                     rear_axle_plane) >= 900 N*m/deg
+
+    require Fatigue:
+        # Weld details carry Eurocode detail classes (07: welds (t));
+        # damage is a closed-form solver consuming the terrain
+        # spectrum payload (G14 precedent -- cheap tier reads
+        # payloads).
+        weld_life: mech.fatigue.damage(welded.chassis.welds.all,
+                       over=boundary.spectrum) < 1.0, sf=4,
+                       scatter_factor=5
+
+    require Build:
+        # G40: pickup-point position under weld distortion + jig
+        # scatter is a STATISTICAL stackup (quantile propagation
+        # customer #2); the worst-case corner form below is the v1
+        # stand-in and is absurdly conservative on purpose.
+        pickup_true: mech.position(welded.chassis.pickups.all,
+                         to=jig) within [0mm, 1.5mm]

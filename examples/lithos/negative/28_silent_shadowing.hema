@@ -1,0 +1,24 @@
+# BREAKS: the SAME process (`sheet_metal`) declared twice, each
+#   attaching a `dfm.min_hole_to_bend` rule -- silent shadowing (design
+#   doc D-C: union composition with no priority arithmetic means the
+#   second declaration does not silently win; same mechanism as
+#   22_rule_pack_collision.hema, exercised here as a re-opened pack
+#   rather than one block with two `rule` lines -- a different rule
+#   name from 22's `a` confirms this is the qualified-name collision,
+#   not the same fixture verbatim). NOTE:
+#   `regolith_lower::rules::same_rule_name_different_pack_is_not_a_
+#   collision` confirms two DIFFERENT process names sharing a rule name
+#   is explicitly not a collision (qualified names differ); only a
+#   repeated `pack.rule` qualified name is ambiguous -- an earlier draft
+#   of this fixture used two distinct process names and did not fire;
+#   fixed to the real trigger shape.
+# EXPECT: E0602
+process sheet_metal:
+    dfm:
+        rule min_hole_to_bend:
+            demand: true
+
+process sheet_metal:
+    dfm:
+        rule min_hole_to_bend:
+            demand: false

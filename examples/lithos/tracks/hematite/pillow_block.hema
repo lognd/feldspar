@@ -1,0 +1,107 @@
+# Pillow block bearing housing -- exercises: profile, stages, setups,
+# scopes, PatternOf, role binding at stage exit (SEAM-1 rules), refining
+# ops, zones, CAM claims, an interface impl consumed by an assembly, and
+# a retro-contract on imported geometry.
+#
+# Rewritten in cycle 1 (see docs/workflow/design-log/2026-07-03-cycle-1.md):
+# milling vocabulary is Contour (not ExtrudeProfile); the seat is a
+# counterbore so a floor exists to bind; profile exports are addressed
+# through the instantiating feature (body.mid_plane), never through the
+# profile value, and only from a later scope.
+
+import std.mech.mounts (BoltPattern)
+import std.mech.bearings (BearingSeat, BearingMount)
+import std.mech.cnc (saw_stock, cnc_mill)
+
+profile BodyOutline:
+    walk:
+        from base_plane
+        line right                    # a: base
+        line up                       # b: right wall
+        arc tangent, bulge=left       # c: dome
+        line down                     # d: left wall
+        close
+    constraints:
+        a.length = 90mm
+        b.length = 22mm
+        c.radius = in [28mm, 36mm] minimize
+        symmetric(b, d, about=mid_plane)
+    exports:
+        mid_plane: datum
+
+part PillowBlock:
+    material: AlSi10Mg
+
+    stage stock: process=saw_stock(rect(95mm, 70mm, 32mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.bottom
+            base = FaceMill(on=stock.body.bottom, depth=1mm)  # bare stmt = own scope
+        setup B:
+            flip about X
+            hold: milled.base
+            then:
+                body = Contour(BodyOutline, keep=inside, through)
+            then:
+                # body committed: its re-anchored profile exports are
+                # now legal references
+                pilot = Bore(dia 28mm, through, axis=body.mid_plane)
+                seat  = CBore(dia 32mm, depth=18mm, coaxial=pilot)
+            then:
+                wall   = Ream(seat.wall)          # refining op: composes
+                                                  # into the binding below
+                mounts = PatternOf<CBore<M8>>(n=2,
+                             along(base.long_edge, spacing=70mm, centered))
+
+    datum bore_axis = milled.pilot.axis
+
+    zones over milled.body.faces:
+        seat_region: .where(adjacent_to=milled.wall)
+        housing:     remainder
+
+    impl BearingSeat<d=32mm, depth=18mm> for self:
+        bore     = milled.wall            # stage exit: Ream composes in
+        shoulder = milled.seat.floor      # the counterbore floor
+
+    impl BoltPattern<M8, n=2, spacing=70mm> for self:
+        holes = milled.mounts.instances   # whole-orbit binding
+
+    require Structural:
+        static_load: peak(mech.stress.von_mises,
+                          during boundary.load_spectrum)
+                         < material.sigma_y / 2.5
+        # `boundary.` in a part claim resolves against each enclosing
+        # assembly; a part with no assembly context must route loads
+        # through interface envelopes instead.
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=50) <= 18 USD
+
+assembly ShaftRig:
+    parts:
+        block:   PillowBlock
+        bearing: vendor(skf_6006)
+        plate:   import("baseplate_rev2.step") sealed
+    boundary:
+        load_spectrum: spectrum(duty_ref), at=block.bore_axis
+        ambient: [-10degC, 60degC]
+
+    # Retro-contract: imported geometry gets an impl like any other --
+    # T2 conformance measures the sealed model directly (the L4 entry
+    # path; no construction stages needed).
+    impl BoltPattern<M8, n=2, spacing=70mm> for plate:
+        holes = src.holes.where(kind=tapped, dia=M8)
+
+    # Datums may be captured from measured import geometry by query:
+    datum plate_ref = plate.faces.where(kind=cylindrical, internal,
+                                        dia in [49mm, 51mm]).only.axis
+
+    connect:
+        seat: BearingMount(a=block.BearingSeat, b=bearing.od)
+        base: BoltedPattern<M8, 2>(a=block.BoltPattern, b=plate.BoltPattern)
+
+    require Alignment:
+        runout: misalignment(block.bore_axis, plate_ref) < 0.05mm

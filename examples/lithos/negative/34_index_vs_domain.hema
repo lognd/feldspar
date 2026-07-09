@@ -1,0 +1,12 @@
+# BREAKS: a positional index used where a domain is required (instances
+#   family: `.any`/`.all`/`.only` intents take a domain, never a bare
+#   position).
+# EXPECT-TODO: E0501
+# Self-calibration: `INDEX_VS_DOMAIN` (E0501) is declared in the
+# diagnostic code registry but grep finds no emission site anywhere in
+# the lowering crates -- the check does not exist yet. This fixture is
+# a best-effort placeholder (a bare integer index into a pattern orbit)
+# pending the real check landing. See README candidate finding.
+part p:
+    pattern ring circular 4
+    modify ring[2]

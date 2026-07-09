@@ -1,0 +1,94 @@
+# Injection-molded cable clip -- exercises: variants (OPEN-1 shape:
+# externally-chosen discrete axes; ALL variants must verify), molding
+# process vocabulary with `free` draft angles, the two-sided comparator
+# literal `within [lo, hi]`, fatigue claims (OPEN-4 spelling), and a
+# `when <variant>=<value>` construction guard.
+
+import std.mech.molding (Wall, Rib, Boss, SnapArm, Draft, Mirror)
+import std.mech.mounts (ScrewBoss, PanelHole, BossMount)
+
+profile ClipBase:
+    walk:
+        from base_plane
+        line right                    # a
+        arc tangent, bulge=left       # b: saddle for the cable
+        line right                    # c
+        close
+    constraints:
+        a.length = 6mm
+        b.radius = 4.5mm              # nominal cable dia 9mm
+        c.length = 6mm
+    exports:
+        mid_plane: datum
+        saddle_center: datum
+
+part CableClip:
+    material: POM_natural
+    variant hand: {left, right}       # chosen by the orderer, not the
+                                      # optimizer: every variant verifies
+
+    stage molded: process=injection_mold(cavities=4)
+        then:
+            base = Wall(ClipBase, t=2.0mm, depth=10mm)
+        then:
+            arm  = SnapArm(root=base.saddle_center.offset(x=7mm),
+                           t=in [1.2mm, 1.8mm], length=11mm,
+                           undercut=1.2mm)
+            boss = Boss(dia 4mm, on=base.bottom, for=ThreadFormingScrew<3mm>)
+        then:
+            mirrored = Mirror(all, about=base.mid_plane) when hand = right
+        then:
+            # `pull_dir` is a datum exported by the injection_mold
+            # process module (mold opening direction).
+            drafts = Draft(molded.faces.where(parallel_to=pull_dir),
+                           angle=free)
+            # `free` -> the mold pack's minimum draft for POM at this
+            # depth; lockfile: drafts.angle = 1.0deg cause: dfm(min_draft)
+
+    impl ScrewBoss<3mm> for self:
+        boss = molded.boss                # mating sides bind impls,
+                                          # never raw features
+
+    require Function:
+        insert: mech.insertion_force(molded.arm, over=molded.arm.ramp) <= 25N
+        retain: mech.retention_force(molded.arm) >= 60N
+        # Two-sided comparator literal: the arm must be stiff enough to
+        # retain and compliant enough to survive insertion strain --
+        # a demanded window, not a scatter interval. In claim position
+        # `within` is an infix comparator like `<`; no `=` (that would
+        # overload discrete equality -- D42):
+        k_arm:  mech.stiffness(molded.arm.tip, dir=y) within [0.8, 1.6] N/mm
+
+    require Fatigue:
+        # OPEN-4 spelling, exercised:
+        cycles: mech.life(molded.arm,
+                    under=spectrum(insertion_cycles_ref)) >= 500 cycles,
+                    scatter_factor=4
+
+    require Manufacture:
+        makeable: manufacturable(molded)
+        cost:     mfg.unit_cost(qty=10000) <= 0.12 USD
+
+assembly HarnessRun:
+    parts:
+        clip_a: CableClip(hand=left)      # variant chosen at binding
+        clip_b: CableClip(hand=right)
+        panel:  import("panel_rev2.step") sealed
+    boundary:
+        ambient: [-10degC, 50degC]
+        insertions: 500 cycles
+
+    # Retro-contracts on the sealed import (the L4 entry path). Mating
+    # sides always name impls -- never raw features -- so the panel's
+    # holes get contracts too; two impls of one interface take `as`
+    # aliases, and `src.` addresses the import stage's measured DB.
+    impl PanelHole<3mm> for panel as hole_a:
+        hole = src.holes.where(dia in [3.1mm, 3.3mm])
+                  .nearest(src.outline.left)
+    impl PanelHole<3mm> for panel as hole_b:
+        hole = src.holes.where(dia in [3.1mm, 3.3mm])
+                  .nearest(src.outline.right)
+
+    connect:
+        m_a: BossMount<3mm>(a=clip_a.ScrewBoss, b=panel.hole_a)
+        m_b: BossMount<3mm>(a=clip_b.ScrewBoss, b=panel.hole_b)

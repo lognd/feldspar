@@ -1,0 +1,92 @@
+# Burin axis carriage + motor plate -- the two machined parts inside
+# the generic axis module. Both are PARAMETRIC PARTS (monomorphized
+# per axis instantiation, D119): the carriage width and the ballnut
+# flange circle follow the axis's screw size. Pattern frames chain
+# off feature exports; the ballnut pilot is bored in the same setup
+# as the rail-block pattern so nut-to-rail parallelism is a setup
+# capability, not a stackup.
+
+import "contracts.hema" (CarriageDeck, NutSeat)
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.mounts (BoltPattern)
+
+part CarriagePlate<w: length = 150mm, nut_circle: length = 38mm>:
+    material: AL6082_T6
+
+    stage stock: process=saw_stock(rect(1.1 * w, 100mm, 18mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.bottom
+            then:
+                deck = FaceMill(on=stock.body.top, depth=1.5mm)
+            then:
+                # two rail blocks per rail, two rails: 4 x 4 pattern of
+                # M5 clearance on the HGH20CA footprint
+                blocks = PatternOf<CBore<M5>>(n=16,
+                             grid(4, 4, 0.8 * w x 63mm),
+                             frame=deck.center)
+                # ballnut pilot + flange circle, SAME setup as blocks:
+                pilot = Bore(dia 28mm H7, depth=10mm,
+                             axis=deck.center.offset(y=-6mm))
+                flange = PatternOf<TappedHole<M5>>(n=6,
+                             circular(dia nut_circle),
+                             frame=pilot.axis)
+        setup B:
+            flip about X
+            hold: milled.deck
+            then:
+                payload_taps = PatternOf<TappedHole<M5>>(n=4,
+                                   rect(0.75 * w x 70mm),
+                                   frame=milled.deck.center)
+
+    impl CarriageDeck<w=w> for self:
+        deck  = milled.deck
+        holes = milled.payload_taps.instances
+
+    impl BoltPattern<M5, n=16, grid(4, 4, 0.8 * w x 63mm)> for self:
+        holes = milled.blocks.instances
+
+    impl NutSeat<circle=nut_circle> for self:
+        pilot = milled.pilot.wall
+        taps  = milled.flange.instances
+
+    require Geometry:
+        # nut pilot to rail-block plane: the axis backlash budget's
+        # geometric member (a cocked nut binds and doubles friction)
+        pilot_perp: geom.perpendicularity(milled.pilot.axis,
+                        to=milled.deck) <= 0.02mm
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=150) <= 85 USD
+
+part MotorPlate<pilot: length = 38.1mm>:
+    # NEMA23 pilot default; the Z axis monomorphizes the same part at
+    # the same pilot but thinner stock -- parameters, not copies
+    material: AL6082_T6
+
+    stage stock: process=saw_stock(rect(80mm, 80mm, 10mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            then:
+                face = FaceMill(on=stock.body.top, depth=0.8mm)
+                bore = Bore(dia pilot H8, through,
+                            axis=face.center)
+            then:
+                nema = PatternOf<CBore<M5>>(n=4, rect(47.14mm x 47.14mm),
+                           frame=bore.axis)
+                standoffs = PatternOf<TappedHole<M5>>(n=4,
+                                rect(66mm x 66mm), frame=bore.axis)
+
+    impl BoltPattern<M5, n=4, rect(47.14mm x 47.14mm)> for self:
+        holes = milled.nema.instances
+
+    require Geometry:
+        # motor pilot to screw axis concentricity feeds coupling
+        # misalignment, which feeds the coupling windup budget member:
+        pilot_conc: geom.concentricity(milled.bore, to=milled.face.center)
+                        <= 0.03mm

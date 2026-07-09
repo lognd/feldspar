@@ -1,0 +1,55 @@
+# Burin spindle -- a PURCHASED 2.2 kW 24000 rpm ER20 spindle entering
+# as a SEALED brownfield import (mech 02 sec. 2: `stage src:
+# import(...) sealed`; geometry enters at L4 with a measured entity
+# DB, no later stage may touch it). Everything the machine knows
+# about it is RETRO-CONTRACTS over `src.` queries plus catalog
+# promises. The thermal ZONES + the dissipation promise chain (D119)
+# live here: the VFD file promises electrical loss, the zones receive
+# it, machine.hema's thermal-growth budget member spends it.
+
+import "contracts.hema" (SpindleBody)
+
+part Spindle22:
+    stage src: import("vendor/spindle_gdz80_2p2kw.step") sealed
+    # measured entity DB from the vendor STEP; `sealed` = modification
+    # is a compile error, adoption-wedge semantics (elec 04 sec. 2 has
+    # the same rule for .kicad_pcb)
+
+    # datum captures out of the measured DB (borrow-exempt):
+    datum nose_ref  = src.faces.where(kind=plane, normal=-z)
+                          .nearest(src.bbox.bottom).as_datum()
+    datum collet_ax = src.cylinders.where(dia in [19.9mm, 20.1mm])
+                          .only.axis.as_datum()
+
+    zones over src.faces:
+        # partition (cover + disjoint) verified on the real geometry
+        # at L4, mech 02 sec. 7 rule 1:
+        nose:    .where(between=(nose_ref, nose_ref.offset(z=35mm)))
+        barrel:  .where(kind=cylinder, dia in [79.9mm, 80.1mm])
+        fins:    remainder
+
+    impl SpindleBody<d=80mm> for self:
+        body = src.cylinders.where(dia in [79.9mm, 80.1mm]).only
+        nose = src.faces.where(at=nose_ref)
+        # thermal.dissipation promise slot: <= 180 W from the contract;
+        # the VALUE chain is vfd.cupr's loss promise -> this slot ->
+        # the zone boundary condition in machine.hema
+
+    require Runout:
+        trust: >= catalog
+        # datasheet says 0.005mm TIR at the collet taper; we hold the
+        # vendor to it as a catalog-evidence claim, upgraded by the
+        # incoming-inspection test on each lot:
+        tir: mech.runout(collet_ax, at=nose_ref) <= 0.005mm
+                 by catalog(spindle_2p2kw_datasheet)
+
+    require Thermal:
+        # the growth number machine.hema's positioning budget spends:
+        # nose-to-barrel axial growth at thermal soak, worst zone
+        # corner. The zone temperatures are boundary truth at machine
+        # level; standalone, this claim rides the interface envelope:
+        growth: thermo.expansion(zones.nose, axis=collet_ax,
+                    under=interface_envelope(SpindleBody)) <= 0.012mm
+        bearing_soak: thermo.temperature(zones.nose) <= 55degC
+        # ER20 front pair grease limit with margin; the fins zone may
+        # run hotter -- per-zone corners, not one lump (mech 02 sec. 7)

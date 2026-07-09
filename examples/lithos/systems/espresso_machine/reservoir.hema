@@ -1,0 +1,60 @@
+# Water reservoir -- 2.5L injection-molded tank the pump draws from.
+# Exercises: molding vocabulary (Wall/Rib/Boss, free draft), a food-
+# contact material note, and the suction-side geometry the brew
+# path's reference and NPSH claims sit on: the pickup sits 6mm off
+# the floor, and the HOT-inlet NPSH corner (brew_water.fluo) exists
+# because this tank soaks against the machine interior.
+
+import "fittings.hema" (FittingPort)
+import std.mech.molding (Wall, Rib, Boss, Draft)
+
+profile TankShell:
+    walk:
+        from base_plane
+        line right                    # a: floor
+        line up                       # b: outer wall
+        line left                     # c: rim
+        close                         # d: inner wall
+    constraints:
+        a.length = 180mm
+        b.length = 210mm
+        c.length = 95mm
+    exports:
+        floor_plane: datum
+        rim_plane:   datum
+
+part Reservoir:
+    material: PP_food_grade           # food-contact homopolymer
+
+    stage molded: process=injection_mold(cavities=1)
+        then:
+            body = Wall(TankShell, t=2.2mm, depth=140mm)
+        then:
+            ribs = PatternOf<Rib(t=1.6mm, h=8mm)>(n=4,
+                       along(body.outer_wall, spacing=45mm, centered))
+            pickup_boss = Boss(dia 16mm, on=body.floor_plane,
+                               for=ThreadFormingScrew<10mm>)
+            # pickup stands 6mm proud of the floor: sediment stays
+            # below the inlet; the last ~0.2L is unusable by design
+        then:
+            draft = Draft(all, angle=free)
+            # free: the molding pack's minimum pull draft for PP at
+            # this depth; lockfile records the resolved angle with
+            # cause dfm(min_draft)
+
+    datum floor_ref = molded.body.floor_plane
+
+    impl FittingPort<M10x1.0> for self as pickup:
+        thread = molded.pickup_boss
+        seat   = molded.body.floor_plane
+        # the molded boss carries a brass insert in practice; the
+        # insert is the fitting's mate, not a separate part here
+
+    require Capacity:
+        # LOWER-sense: usable volume above the pickup lip
+        usable: mech.volume(interior, above=floor_ref.offset(z=6mm))
+                    >= 2.3L
+
+    require Manufacture:
+        makeable: manufacturable(molded)
+        cost:     mfg.unit_cost(qty=2000) <= 6 USD

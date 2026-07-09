@@ -58,6 +58,12 @@ Standing:
       `find_ccx()` before assuming). WO-17 adds the same posture
       for `spice`-marked tests.
 
+## Conventions
+
+- `examples/lithos/` is a MIRROR of `lithos:examples/` (lithos
+  D148): never edit it here; land fixture changes in lithos, then
+  `make sync-examples` and review the diff.
+
 ## Conventions (unchanged)
 
 - Docs are the contract; code disagreement with a spec doc is a bug

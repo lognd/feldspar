@@ -1,0 +1,75 @@
+# Espresso machine shared contract pack -- the file the mech vessels
+# and the control electronics import INSTEAD of importing each other
+# (substrate 11 sec. 9 rule 3: contracts break dependency cycles; the
+# boiler needs the element's dissipation, the controller needs the
+# boiler's wells -- both import THIS). Mixed-domain interfaces per
+# substrate 10 sec. 3: home language cuprite, mech-facing roles in
+# the geom role kit vocabulary (substrate 10 sec. 3a).
+
+import std.elec.families (cmos_3v3)
+
+# ---- Heater: the vessel machines a SEAT; the flange element
+#      (vendor) plugs it; the mating pushes the element's dissipation
+#      into the wetted wall as heat -- the same effects: shape as the
+#      cubesat CardMount conduction model.
+
+interface HeaterSeat:
+    frame:
+        origin: studs.pattern_center
+        z: land.normal
+    roles:
+        land:  geom.plate(dia 58mm, t=4mm)      # gasket land on the shell
+        studs: geom.boss_pattern(tapped=M5, n=3, circular(dia 44mm))
+    demands:
+        land: geom.flatness(0.05mm)             # fiber gasket seals to this
+    promises:
+        thermal.sink: conductive, >= 25 W/K     # flange-to-water path,
+                                                # element submerged
+
+interface HeaterFlange:
+    frame:
+        origin: holes.pattern_center
+        z: land.normal
+        gnd: reference
+    roles:
+        land:  geom.plate(dia 58mm, t=3mm)
+        holes: geom.hole_pattern(dia 5.3mm, n=3, circular(dia 44mm))
+        el:    supply(in, 230V +- 10%, i <= 6.5A)
+    promises:
+        power: allocated                        # element rating; the
+                                                # vendor record refines
+
+mating HeaterMate:
+    between: a: HeaterSeat, b: HeaterFlange
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    effects:
+        model<gasketed_flange_conduction>(n=3, torque=3 N*m)
+            applies -> a: heat(b.power)
+
+# ---- Wells: temperature (RTD in a dry pocket) and level
+#      (conductance probe through an insulated gland). Single mount
+#      points ride the connector role form (the AntennaPort coax
+#      precedent), not a degenerate n=1 pattern. The vessel side
+#      carries ONLY the mech roles it can bind (the CardBay rule);
+#      the RTD element and the probe's wet/dry datum live on the
+#      sensor side of the mating.
+
+interface ThermoWell:
+    frame:
+        gnd: reference
+    roles:
+        pocket: connector(m6_thermowell, at=geom.point(x=0mm, y=0mm))
+    promises:
+        thermo.lag: <= 2s                       # pocket wall + paste
+                                                # time constant; the PID
+                                                # loop budget consumes it
+
+interface LevelWell:
+    frame:
+        gnd: reference
+    roles:
+        gland: connector(m4_probe_gland, at=geom.point(x=0mm, y=0mm))
+        # the probe TIP state (wet/dry) is the vendor probe's role;
+        # the autofill loop reads it through the sensing chain, not
+        # through this mech-bindable contract

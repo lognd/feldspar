@@ -1,0 +1,68 @@
+# counter -- D120 fixture pair. PROVES cuprite/09 sec. 1 rows:
+#   module/entity+architecture, ports  -> blocks with typed ports
+#   hierarchy / instantiation          -> construction scopes; parts
+#   always_ff / clocked process        -> `on <clk domain event>:`
+#   always_comb / concurrent assign    -> derived `=` signals in spec
+#   typed signals                      -> typed quantities + widths
+# Foreign original: counter.v (Verilog-2005, committed beside this
+# file). Embedding: TRANSPARENT (cuprite 09 sec. 3 -- Verilog
+# elaborates into the structural layer; the full static tier runs).
+# The equivalence obligation equivalence(spec, HandV) binds the pair;
+# formal LEC discharges it for this discrete subset.
+
+block TcDecode<w: int = 8>:
+    ports:
+        value: digital(in, width=w)
+        tc:    digital(out)
+    spec:
+        tc = and_reduce(value)        # always_comb row: a derived `=`
+                                      # signal -- acyclic, checked
+
+block Counter<w: int = 8>:
+    ports:
+        clk:   clock(100MHz, domain=core)
+        rst_n: digital(in)
+        en:    digital(in)
+        load:  digital(in)
+        d:     digital(in, width=w)
+        q:     digital(out, width=w)
+        tc:    digital(out)
+    spec:
+        # always_ff row: the clocked body under event-bounded
+        # semantics (cuprite 03 sec. 1a); `<=` commits at instant end.
+        # Priority load over count, matching the Verilog exactly:
+        on clk.rise:
+            q <= d when load
+            q <= q + 1 when en and not load
+        tc = and_reduce(q)
+    promises:
+        timing.prop(q -> tc): allocated
+
+# Native realization 1: the spec is synthesizable -- direct path.
+impl Counter by spec
+
+# Native realization 2 (the HIERARCHY row): compose the counter out
+# of the decode sub-block, mirroring the Verilog's tc_decode
+# instantiation -- instances are entities with ownership + queries,
+# not text:
+impl Counter by composing as Structured:
+    then:
+        dec = TcDecode<8>()
+    connect:
+        q -> dec.value
+        dec.tc -> tc
+    # register stage inherited from spec (`by spec` residue for the
+    # clocked body); equivalence(spec, Structured) is the ordinary T3.
+
+# The foreign original, embedded (the fixture's point): hash-pinned
+# (INV-22), elaborated, statically checked, and bound to the SAME
+# contract by the SAME equivalence obligation -- hand-written does
+# not mean less checked:
+impl Counter by extern("counter.v", verilog2005) as HandV
+
+# What cuprite states that the Verilog cannot (matrix "stronger
+# because" column): `clk` carries a frequency and a DOMAIN, `q`'s
+# width is checked at every connection site, and driving `q` from a
+# second body anywhere is an ownership error -- none of which
+# Verilog-2005 can express, all of which the elaborated extern is
+# now subject to.

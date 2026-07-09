@@ -1,0 +1,34 @@
+# Chilled-water electronics-enclosure loop -- exercises: `HxSegment`
+# zone coupling (fluorite/02 sec. 3, fluorite/03 sec. 4), a thermostat
+# state sweep, `forall` over declared line-ups, and the leak_total
+# circuit budget (fluorite/02 sec. 6).
+
+import std.fluorite (Pipe, HxSegment, Valve)
+
+medium Coolant60: liquid
+    props: registry(egw_60_40)
+
+flownet ChillLoop(medium=Coolant60):
+    reference: ambient(150kPa, 288K)             # pump-set reference
+    nodes: pump_out, zone_in, zone_out, bypass_out, ret
+    edges:
+        supply: Pipe(from=supply_line.run)       (pump_out -> zone_in)
+        hx:     HxSegment(zone=enclosure.zones.electronics)
+                                                  (zone_in -> zone_out)
+        bypass: Valve(cv=2.0, states={open, closed} | position in [0,1])
+                                                  (zone_in -> bypass_out)
+        merge:  Pipe(from=return_line.run)       (zone_out -> ret)
+        byret:  Pipe(from=bypass_line.run)       (bypass_out -> ret)
+    states:
+        bypass.position in {closed, open}
+        state thermostat in {cooling, idle}
+
+require ZoneCooling:
+    forall thermostat in {cooling, idle}:
+        margin: fluids.dp(pump_out -> ret) <= 40kPa
+    regime: fluids.reynolds(hx) in [3e3, 2e5]
+
+require LeakBudget:
+    # fitting/seal leak budget over the whole subnet (fluorite/02 sec.
+    # 6; a circuit budget owner, not a per-component claim).
+    leaks: fluids.leak_total(ChillLoop) < 10scc/s

@@ -1,0 +1,12 @@
+# BREAKS: an enclosing system's boundary envelope wider than an imported
+#   child's proven boundary (INV-7 boundary subsumption).
+# EXPECT: E0407
+system Imu:
+    boundary:
+        ambient: [-10degC, 50degC]
+
+system Outer:
+    parts:
+        imu: Imu
+    boundary:
+        ambient: [-40degC, 85degC]

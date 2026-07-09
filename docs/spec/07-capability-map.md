@@ -432,7 +432,7 @@ is committed scope now (WO-05).
 - **Unphased catalog** (`materials`, `mfg`, `aero`, `chem`,
   `vehicle`; `mech.struct` graduated to Phase 6): committed scope,
   scheduled when a lithos consumer or an owner decision pulls them
-  forward. The dune-buggy fixture (examples/lithos/dune_buggy/)
+  forward. The dune-buggy fixture (examples/lithos/systems/dune_buggy/)
   remains the standing demand signal for `vehicle` (its
   SOLVER-TRACE names every blocked claim). STANDING DEMAND (lithos
   D144, cycle 27): the pattern/mechanism libraries

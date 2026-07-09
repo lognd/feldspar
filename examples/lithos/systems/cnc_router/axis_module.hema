@@ -1,0 +1,106 @@
+# Burin generic linear axis -- ONE module, THREE monomorphizations
+# (X/Y/Z in machine.hema), the D119 centerpiece. A parametric
+# assembly (travel, screw pitch, nut circle, plus PART-TYPED params
+# for the screw and motor -- the D54 artifact-typed-parameter rule at
+# assembly scale). Everything the machine's positioning budget knows
+# about an axis enters through this module's claims and promises.
+#
+# NOTE (README candidate finding CF-1): the generic header below must
+# stay on ONE physical line -- a wrapped `<...>` parameter list is a
+# parse error (E0191, the indentation lexer resets at the
+# continuation). Five realistic parameters already push 100 columns.
+
+import "contracts.hema" (AxisFoot, CarriageDeck, NutSeat)
+import "axis_carriage.hema" (CarriagePlate, MotorPlate)
+import std.mech.linear (LinearGuide, ScrewDrive, BellowsCouple, FixedBearing, FloatBearing)
+import std.mech.matings (BoltedPattern)
+
+assembly LinearAxis<travel: length, pitch: length, nut_c: length = 38mm, screw: part = vendor(hiwin_r1610_c7), motor: part = vendor(ldo_nema23_3nm)>:
+    parts:
+        plate:   CarriagePlate<w=150mm, nut_circle=nut_c>
+        mplate:  MotorPlate<pilot=38.1mm>
+        rails:   2 x vendor(hiwin_hgr20_c)     # cut-to-length records
+        trucks:  4 x vendor(hiwin_hgh20ca)     # C_dyn = 17.75 kN each
+        screw_a: screw                          # part-typed param (D54)
+        motor_a: motor
+        bk:      vendor(syk_bk12)               # fixed end: angular pair
+        bf:      vendor(syk_bf12)               # floating end
+        coup:    vendor(rw_bk2_15)              # bellows, 15 N*m
+
+    boundary:
+        ambient: [10degC, 35degC]
+        # worst single-axis cutting reaction, from the survey record:
+        cut_react: [0, 1.2 kN], structure: spectrum(duty_survey_r1)
+        design_life: 20000 h
+
+    connect:
+        # one prismatic joint: 4 trucks on 2 rails as a single guide
+        # connection (see README CF-3 on grouped orbit zips), exposing
+        # the axis config variable the machine kinematics sweep over:
+        ride:  LinearGuide(a=rails.instances.all, b=trucks.instances.all)
+                   exposing pos: length in [0mm, travel]
+        # trucks bolt to the carriage plate as one joint group:
+        deck:  BoltedPattern<M5, 16>(a=plate.BoltPattern,
+                                     b=trucks.instances.all.Mount)
+        # nut flange to the plate's seat; preload class from the
+        # screw record's nut:
+        nut:   ScrewDrive(a=screw_a.Nut, b=plate.NutSeat)
+                   couples: nut.pos = ride.pos
+        # motor to screw through the bellows coupling -- its windup is
+        # a named positioning-budget member at machine level:
+        spin:  BellowsCouple(a=motor_a.Shaft, b=screw_a.Input)
+        anchor_f: FixedBearing(a=screw_a.Journal_f, b=bk.Bore)
+        anchor_r: FloatBearing(a=screw_a.Journal_r, b=bf.Bore)
+        mount_m: BoltedPattern<M5, 4>(a=mplate.BoltPattern,
+                                      b=motor_a.MountFace)
+
+    # Assembly-level impls (the F82 rule: role entities spanning the
+    # module's parts). The FOOT is the rails' own mounting holes; the
+    # DECK re-exports the carriage plate's moving face so the machine
+    # can mate to `x.CarriageDeck` without reaching into plate.milled:
+    impl AxisFoot<n=hole_count(travel, spacing=60mm), span=travel + 180mm> for self:
+        feet = rails.instances.all.mount_holes
+        # `hole_count(...)` has no declared home -- deriving an integer
+        # role count from a length param is unexpressible without an
+        # invented helper (README candidate finding CF-5)
+
+    impl CarriageDeck<w=150mm> for self:
+        deck  = plate.milled.deck
+        holes = plate.milled.payload_taps.instances
+
+    require Motion:
+        # ground C7 + preloaded double nut; the machine budget LOCKS
+        # this number, so it must verify here at every monomorph point:
+        backlash:  mech.backlash(nut) <= 0.02mm
+        # 8 m/min rapid at the smallest pitch instantiated (4mm) is
+        # 2000 rpm; fixed-floating 16mm screw over the longest travel
+        # instantiated must clear it -- the claim reads the MONOMORPH's
+        # travel, which is the entire point of generics under load:
+        crit_speed: mech.critical_speed(screw_a, span=travel + 90mm)
+                        >= 2000 rpm, sf=1.25
+        # torque reserve at the worst cut, over the whole stroke:
+        reserve: forall ride.pos:
+                     mech.drive_torque(nut, under=boundary.cut_react)
+                         <= 0.6 * motor_a.holding_torque
+
+    require Stiffness:
+        # axial loop: nut + screw tension segment + fixed bearing.
+        # This is the promise the machine budget spends; two-sided
+        # window because an over-stiff Z axis transmits chatter
+        # (claim-position infix `within`, D42):
+        axial: mech.stiffness(ride, dir=axial) within [60, 220] kN/mm
+
+    require Life:
+        trucks_l10: mech.l10_life(trucks.instances.all,
+                        under=boundary.cut_react) >= design_life
+        screw_l10:  mech.l10_life(screw_a,
+                        under=boundary.cut_react) >= design_life
+
+    budget axial_play: kind=tolerance
+        # the axis-internal play chain behind the backlash claim; the
+        # machine-level positioning budget consumes the RESULT -- see
+        # README CF-4 on budget composition across assembly levels
+        require: play_chain(nut) <= 0.02mm
+        members: [screw_a, bk, plate]
+        allocate: worst_case
+        locked: bk.preload_class: light

@@ -1,0 +1,7 @@
+# BREAKS: a within-domain combinational (instantaneous `=`) cycle with
+#   no converter/register delta to break it (INV-16, an algebraic loop).
+# EXPECT: E0105
+block BadLoop:
+    spec:
+        a = b
+        b = a

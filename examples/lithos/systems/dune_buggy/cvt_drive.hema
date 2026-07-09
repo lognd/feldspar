@@ -1,0 +1,51 @@
+# CVT primary drive -- belt traction and sheave contact: friction
+# records under centrifugal relief, belt temperature limits, ratio
+# coverage as a config domain. Anchors: G15 pair records (belt/
+# sheave mu), capstan-style traction (07 statics: belt friction),
+# discrete-ish config coverage (G43 adjacent).
+
+import std.mech.turned (Sheave)
+
+part CvtPrimary:
+    material: AL_7075_T6
+
+    stage turned: process=cnc_lathe
+        then:
+            fixed_sheave  = Sheave(od 180mm, angle 13deg)
+            moving_sheave = Sheave(od 180mm, angle 13deg)
+            weights       = PatternOf<FlyWeight(mass 18g)>(n=6, radial)
+
+    boundary:
+        ratio: r_cvt in [0.9, 3.9]           # the CVT's config domain
+        speed: omega_in in [1800rpm, 9200rpm]
+        T_belt: [-10degC, 95degC]
+
+    require Traction:
+        # Belt capstan traction with wedge amplification: the
+        # contact{belt_epdm, 7075} mu record (G15 pair record) at the
+        # HOT corner (mu drops with T_belt), clamp from flyweight
+        # centrifugal force -- non-monotone interaction of ratio and
+        # speed: the 2-D forall again (G29/G43 coverage pressure).
+        no_slip: forall r_cvt in [0.9, 3.9],
+                        omega_in in [1800rpm, 9200rpm]:
+                        mech.belt.traction_margin(sheaves, belt=vendor(gates_g30))
+                        >= 1.2
+
+    require Contact:
+        # Sheave-face Hertz-line contact + wear against the belt
+        # pressure distribution; upper-bound face temperature from
+        # slip power at the WORST tolerated slip.
+        face_stress: peak(mech.stress.contact, at=turned.fixed_sheave
+                         .face) < 380MPa
+        face_temp: thermo.temperature(turned.fixed_sheave.face)
+                       < 140degC
+                       given slip = 0.03
+
+    require Burst:
+        # Rotating-disk burst of the sheave at overspeed (the G13
+        # body-load case: omega is an input port of the rotating-disk
+        # family), thin margin -> FEA tier through the same kind.
+        sheave_burst: peak(mech.stress.von_mises, at=turned
+                          .moving_sheave)
+                          < material.sigma_y / 1.1
+                          given omega_in = 11000rpm

@@ -118,7 +118,7 @@ enumeration of the numeric surface.
 | case | required behavior |
 |---|---|
 | unresolved given (missing material port) | DomainError naming the port (G2 reject-unresolved rule, 06) |
-| G7 fixture: idealization out-of-domain, payload channel unbuilt | honest indeterminate NAMING the missing channel (examples/lithos/sensor_boom.hema) |
+| G7 fixture: idealization out-of-domain, payload channel unbuilt | honest indeterminate NAMING the missing channel (examples/lithos/tracks/hematite/sensor_boom.hema) |
 | out-of-domain corner (one corner outside box) | DomainError, never partial evidence |
 | twice-run identical request | byte-identical evidence hash |
 | pack version bump | only feldspar-produced evidence re-keys |

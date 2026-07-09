@@ -1,0 +1,60 @@
+# Coilover -- spring + damper: machine-design springs, orifice
+# hydraulics inside a sealed mech part, gas-charge thermodynamics.
+# Anchors: spring surge (vibration), damper dyno curve as a record,
+# ride frequency as a LOWER-bound system claim, and the
+# damper-internals boundary: the oil path is a fluid circuit that
+# stays INSIDE the part (no fluorite needed -- contrast G39 files).
+
+import std.mech.turned (Shaft, Bore)
+import std.mech.spring (HelicalCompression)
+
+part Coilover:
+    material: AISI_6150         # spring wire record incl. shear data
+
+    stage wound: process=cnc_coiler
+        spring = HelicalCompression(wire_dia 8mm, od 62mm,
+                     free_length 260mm, coils 9.5, ends closed_ground)
+
+    stage machined: process=cnc_lathe
+        body   = Bore(outer_dia 46mm, inner_dia 40mm, length 300mm)
+        piston = Shaft(dia 39.9mm, length 25mm)
+        rod    = Shaft(dia 14mm, length 320mm)
+
+    boundary:
+        stroke: x in [0mm, 180mm]
+        v_damper: v in [-3.5m/s, 3.5m/s]
+        T_oil: [-10degC, 120degC]
+        gas_precharge: 8bar at 20degC
+
+    require Spring:
+        # Wahl-corrected shear (07 springs); solid-height clash is
+        # geometry; rate is EXACT algebra from wound geometry --
+        # the A-7 EXACT rule's poster child (definitional formula,
+        # method-cited, no calibration record to demand).
+        rate: mech.spring.rate(wound.spring) within [28N/mm, 32N/mm]
+        shear_ok: peak(mech.stress.shear, at=wound.spring)
+                      < material.tau_allow / 1.25
+                      given x = 180mm
+        no_surge: vibration.spring_surge_freq(wound.spring) > 8 *
+                      drive_freq_max
+
+    require Damper:
+        # The oil path (piston orifices, shim stack, reservoir) is a
+        # fluid circuit CONTAINED in one part: modeled as a vendor-
+        # style damper-curve RECORD (dyno-cited) at the cheap tier;
+        # the orifice-hydraulics route (07 fluids) is the check tier.
+        # No flownet: nothing crosses a part boundary -- the fluorite
+        # threshold is INTER-part topology (G39 note).
+        force_band: forall v in [0.1m/s, 3.5m/s]:
+            mech.damper.force(machined.piston, at=v)
+                within damper_spec_band(v)
+        no_cavitate: peak(fluids.pressure(rebound_chamber))
+                         > fluids.vapor_pressure(oil, T_oil) + 0.5bar
+        rod_buckle: mech.buckling_load(machined.rod) >= 9kN, sf=2
+
+    require Thermal:
+        # Long-descent heat soak: dissipated power -> body convection
+        # -> oil temperature; the oil-viscosity record then moves the
+        # damper curve (promise chain INTO the Damper claims' givens).
+        soak: thermo.temperature(oil) < 130degC
+              given duty = descent(8min, whoops_psd)

@@ -1,0 +1,189 @@
+# Burin control system -- the elec integration file AT INTENT
+# ALTITUDE (the F79 rule: the computer's workloads name the intents
+# they realize, so the `computer` lives here, next to the intents;
+# `bind` reaches into the boards). Carries D119's motion-planner
+# WORKLOADS (WCET/schedule/fit on the image), the e-stop chain
+# claims, the machine power budget, and the one event ledger the
+# coolant circuit (coolant.fluo) and the mech stop claims both hang
+# from.
+
+import "contracts.cupr" (StepDirLink, SpindleCmdLink, EStopChain,
+                         RailDrop)
+import "controller.cupr" (CtrlPcb)
+import "drives.cupr" (DrivePcb)
+import "power.cupr" (PowerPanel)
+import "vfd.cupr" (VfdMount)
+import std.intents
+import std.compute (executor, memory, mover)
+
+system RouterControl:
+    exposing op: {idle, homing, jog, run, estop}
+
+    parts:
+        pwr:    PowerPanel
+        ctrl:   CtrlPcb(fw=router_fw)     # image injected at binding
+        drives: DrivePcb                  # (the F83/D54 rule)
+        vfd:    VfdMount
+
+    boundary:
+        supply:  mains(230V +- 10%, 50Hz, breaker=16A)
+        ambient: [5degC, 40degC]          # workshop, unconditioned
+        emc:     industrial(CISPR_11_A)
+        design_life: 20000 h
+
+    intents:
+        interpret: compute(gcode_stream) hosted_on ctrl:
+            rate:    >= 2000 blocks/s
+            latency: <= 100ms
+        plan_motion: compute(lookahead_planner) hosted_on ctrl:
+            rate:    1kHz
+            latency: < 1ms
+            state:   lookahead(256kB)
+        drive_axes: actuate(stepper(4 axis, 48V, i <= 4.2A))
+                        hosted_on drives
+        command_spindle: actuate(vfd_analog(0V, 10V)) hosted_on vfd
+        sense_limits: sense(discrete(8)) hosted_on ctrl:
+            latency: <= 2ms
+        guard: compute(estop_supervisor) hosted_on ctrl:
+            latency: < 500us
+        cool: actuate(coolant_pump(24V, one_relay)) hosted_on pwr
+            # commanded by M8/M9; the fluid consequences live in
+            # coolant.fluo -- ONE event ledger across tracks
+            # (fluorite 02 sec. 5)
+
+    flows:
+        interpret -> plan_motion
+        plan_motion -> drive_axes
+        plan_motion -> command_spindle
+        sense_limits -> guard
+        guard -> drive_axes
+        plan_motion -> cool
+
+    connect:
+        # rails out of the cabinet (one feed, three taps -- ampacity
+        # prose at the contract, G42):
+        feed_ctrl:   RailDrop(a=pwr.RailFeed, b=ctrl.RailTap)
+        feed_drives: RailDrop(a=pwr.RailFeed, b=drives.RailTap)
+        # step/dir per axis, controller to drive bay:
+        sd_xp: StepDirLink(a=ctrl.ch_xp, b=drives.in_xp)
+        sd_xm: StepDirLink(a=ctrl.ch_xm, b=drives.in_xm)
+        sd_y:  StepDirLink(a=ctrl.ch_y,  b=drives.in_y)
+        sd_z:  StepDirLink(a=ctrl.ch_z,  b=drives.in_z)
+        # spindle command:
+        spin_cmd: SpindleCmdLink(a=ctrl.SpindleCmd, b=vfd.SpindleCmdIn)
+        # the e-stop loop, daisy-chained: mushroom -> controller relay
+        # -> drive bay -> VFD STO -- any break kills all three:
+        es_1: EStopChain(a=pwr.loop_master, b=ctrl.EStopNode)
+        es_2: EStopChain(a=ctrl.EStopNode, b=drives.EStopNode)
+        es_3: EStopChain(a=drives.EStopNode, b=vfd.EStopNode)
+
+    event estop: state(pwr.loop_master.loop_out).crosses(open)
+    event limit_hit: state(ctrl.LimitBank.sense.any).crosses(low)
+    event m8_flood: commanded by plan_motion
+        # the coolant circuit's valve/pump state variable binds to
+        # THIS event (coolant.fluo `states:`); sequencing claims live
+        # here with the commander, fluid consequences there
+
+    require Safety:
+        # the whole chain, wall-clock: loop break to zero step edges.
+        # Hardware path (relay + opto ena) -- firmware NOT in the
+        # chain, so the claim discharges from relay + opto records:
+        stop_steps: within 30ms after estop: f(drives.in_xp.step) = 0Hz
+        spindle_sto: within 50ms after estop: state(vfd.u_vfd) = sto
+        limit_react: within 2ms after limit_hit: op = estop
+        # a runaway during homing is caught by the limit chain even
+        # with the planner wedged -- the supervisor workload's
+        # deadline (below) is the compute half of this claim
+
+    require Power:
+        idle_floor: elec.power(all) <= 35W during op = idle
+        run_cap:    elec.power(all) <= 1.9kW during op = run
+        # 16A breaker at 230V minus the spindle's 2.2kW peak leaves
+        # the margin the drives + rails must fit in; checked at the
+        # low-mains corner
+
+    require Emissions:
+        # hand-asserted run lengths (2.4m spindle tail, 1.2m step/dir
+        # looms, 40mm separation) stand in for `harness:` runs -- the
+        # G42 gap, acknowledged; discharge deferred to the range test
+        # (EOPEN-11 posture):
+        radiated: stays_within(elec.emissions(all), mask=CISPR_11_A)
+
+    budget mains_load: kind=power
+        require: elec.power(all) <= 3.4kW during op = run
+        members: [pwr, drives, vfd, ctrl]
+        allocate: worst_case
+        locked: vfd: 2.4kW during op = run   # spindle + inverter loss;
+                                             # catalog, not reallocable
+
+# ---- The computer, at intent altitude (F79). D119: motion-planner
+#      workloads -- WCET, schedulability, and image fit are the
+#      claims that make "it'll keep up" a verdict instead of a hope.
+
+computer MotionCore:
+    workloads:
+        interp: stream(in, 40kB/s, latency <= 100ms) realizes interpret
+        plan:   loop(rate=1kHz, work=300kops f32, jitter <= 100us,
+                     state: 256kB) realizes plan_motion
+        step:   loop(rate=40kHz, work=2kops i32,
+                     jitter <= 1us) realizes drive_axes
+        # 40kHz servo tick reloading the step timers; the hard one.
+        # NOTE (README CF-7): `realizes` must close on the same
+        # physical line as the workload call -- a bare continuation
+        # line is a parse error, so long workloads wrap INSIDE the
+        # parens instead.
+        watch:  event(rate <= 10/s, deadline 400us) realizes guard
+        limits: event(rate <= 500/s, deadline 1ms) realizes sense_limits
+        spin:   loop(rate=100Hz, work=1kops f32) realizes command_spindle
+        cool_w: event(rate <= 2/s, deadline 50ms) realizes cool
+        status: stream(out, 8kB/s, latency <= 250ms)   # DRO/UI, no
+                                                       # intent behind it
+
+    require Timing:
+        step_deadline: info.latency(step) < 25us, sf=2
+        plan_deadline: info.latency(plan) < 1ms, sf=1.5
+    require Capacity:
+        headroom: info.utilization(all) <= 60%
+
+architecture for MotionCore:
+    resources:
+        cpu0: executor(promises: >= 200Mops f32 sustained,
+                       context_switch <= 1us)
+        dma:  mover(promises: >= 20MB/s, independent of cpu0)
+    memories:
+        sram:  memory(512kB, promises: latency <= 2 cycles)
+        flash: memory(2MB, persistent)
+    peripherals:
+        timers: pwm x 4                    # one step timer per axis
+        buses:  uart x 1, spi(>= 4MHz) x 1
+        analog: adc(12bit, >= 100ksps) x 2 # 48V rail + spindle load
+    schedule:
+        step   -> cpu0: static_priority(highest)
+        watch  -> cpu0: static_priority(high)
+        limits -> cpu0: static_priority(high)
+        plan   -> cpu0
+        spin   -> cpu0
+        interp -> dma
+        status -> dma
+
+bind MotionCore:
+    cpu0  = ctrl.u_mcu                   # cross-file instance ref (F79)
+    dma   = ctrl.u_mcu.dma.instances.any
+    sram  = ctrl.u_mcu.sram
+    flash = ctrl.u_mcu.flash
+
+image router_fw:
+    realizes: schedule(MotionCore)
+    toolchain: gcc_arm(13.2, -O2)        # hash-pinned
+    partitions:
+        boot: flash[0 .. 64kB]
+        app:  flash[64kB .. 1536kB]
+        cfg:  remainder                   # steps/mm, current tables
+    require Resources:
+        fit:   size(text + ro) <= partitions.app.size
+        stack: info.stack_depth(plan) <= 24kB
+        wcet:  info.wcet(step, on=cpu0) <= 12us
+        # 12us bound at 40kHz = 48% of the tick for the highest-prio
+        # task; the RTA behind Timing.step_deadline consumes this
+    require Boot:
+        alive: within 800ms after supply.on: status.dro_stream

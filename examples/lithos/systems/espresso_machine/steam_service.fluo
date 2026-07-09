@@ -1,0 +1,111 @@
+# Steam / service boiler circuit -- the headspace side of the 1.4L
+# service boiler: pressure held by the heater loop, wand to
+# atmosphere, anti-vacuum and safety valves as CheckValve edges.
+# Fluorite customer #6. Exercises: an Imposer whose value is a
+# CONTROL promise (driven_by=, the F98 spelling), a gas medium under
+# the v1 incompressible-with-corners posture, the choked() screening
+# claim (FOPEN-2's admitted form), a LOWER-bound peak() on cooldown
+# vacuum, and the forall single-fault sweep over declared state
+# variables (02 sec. 5).
+#
+# The LIQUID inventory is deliberately NOT in this net: liquid water
+# + saturated steam in one vessel is two-phase, out of v1 scope
+# (fluorite 01 non-goals; FOPEN-1-adjacent). The waterline enters as
+# the `level = at_probe` GIVEN -- the autofill loop's promise
+# (controller.cupr) -- and the liquid side appears in BrewPath only
+# as the svc_bp back-pressure imposer. README CF-5.
+#
+# NOT checkable until WO-31; hand-validated against docs/spec/fluorite/02.
+
+medium SteamSat: gas
+    props: registry(steam_if97_sat)         # rho(p,T), mu(T) along
+                                            # saturation; corner
+                                            # discipline picks the
+                                            # published-range corners
+
+flownet SteamService(medium=SteamSat):
+    reference: machine_air(101kPa, 296K)
+    nodes: shell, wand_in, wand_tip
+    edges:
+        boiler:  Imposer(p=p_set, driven_by=EspressoController.steam_setpoint)
+                                                 (machine_air -> shell)
+                 # the element + PID hold the headspace at the
+                 # promised saturation pressure: the imposer VALUE is
+                 # the control loop's setpoint promise entering
+                 # through driven_by= (02 sec. 3) -- the same chain
+                 # shape as the brake master cylinder, with a cuprite
+                 # promise instead of a mech force
+        dome:    Plenum(v=0.9L)                  (shell -> wand_in)
+                 # headspace capacitance AT the fill-probe line; the
+                 # 0.9L is only truth while `level = at_probe` holds
+        wand:    Valve(cv=0.32, states={closed, open})
+                                                 (wand_in -> wand_tip)
+                 # MANUAL pitcher valve -- see the wand.close event
+                 # problem below (README CF-7)
+        tip:     Orifice(cd=0.85, dia=2.0mm)     (wand_tip -> machine_air)
+                 # 4 x 1.0mm holes as one equivalent-area jet
+        avac:    CheckValve(crack_dp=3kPa)       (machine_air -> shell)
+                 # anti-vacuum valve: admits AIR when the shell dips
+                 # 3kPa below ambient on cooldown. Strictly a second
+                 # medium for a few minutes after wake --
+                 # FOPEN-1-adjacent, screening-level here
+        safety:  CheckValve(crack_dp=180kPa)     (shell -> machine_air)
+                 # relief at 1.8 bar gauge: the crack promise the
+                 # steam vessel's boundary ceiling consumes
+                 # (machine.hema steam_pressure, fluorite 03 sec. 4)
+    states:
+        wand.position in {closed, open}
+        state pstat_ctl in {ok, failed}     # PID/SSR stuck-on fault
+        state autofill  in {ok, failed}     # probe fouled: level low,
+                                            # element partially dry,
+                                            # runaway boil rate
+
+# Commanded events, one ledger (02 sec. 5). boiler.off is the SSR
+# drop the controller's fire_steam intent emits.
+event boiler.off: commanded by EspressoController.fire_steam
+# The wand's own close transition is windowed on by `recover` and
+# CANNOT be declared: 02's only event source form is `commanded by
+# <cuprite ref>` and the wand is a manual valve. Deliberately left
+# dangling as demand -- README CF-7.
+
+require Pressure:
+    band: fluids.pressure(shell) in [211kPa, 241kPa]
+              given wand.position = closed, level = at_probe
+          # 1.1..1.4 bar gauge; controller.cupr's steam_hold claim is
+          # the same band seen from the commander's side
+    recover: settles(fluids.pressure(shell), to=+-5%,
+                 within 25s after wand.close)
+             # milk-pitcher recovery: imposer promise + dome
+             # capacitance close this (wand.close: CF-7)
+
+require Wand:
+    rate:    fluids.mdot(tip) >= 0.8g/s
+                 given wand.position = open, level = at_probe
+             # ~1g/s of dry steam at the tip: stretches 300mL of milk
+             # in ~30s
+    whistle: choked(tip) given wand.position = open
+             # choked SCREENING claim (02 sec. 6 tag shape, FOPEN-2
+             # posture): 2.2 bar abs upstream over ambient is past
+             # the critical ratio, so the tip runs choked and the
+             # delivered rate is upstream-set -- stable texturing.
+             # No claim here needs Fanno-line network solving.
+
+require Safety:
+    single_fault: forall dev in {pstat_ctl, autofill}:
+        fluids.pressure(shell) <= 285kPa
+        given dev = failed
+    # the dual-fault sweep idiom (02 sec. 5): with EITHER control
+    # fault, the 1.8 bar gauge safety crack caps the shell a full
+    # 0.05 bar under the vessel boundary's 2.9 bar abs ceiling --
+    # ONE swept obligation, discrete axis in the coverage encoding
+    # (D95), never enumerated copies
+
+require Cooldown:
+    no_vac: peak(fluids.pressure(shell),
+                within 600s after boiler.off) > 95kPa
+            # LOWER-bound peak, sense-driven (02 sec. 6: peak is the
+            # worst excursion in the claim's ADVERSE direction --
+            # there is no .min spelling): condensation collapse after
+            # shutdown must not pull more than 0.06 bar of vacuum, or
+            # milk gets sucked down the wand and gaskets invert; the
+            # avac crack_dp + area close this

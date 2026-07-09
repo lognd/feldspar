@@ -1,0 +1,92 @@
+# Battery thermostat -- exercises: boundary-only intents, derived
+# internal buses (the IMU rule: no protocol named for the sensor link),
+# targets + reserves, budgets, time-domain and noise claims, one analog
+# block with a continuous spec.
+
+import std.intents
+import std.debug
+import std.elec.families (cmos_3v3)
+
+system Thermostat:
+    boundary:
+        supply:  battery(2 x AA_alkaline)
+        ambient: [-10degC, 50degC]
+        emc:     residential(CISPR_11_B)
+        design_life: 1 yr
+
+    reserves:
+        gpio: 4
+        power: 50mW avg
+
+    intents:
+        sense_temp: sense(thermo.temperature):
+            range:    [0degC, 40degC]
+            accuracy: +-0.5K
+            rate:     >= 1/min
+        decide: compute(hysteresis_law):
+            latency: < 1s
+            state:   setpoints(32B, persistent)
+        report: communicate(ble_peripheral):
+            range:   >= 10m
+            payload: <= 20B at 1/min
+        switch_heat: actuate(ac_load(24V, 1A), isolated)
+
+    flows:
+        sense_temp -> decide
+        decide -> report
+        decide -> switch_heat
+        # NOTE: no bus, no protocol here. If sense_temp allocates to a
+        # digital sensor, the sensor<->controller link (TWI vs SPI, which
+        # port, which pins) is derived; lockfile reports:
+        #   flow sense_temp->decide: realized=twi0(u1.pb6/pb7 <- u2)
+
+    require Power:
+        life: elec.energy(all, over=design_life)
+                  <= supply.capacity(worst_case), sf=1.3
+        # Derived-structure handles: interior structure realized FOR an
+        # intent is addressable through the intent's namespace. No net
+        # named vdd_rf exists in source; `report.supply` resolves at
+        # allocation (or fails constructively).
+        droop: settles(v(report.supply), to=+-2%,
+                   within 200us after report.tx_burst)
+
+    require Noise:
+        adc_floor: rms(v(sense_temp.chain.out), band=[0.1Hz, 10Hz]) < 200uV
+
+    budget error_chain: kind=error
+        require: error(sense_temp -> decide) <= +-0.75K
+        members: [sense_temp, decide]
+        allocate: cost_optimal
+
+target debug of Thermostat:
+    intents:
+        heartbeat: indicate(decide.status)
+        console:   debug_access(swd, uart_log)
+        rails:     probe(power_rails)
+    draws: reserves
+
+# --- One block written out (normally derived; shown as the escape hatch
+#     when the designer wants this stage of the chain to be theirs) ---
+
+block NtcFrontend:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)   # supply ports carry
+                                                # direction, always
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+    params:
+        r_fixed: resistance = in [10kohm, 100kohm] minimize
+        # (BOM-consolidation objectives like "minimize distinct values
+        # across the design" are allocation policy, not a per-variable
+        # direction -- see SOPEN-4.)
+    spec:
+        continuous:
+            v(out) = v(vdd) * r_ntc(T) / (r_ntc(T) + r_fixed)
+    require Sensitivity:
+        # NOTE: an earlier draft wrote ">= 30mV/K over T in [...]" --
+        # a second spelling of quantification. forall is canonical.
+        gain: forall T in [0degC, 40degC]: dv(out)/dT >= 30mV/K
+# realizable continuous spec + no explicit impl => implicit `impl by spec`
+# (compiler binds an E96 resistor + the NTC from the catalog; equivalence
+# discharged by DC sweep analysis; r_fixed lands in the lockfile with
+# cause: obligation(Sensitivity.gain))

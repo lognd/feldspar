@@ -1,0 +1,46 @@
+# small_office: hydronic heating loop (fluorite/02 throughout) --
+# the MEP-is-composition proof (calcite/02 sec. 10): the loop's pump
+# and chiller live on the mech room's offered contracts; heat
+# delivery couples to building zones; the electrical demand is a
+# promise the cuprite panel consumes.
+
+import "program.calx" (MechRoom)
+import std.fluorite (Pipe, Pump, Valve, Plenum, HxSegment)
+
+medium Coolant60: liquid                        # fluorite/02 sec. 1
+    props: registry(egw_60_40)
+
+flownet HeatingLoop(medium=Coolant60):          # fluorite/02 sec. 4
+    reference: ambient(101kPa, 293K)
+    nodes: pump_out, supply_hdr, ret_hdr, boiler_in, pump_in
+    edges:
+        pump:   Pump(curve=registry(grundfos_ups32))
+                                        (pump_in -> pump_out)
+        supply: Pipe(from=riser.supply_run)
+                                        (pump_out -> supply_hdr)
+        coil1:  HxSegment(zone=OpenOffice1.thermal)
+                                        (supply_hdr -> ret_hdr)
+        coil2:  HxSegment(zone=OpenOffice2.thermal)
+                                        (supply_hdr -> ret_hdr)
+        ret:    Pipe(from=riser.return_run)
+                                        (ret_hdr -> boiler_in)
+        boiler: vendor(condensing_92kw) (boiler_in -> pump_in)
+                                        # operating_mass promise is
+                                        # what frame.calx consumes
+        exp:    Plenum(v=35L)           (ret_hdr -> ambient)
+    states:
+        state season in {heating, off}
+
+# The mech-room contract bindings (calcite/02 sec. 10): the boiler
+# claims the housekeeping pad and floor drain the space offers;
+# boundary subsumption checks the room's envelope both ways.
+impl MountsOn<MechRoom.pad> for boiler
+impl DrainsTo<MechRoom.drain> for exp
+
+require Hydronics:                              # fluorite/02 sec. 6
+    margin:  fluids.dp(pump_out -> ret_hdr) <= 45kPa
+    balance: fluids.flow_imbalance([coil1, coil2]) < 10%
+    npsh:    fluids.npsh_margin(pump) > 1.5m
+    regime:  fluids.reynolds(supply) in [4e3, 1e6]
+    fill:    settles(fluids.mdot(supply), to=+-5%,
+                 within 90s after pump.on)

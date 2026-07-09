@@ -1,0 +1,24 @@
+# Espresso machine -- dual-boiler E61-style, the fluorite-first
+# stress project (D119). Project manifest (regolith 11 sec. 9): a
+# project is this manifest + the source tree + one lockfile.
+
+[package]
+name = "espresso_machine"
+
+[depends]
+"std.quantities" = "^1"
+"std.materials" = "^1"
+"std.mech" = "^0.9"
+"std.elec" = "^0.6"
+"std.fluorite" = "^0.1"   # component classes for the .fluo files;
+                          # invisible to `check` until WO-31
+"std.intents" = "^1"
+"std.compute" = "^0.5"
+"jlc.pcb" = "^2"
+
+[evidence]
+# hash-pinned source documents records and boundaries may cite
+"ulka-ex5-curve.pdf" = "sha256:d41a77..."
+"digmesa-fhksc-dp.pdf" = "sha256:9c02be..."
+"proto-thermal-survey-ts2.pdf" = "sha256:4be1f0..."
+"vibe-grommet-iso-vr12.pdf" = "sha256:77ac05..."

@@ -1,0 +1,29 @@
+# Pressure-fed propellant feed leg -- exercises: a Regulator pressure
+# imposer, a CheckValve, a metering Orifice, and the dp / supply /
+# npsh claim forms (fluorite/02 sec. 3, sec. 6). Self-contained port of
+# the dune_buggy feed shape (WO-31 D5), no cross-repo dependency.
+
+import std.fluorite (Pipe, Regulator, CheckValve, Orifice)
+
+medium RP1: liquid
+    props: registry(rp1_mil_dtl_25576)          # fluorite/02 sec. 1
+
+flownet FuelFeed(medium=RP1):
+    reference: ambient(2.8MPa, 293K)             # regulated tank ullage
+                                                 # reference (02 sec. 4)
+    nodes: tank_out, reg_out, cv_out, orif_out, inj_in
+    edges:
+        feed:  Pipe(from=feed_tube.run)          (tank_out -> reg_out)
+        reg:   Regulator(set=2.2MPa, droop=40kPa)
+                                                 (reg_out -> cv_out)
+        cv:    CheckValve(crack_dp=35kPa)        (cv_out -> orif_out)
+        orif:  Orifice(cd=0.61, dia=3.5mm)       (orif_out -> inj_in)
+        inj:   Pipe(from=injector.run)           (inj_in -> ambient)
+
+require FeedPerformance:
+    # regulated supply drop stays inside the injector's operating window.
+    margin:  fluids.dp(tank_out -> inj_in) <= 6bar
+    # positive injector supply margin above chamber pressure.
+    supply:  fluids.pressure(inj_in) >= 1.6MPa
+    # metering-orifice regime screening (tag-shaped, D97 channel).
+    regime:  fluids.reynolds(orif) in [1e4, 5e5]

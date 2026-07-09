@@ -1,0 +1,55 @@
+# Pedal box -- pedals, master cylinders, bias bar: human-input
+# statics, LOWER-bound stiffness for pedal feel, reserve-travel
+# geometry, and the mechanical half of the brake_hydraulics.fluo
+# circuit (the master cylinder is fluorite's pressure IMPOSER; its
+# mount stiffness lives here -- one artifact, two tracks, shared
+# datums).
+
+import std.mech.sheet (Blank, Bend)
+import std.mech.turned (Pivot)
+
+part PedalBox:
+    material: AISI_4130_N
+
+    stage cut: process=laser_cut(sheet=3.0mm)
+        blanks = Blank(pedal_box_flat)
+    stage formed: process=press_brake, from=cut
+        tray = Bend(edges=cut.blanks.tray_edges, angle=90deg)
+
+    stage machined: process=cnc_mill, from=formed
+        then:
+            pedal_pivots = 2 x Pivot(dia 10mm h7)
+            mc_mounts    = 2 x PatternOf<Drill(M8)>(n=2)
+            bias_bar     = Shaft(dia 9.5mm, spherical_seats)
+
+    boundary:
+        pedal_panic: <= 900N        # 95th-percentile panic stomp
+        structure: static
+
+    require Structural:
+        # Panic-stomp path: pedal arm bending, pivot shear, tray
+        # buckling -- pure statics/materials tier; every route is
+        # closed-form.
+        arm: peak(mech.stress.von_mises, at=machined.pedal_pivots)
+                 < material.sigma_y / 2.0
+                 given force = boundary.pedal_panic
+        tray_buckle: mech.buckling_load(formed.tray.side_panels)
+                         >= 2 * boundary.pedal_panic
+
+    require Feel:
+        # LOWER-bound mount stiffness: master-cylinder mount flex
+        # eats pedal travel; the fluorite circuit's compliance budget
+        # (COPEN-5's wall-compliance analog) CONSUMES this promise --
+        # a cross-track promise chain (mech stiffness -> hydraulic
+        # transient response).
+        mount_stiff: mech.stiffness(machined.mc_mounts) >= 15kN/mm
+
+    require Geometry:
+        # Reserve travel with worn pads + hot fluid: the pedal must
+        # not reach the tray floor -- consumes brake_hydraulics.fluo's
+        # volume-consumption promise and pad-wear allowance from
+        # brake_corner.hema. Three files, one claim, zero new
+        # mechanism (G18 chains).
+        reserve: mech.travel_remaining(pedal, at=worn_hot_corner)
+                     >= 25mm
+        bias_range: vehicle.brake_bias(bias_bar) within [55%, 68%]

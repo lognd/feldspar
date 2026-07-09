@@ -1,0 +1,15 @@
+# BREAKS: an interface impl supplying less capability than its demand
+#   clause requires (regolith/04 contracts: demanded capability exceeds
+#   supplied).
+# EXPECT-TODO: E0410
+# Self-calibration: `regolith_ir::conformance::check_param_match` and
+# the capability-vs-demand check are exercised only by regolith-ir's
+# own unit tests; nothing in `regolith-lower` calls them, so no source
+# file drives this code through the checked pipeline today. See README
+# candidate finding.
+interface SensorPad:
+    demands:
+        stiffness: bar
+part P:
+    impl SensorPad for self:
+        pad = milled.face

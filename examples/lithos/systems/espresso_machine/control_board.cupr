@@ -1,0 +1,74 @@
+# Control board -- one PCB: mains-side triac switching, PT100 sensing
+# chains, probe front end, logic supply. Exercises: board stages with
+# vendor binds, an ADC noise-floor claim sized against the sensing
+# intent's accuracy, an inductive-kick peak claim windowed on the
+# SAME commanded transition the fluid track's water-hammer claim
+# windows on (one event ledger), and one written-out analog block
+# (the escape hatch, thermostat precedent).
+
+import std.elec.families (cmos_3v3)
+
+board ControlPcb:
+    stage bare:      process=pcb_fab(jlc_2l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        u_mcu   = vendor(stm32g071cb)         # runs BrewCtl (bind in
+                                              # controller.cupr)
+        psu     = vendor(hlk_pm03)            # 230V -> 3.3V module,
+                                              # reinforced isolation
+        u_rtd_b = vendor(max31865)            # brew PT100 front end
+        u_rtd_s = vendor(max31865)            # steam PT100 front end
+        tr_b    = vendor(bta16_600b)          # brew element triac
+        tr_s    = vendor(bta16_600b)          # steam element triac
+        oc_b    = vendor(moc3063)             # zero-cross opto pair
+        oc_s    = vendor(moc3063)
+        tr_pump = vendor(z0107mn)             # pump triac
+        tr_v3   = vendor(z0107mn)             # group solenoid triac
+        tr_fill = vendor(z0107mn)             # autofill solenoid triac
+        oc_pump = vendor(moc3063)
+        oc_v3   = vendor(moc3063)
+        oc_fill = vendor(moc3063)
+
+    require Noise:
+        adc_floor: rms(v(assembled.rtd_b.sig), band=[0.1Hz, 10Hz]) < 20uV
+        # 20uV on the 385uV/K PT100 chain is 0.05K -- a factor of 4
+        # under the sense_brew_t intent's +-0.2K, so the error budget
+        # (controller.cupr brew_temp_error) has room for the well lag
+
+    # The solenoid's turn-off is one datum in one ledger: the fluid
+    # track windows its water-hammer peak on v3.release
+    # (brew_water.fluo); the elec consequence of the SAME transition
+    # is the inductive kick across the triac.
+    event v3_off: i(assembled.v3_out).crosses(0A)
+
+    require Drive:
+        kick: peak(v(assembled.v3_out), within 2ms after v3_off) < 600V
+        # BTA/Z01 VDRM is 600V; the RC snubber the realizer places
+        # for this claim is lockfile-caused, not hand-instantiated
+
+# ---- One block written out (the escape hatch when the designer
+#      wants this stage of the chain to be theirs): the AC-excited
+#      conductance probe front end. DC excitation electrolyzes the
+#      probe; the block owns the excitation choice, so it is written,
+#      not derived.
+
+block ProbeFrontend:
+    ports:
+        vdd:   supply(in, 3.3V +- 5%, i <= 2mA)
+        gnd:   reference
+        probe: analog(voltage, range=[0V, 3.3V], z_out <= 100kohm)
+        out:   analog(voltage, range=[0.1V, 3.2V], z_out <= 10kohm)
+    params:
+        r_ref: resistance = in [47kohm, 220kohm] minimize
+        f_exc: frequency = in [500Hz, 2kHz]
+        # AC excitation: the probe sees zero DC bias, so no plating
+        # or electrolysis at the tip -- the WHY of this block
+    spec:
+        continuous:
+            v(out) = v(vdd) * z_probe(level) / (z_probe(level) + r_ref)
+    require Discrimination:
+        # wet (tank water, < 20kohm) and dry (open) must separate by
+        # a full third of the ADC range at the worst supply corner
+        split: forall level in {wet, dry}:
+                   contrast(v(out), level) >= 1.1V

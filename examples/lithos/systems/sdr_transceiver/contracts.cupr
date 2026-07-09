@@ -1,0 +1,75 @@
+# Peregrine shared contract pack -- every other file imports THIS
+# instead of importing each other (regolith 11 sec. 9 rule 3:
+# contracts break dependency cycles). Mixed-domain interfaces per
+# regolith 10 sec. 3: one home language (cuprite), foreign-domain
+# roles in quantity-core geom vocabulary -- the enclosure (mech,
+# enclosure.hema) implements DeckBay; the radio board implements
+# RfDeck; the DeckMate mating routes the board's promised dissipation
+# into the enclosure's thermal load set (the xdomain chain:
+# dissipation -> enclosure rise -> derating).
+
+import std.elec.families (cmos_3v3, lvcmos18, sstl135)
+import std.elec.protocols (usb2_hs, spi, uart)
+
+# ---- The radio deck: one card contract, thermal-facing promises.
+
+interface RfDeck:
+    frame:
+        origin: mounts.pattern_center
+        z:      outline.normal
+        gnd:    reference
+        logic:  domain(3.3V)
+    roles:
+        # mech-facing roles, quantity-core spelling:
+        outline: geom.plate(120mm x 80mm, t=1.6mm)
+        mounts:  geom.hole_pattern(dia 3.2mm, n=6, rect(112mm x 72mm))
+        ant:     connector(sma_edge, at=geom.point(x=60mm, y=0mm))
+        host:    connector(usb_b_micro, at=geom.point(x=-60mm, y=20mm))
+        # elec-facing roles:
+        vin: supply(in, 12V +- 10%, i <= 1.8A)
+    demands:
+        mounts: geom.position(+-0.1mm, to=frame)
+        ant:    geom.position(+-0.2mm, to=frame)
+    promises:
+        mass: <= 130g
+        # The xdomain handoff: the enclosure's thermal claims consume
+        # THIS promise (promises, not actuals -- INV-19 pressure).
+        thermal.dissipation: <= 14W during op = tx
+        thermal.dissipation: <= 4.5W during op = rx
+
+# ---- The enclosure bay the deck bolts into (mech side implements).
+
+interface DeckBay:
+    frame:
+        origin: posts.pattern_center
+        z: posts.plane.normal
+    roles:
+        posts: geom.boss_pattern(tapped=M3, n=6, rect(112mm x 72mm))
+    promises:
+        thermal.sink: conductive, >= 1.2 W/K    # deck-to-wall conduction
+
+mating DeckMate:
+    between: a: DeckBay, b: RfDeck
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    effects:
+        # Route the deck's promised dissipation (an elec quantity)
+        # into the bay's thermal load set (a mech claim input) --
+        # pure quantity-core vocabulary, no new machinery.
+        model<bolted_stack_conduction>(n=6, torque=0.6 N*m)
+            applies -> a: heat(b.power_dissipated)
+
+# ---- The antenna boundary: 50-ohm coax role shared with the mech
+#      shield wall's feedthrough.
+
+interface AntennaFeed:
+    frame:
+        gnd: reference
+    roles:
+        rf: analog(elec.power, z=50ohm)
+    demands:
+        rf: geom.position(+-0.3mm, to=frame)
+
+mating AntennaFeedMate:
+    between: a: AntennaFeed, b: AntennaFeed
+    align:   a.frame = b.frame (contact)

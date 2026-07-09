@@ -1,0 +1,65 @@
+# Shaft + bearing cartridge -- machine-design tier: combined loading,
+# press fit, critical speed, fatigue and bearing life under a duty
+# SPECTRUM. Friction anchors: G14 (payloads consumed by CLOSED-FORM
+# solvers), G15 (contact-pair records), G5 (property records).
+
+import std.mech.turned (Shaft, Shoulder)
+
+interface WheelSeat:
+    frame:
+        origin: seat.axis_point
+        z: seat.axis
+    roles:
+        seat: cylindrical(dia 8mm h6)
+    loads:
+        radial:  <= 6N                 # from wheel imbalance envelope
+        moment:  <= 0.15N*m
+        structure: spectrum(duty_profile)   # G14: hash-pinned duty --
+                                            # orbit/slew/idle mode mix
+
+part WheelShaft:
+    material: AISI_4140
+
+    stage turned: process=cnc_lathe
+        then:
+            body = Shaft(dia 8mm k5, length 42mm)
+            step = Shoulder(dia 12mm, at 14mm)
+
+    impl WheelSeat for self:
+        seat = turned.body.section(0mm, 14mm)
+
+    require Structural:
+        # DIN 743 combined static loading -- pure closed-form tier.
+        static_sf: peak(mech.stress.von_mises, at=turned.step)
+                       < material.sigma_y / 2.0
+
+        # G15: press-fit retention needs the contact{17-4PH, 4140}
+        # friction record (regolith property registry) -- contact
+        # records lower to table-solver edges keyed by the material
+        # PAIR, exactly like G5's single-material records.
+        fit_holds: mech.press_fit.torque_capacity(turned.body.seat)
+                       >= 0.05N*m, sf=2
+
+    require Fatigue:
+        # G14: Miner damage is a CLOSED-FORM solver consuming a
+        # `spectrum` PAYLOAD port (duty profile) plus scalar ports
+        # (Kt at the shoulder, Marin-corrected endurance limit).
+        # Payload ports are NOT an FEA-only mechanism.
+        life: mech.fatigue.damage(turned.step,
+                  over=interface_envelope(WheelSeat).spectrum) < 1.0,
+              sf=4
+
+    require Dynamics:
+        # Rayleigh/Dunkerley critical speed: must clear the operating
+        # band with margin; lower-bound claim -- G4 sense-awareness:
+        # any envelope edge used here must be conservative FOR LOWER.
+        crit_speed: mech.critical_speed(turned.body,
+                        carrying=Flywheel.wheel_iz) > 9000rpm
+
+part BearingCartridge:
+    require Life:
+        # ISO 281 L10: closed form over equivalent load + the SAME
+        # duty spectrum payload; the speed-load mode mix decides
+        # equivalent load. Cheap tier end to end.
+        b10: mech.bearing.l10_hours(pair=preloaded_707C,
+                 under=interface_envelope(WheelSeat)) >= 40000hr

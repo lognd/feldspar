@@ -1,0 +1,54 @@
+# Reaction-wheel assembly -- the cross-domain roof: mech + elec parts
+# under one envelope, promise chains crossing domains, modal and
+# export claims. Friction anchors: G18 (cross-file promise chain),
+# G8/OPEN-11 (modal), G21 (assembly-level obligations are regolith's;
+# feldspar sees only per-claim quantities).
+
+import Flywheel, WheelShaft, BearingCartridge (from flywheel.hema,
+                                               shaft_bearings.hema)
+import WheelDriver (from driver.cupr)
+
+interface WheelMount:
+    frame:
+        origin: pattern.center
+        z: pattern.normal
+    roles:
+        pattern: HolePattern<M3, n=4, grid(2, 2, 40mm x 40mm)>
+    loads:
+        static: <= 25N
+        structure: spectrum(launch_random)   # random-vib PSD payload
+
+part WheelHousing:
+    material: AL_7075_T6
+
+    stage machined: process=cnc_mill
+        then:
+            shell = Pocketed(envelope 80mm x 80mm x 32mm, wall 2.5mm)
+
+    impl WheelMount for self:
+        pattern = machined.shell.base_pattern
+
+    require Thermal:
+        # G18: WheelDriver.promises.power (1.8W) + bearing drag heat
+        # arrive as given loads; conduction path to the mount face.
+        # Phase 2 heat tier; conservative resistance network first.
+        mount_rise: thermo.temperature(machined.shell.mount_face)
+                        - thermo.temperature(ambient) < 12K
+
+    require Survival:
+        # G8/OPEN-11 + G14: random-vib PSD payload -> Miles' equation
+        # (closed form consuming a spectrum payload) -> GRMS stress;
+        # the modal claim gates it (first mode above the PSD knee).
+        first_mode: mech.first_mode(assembly) > 140Hz
+        grms_ok:    peak(mech.stress.von_mises,
+                        under=interface_envelope(WheelMount).spectrum)
+                        < material.sigma_y / 1.6
+
+    require Pointing:
+        # G21: torque ripple (elec, driver.cupr) x wheel inertia
+        # (mech, flywheel.hema) -> exported jitter. The CROSS-PART
+        # obligation is regolith's orchestrator territory; feldspar
+        # discharges each quantity claim; the assembly algebra never
+        # enters the solver graph.
+        jitter: mech.exported_moment.rms(assembly,
+                    band=[0.1Hz, 50Hz]) < 2e-4 N*m

@@ -1,0 +1,76 @@
+# Component record #3 for EOPEN-12 -- Raspberry Pi RP2040. The
+# OPPOSITE stress from the SAMD21: a regular per-pin function grid
+# (each GPIO carries the same function columns at fixed positions)
+# PLUS a wildcard resource -- PIO state machines reach ANY GPIO. The
+# schema carries both: fixed columns are ordinary pin-table entries;
+# the wildcard is a function whose pin set is `any(gpio)`, so the
+# matcher treats flexibility as a large-but-ordinary domain instead
+# of a special case. Also exercises: two executors as an orbit
+# (verify-one for symmetric cores), external-flash boot as a strap +
+# mandatory-companion demand.
+#
+# Transcribed from general part knowledge; tier `community` until the
+# datasheet-rev hash is verified.
+
+component rpi.rp2040:
+    class: mcu(cortex_m0plus x 2)
+    evidence: by catalog(rpi_rp2040_ds_build1), tier=community
+
+    limits:
+        vdd_io:   [1.8V, 3.6V]         # IOVDD; core is regulated 1.1V
+        t_j:      [-20degC, 85degC]
+        i_pin:    <= 12mA              # per drive-strength setting
+        i_iovdd:  <= 64mA aggregate
+
+    derating:
+        i_pin: f(drive_sel)            # 2/4/8/12mA programmed strength
+
+    resources:
+        executor: 2 x (>= 120Mops i32 sustained), by test(coremark_2040)
+        # two identical cores: an orbit; scheduling may verify one and
+        # instantiate two only where the givens are core-invariant
+        sram:  264kB
+        flash: none                    # external QSPI mandatory (demand
+                                       # below); XIP-cached
+        movers: dma x 12
+        pio:   sm x 8 (2 blocks)       # the wildcard fabric
+
+    functions:
+        buses:  spi x 2, uart x 2, i2c x 2
+        timers: pwm x 8 (2 channel)
+        analog: adc(12bit, 500ksps) x 1 (in x 4)
+        pio:    any_protocol(<= 62.5MHz bit rate)   # synthesizable IO
+
+    function_modes:
+        # fixed-grid columns: role position is a pure function of
+        # (gpio index mod pattern) -- expressed as column rules rather
+        # than 30 near-identical rows:
+        spi.rx:   gpio(n) where n mod 8 in {0, 4}
+        spi.sck:  gpio(n) where n mod 8 in {2, 6}
+        spi.tx:   gpio(n) where n mod 8 in {3, 7}
+        uart.tx:  gpio(n) where n mod 4 = 0
+        uart.rx:  gpio(n) where n mod 4 = 1
+        i2c.sda:  gpio(n) where n mod 4 = 2
+        i2c.scl:  gpio(n) where n mod 4 = 3
+        pwm.a:    gpio(n) where n mod 2 = 0
+        pwm.b:    gpio(n) where n mod 2 = 1
+        pio.any:  any(gpio0 .. gpio29)  # the wildcard: PIO reaches all
+        adc.in:   gpio26 .. gpio29 only
+
+    packages:
+        qfn56:
+            gpio: 30                    # single 3.3V-class IO bank
+            # per-pin rows derivable from the column rules above; the
+            # pack ships them expanded, users never read them
+
+    demands:
+        flash: qspi_nor(>= 2MB, <= 133MHz) required   # boot companion;
+                                       # an unbound flash role is an L2
+                                       # error, like a missing pull-up
+        vreg_in: [1.8V, 3.3V]
+
+    straps:
+        qspi_ss: {flash_boot: high, usb_boot: low}, default=flash_boot
+
+    models:
+        power: model<mcu_power_modes>(run, sleep, dormant)

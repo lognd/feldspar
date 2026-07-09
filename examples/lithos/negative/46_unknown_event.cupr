@@ -1,0 +1,19 @@
+# BREAKS: cuprite/03 sec. 1a -- an `on <event>:` body's clock must name
+#   a declared clock port; an undeclared event is a dangling reference,
+#   the continuous/discrete analog of an undeclared clock-domain
+#   crossing.
+# EXPECT-TODO: E0301
+# Self-calibration (WO-36 deliverable 4): `on <clk>.<edge>:` bodies type
+# to a real `OnBlock` node (WO-36's typed-grammar deliverable) and feed
+# `ConverterGraph` (its lowering deliverable), but no pass cross-
+# references the block's clock identifier against the declared `ports:`
+# clock set -- `nope` (never declared as a `clock(...)` port) lowers
+# clean (ok=True, zero diagnostics). Demand signal for a future
+# reference check over `OnBlock` clocks (new SEMANTICS, out of WO-36's
+# stated scope).
+block UnkEvent:
+    ports:
+        clk: clock(1MHz)
+    spec:
+        on nope.rise:
+            a <= 1

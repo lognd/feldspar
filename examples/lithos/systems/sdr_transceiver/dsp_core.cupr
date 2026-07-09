@@ -1,0 +1,97 @@
+# Peregrine DSP fabric -- the DDC and DUC. Exercises: RTL specs
+# spanning TWO clock domains each (sample fabric vs bus fabric) with
+# the crossing LEDGER carrying every inter-domain signal (two
+# different crossing matings: async_fifo for the sample stream,
+# cdc_sync for quasi-static control words -- removing either is
+# E0420, not a lint), `by composing` instantiating the extern-backed
+# DDS with a `use` pin, decimation-chain gain bookkeeping in dB, and
+# per-block throughput claims the workload seam consumes.
+
+import "dds_core.cupr" (DdsCore)
+import std.elec.buses (async_fifo, cdc_sync)
+
+# ---- DDC: IF samples at 122.88Msps -> baseband IQ at 1.92Msps.
+
+block Ddc<decim: int = 64>:
+    ports:
+        adc_in:   digital(in, width=14, domain=samp)   # IF samples
+        iq_out:   bus(axis_stream(32), domain=bus)     # 16b I + 16b Q
+        tune:     digital(in, width=32, domain=bus)    # NCO fcw, from MCU
+        gain_sel: digital(in, width=3, domain=bus)     # AGC step
+        samp_clk: clock(122.88MHz, domain=samp)
+        bus_clk:  clock(100MHz, domain=bus)
+    spec:
+        # Mix down: quadrature NCO product, then CIC decimate, then a
+        # compensating FIR. All in the sample domain:
+        on samp_clk.rise:
+            mix_i <= adc_in * nco.i_out
+            mix_q <= adc_in * nco.q_out
+            cic_i <= cic(mix_i, r=decim, n=4)
+            cic_q <= cic(mix_q, r=decim, n=4)
+        on bus_clk.rise:
+            iq_out.data <= fir_comp(xing.out) when xing.valid
+    connect:
+        # The ONLY inter-domain paths -- ledger rows, one per signal
+        # class. The decimated stream crosses through an async FIFO;
+        # the two control words are quasi-static and cross through
+        # 2-stage synchronizers (a bus-domain write, sample-domain
+        # consumers):
+        xing:      async_fifo<depth=256>(a=samp_clk.domain, b=bus_clk.domain)
+        tune_x:    cdc_sync<stages=2>(a=bus_clk.domain, b=samp_clk.domain)
+        gain_x:    cdc_sync<stages=2>(a=bus_clk.domain, b=samp_clk.domain)
+    then:
+        nco = DdsCore<32>() use HandRtl     # the extern Verilog impl,
+                                            # pinned; lockfile-caused
+    promises:
+        timing.latency(adc_in -> iq_out): <= 250us
+        # Decimation processing gain: 10*log10(64) = 18dB SNR
+        # improvement in-band -- an unreferenced dB term:
+        processing_gain: >= 18dB
+    require Throughput:
+        keep_up: info.data_rate(iq_out) >= 7.68MB/s
+        no_drop: forall op: fifo_overflow(xing) = never
+
+impl Ddc by spec
+
+# ---- DUC: baseband IQ at 1.92Msps -> IF samples at 122.88Msps.
+
+block Duc<interp: int = 64>:
+    ports:
+        iq_in:    bus(axis_stream(32), domain=bus)
+        dac_out:  digital(out, width=14, domain=samp)
+        tune:     digital(in, width=32, domain=bus)
+        tx_gate:  digital(in, domain=bus)         # PA ramp gate
+        samp_clk: clock(122.88MHz, domain=samp)
+        bus_clk:  clock(100MHz, domain=bus)
+    spec:
+        on bus_clk.rise:
+            stage_in <= iq_in.data when iq_in.valid
+        on samp_clk.rise:
+            interp_iq <= fir_interp(xing.out, r=interp)
+            mix_up    <= interp_iq * nco.i_out - interp_iq * nco.q_out
+            dac_out   <= mix_up when gate_x.out else 0
+    connect:
+        xing:   async_fifo<depth=256>(a=bus_clk.domain, b=samp_clk.domain)
+        tune_x: cdc_sync<stages=2>(a=bus_clk.domain, b=samp_clk.domain)
+        gate_x: cdc_sync<stages=2>(a=bus_clk.domain, b=samp_clk.domain)
+    then:
+        nco = DdsCore<32>() use HandRtl
+    promises:
+        timing.latency(iq_in -> dac_out): <= 250us
+    require Spectral:
+        # Interpolation images must fall under the analog
+        # reconstruction filter's stopband; claimed here, discharged
+        # against the DAC chain model (adc_chain.cupr):
+        image_rej: elec.power(dac_out.image(1)) <= -50dBc
+        no_underrun: forall op: fifo_underflow(xing) = never during op = tx
+
+impl Duc by spec
+
+# Ledger notes (what this file proves under pressure):
+#   1. FOUR crossings per direction-pair, each a named mating with its
+#      own discipline -- the crossing ledger is per-signal-class, not
+#      per-domain-pair; a new cross-domain reference (say, reading
+#      `cic_i` in a bus_clk body) fails E0420 naming the frames.
+#   2. The two `use HandRtl` pins select the extern Verilog DDS in two
+#      instantiation sites; monomorphization keeps them independent
+#      entities with independent equivalence obligations.

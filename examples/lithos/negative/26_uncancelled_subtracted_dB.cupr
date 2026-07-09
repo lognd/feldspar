@@ -1,0 +1,18 @@
+# BREAKS: a subtracted logarithmic reference that does not cancel
+#   against an added one, leaving an uncancelled reference in the sum
+#   (regolith/02 sec. 5a: "or a subtracted reference is uncancelled" --
+#   the hidden half of the E0104 rule, distinct from the obvious
+#   dBm+dBm sum in 04_dbm_plus_dbm.cupr).
+# EXPECT-TODO: E0104
+# Self-calibration: `10dBm - 3dB - 4dBm` leaves a subtracted dBm
+# reference uncancelled against the linear 3dB term; this lowers clean
+# (ok=True, zero diagnostics) today -- the ILLEGAL_LOG_SUM check
+# catches the simple multi-reference sum shape (04) but not this
+# subtraction-cancellation shape. See README candidate finding.
+block Amp:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+    require Gain:
+        bad: 10dBm - 3dB - 4dBm <= 5dBm

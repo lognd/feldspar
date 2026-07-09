@@ -1,0 +1,57 @@
+# Sensor pod enclosure + assembly -- the mech half of the SOPEN-2
+# mechatronic pressure test (see imu_board.cupr). What this example
+# establishes: the mixed-domain interface binds through each language's
+# NORMAL impl machinery, and the thermal handoff rides the existing
+# `effects:` load routing -- no new mechanism. The two halves it left
+# open were settled in cycle 2: cross-language reference is the
+# ordinary import (D23, below), and joint obligations belong to the
+# declaring system's build (D24). See servo_module.hema for the fuller
+# second pressure test.
+
+# The pack declares both sides and the mating that joins them:
+# PodMount (board side), PodSocket (enclosure side), PodMountMate.
+import pods.interfaces (PodSocket, PodMountMate)
+import "imu_board.cupr" (ImuBoardPcb)      # D23: cross-language import
+import std.mech.cnc (cnc_mill)
+
+part PodShell:
+    material: AL6061_T6
+
+    stage milled: process=cnc_mill(axes=3)
+        setup A:
+            hold: stock.sides
+            then:
+                cavity = Pocket(rect(44mm x 44mm), depth=12mm)
+            then:
+                bosses = PatternOf<Boss(dia 5mm, h=4mm,
+                             tapped=M2)>(n=4, rect(40mm x 40mm),
+                             frame=cavity.floor.center)
+
+    zones over milled.cavity.faces:
+        board_bay: .where(adjacent_to=milled.bosses.instances.all)
+        rest:      remainder
+
+    # The mech side: the boss pattern provides the geometric roles the
+    # board's holes demand.
+    impl PodSocket<pattern=rect(40mm x 40mm), screw=M2> for self:
+        posts = milled.bosses.instances
+
+assembly SensorPod:
+    parts:
+        shell: PodShell
+        board: ImuBoardPcb                 # imported above; no special
+                                           # cross-language form exists
+    boundary:
+        ambient: [-20degC, 70degC]
+    connect:
+        mount: PodMountMate(a=shell.PodSocket, b=board.PodMount)
+            # The mating's effects: route the board's promised
+            # dissipation (an elec quantity) into the shell's thermal
+            # load set (a mech claim input) -- pure quantity-core
+            # vocabulary, so it crosses domains without new machinery.
+    require Thermal:
+        rise: thermo.temperature(shell.zones.board_bay)
+                  - boundary.ambient <= 20K
+    require Mass:
+        total: mech.mass(all) <= 150g
+        # consumes board's promised mass (12g) -- promises, not actuals

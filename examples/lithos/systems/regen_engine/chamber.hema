@@ -1,0 +1,79 @@
+# Regen-cooled thrust chamber (2kN kerolox) -- the coupled-physics
+# core. The torch igniter DECLARED wall temps as boundary givens;
+# a regen chamber must COMPUTE them: hot-gas convection <-> wall
+# conduction <-> coolant convection <-> coolant bulk rise, all
+# two-way coupled and varying along the axis. Anchors: G22 (coupled
+# groups), G23 (computed zone fields), G24 (station marching), G28
+# (extreme-range properties).
+
+import std.mech.cnc (cnc_lathe, cnc_mill)
+import std.mech.joining (Braze, ElectroDeposit)
+
+profile LinerContour:
+    walk:
+        from injector_plane
+        line down                    # a: barrel
+        arc tangent, bulge=right     # b: convergent
+        arc tangent, bulge=left      # c: throat blend
+        line angled                  # d: divergent (15deg cone)
+    constraints:
+        a.length = 60mm
+        c.radius = in [4mm, 9mm]
+        throat.diameter = dia 22mm
+        exit.diameter = dia 62mm
+    exports:
+        throat_plane: datum
+        exit_plane:   datum
+
+part Liner:
+    material: CuCrZr_C18150            # G28: records must span 100K..800K
+
+    stage turned: process=cnc_lathe
+        body = Turn(profile=LinerContour, wall=free)
+        # wall=free: resolved by the thermal-structural obligation --
+        # the orchestrator's lazy loop, driven by feldspar evidence.
+
+    stage channels: process=cnc_mill(axes=5), from=turned
+        cooling = PatternOf<Slot(width 1.2mm, depth free)>(n=64,
+                      along=turned.body.outer, helix=0deg)
+
+    stage closed: process=electrodeposit(Ni, thickness 2.5mm), from=channels
+
+    datum throat_ref = turned.body.throat_plane
+
+    zones over turned.body.inner:
+        throat_band: .where(within=(throat_ref, 8mm))
+        barrel:      .where(between=(injector_plane, throat_ref))
+        exit_cone:   remainder
+
+    require Thermal:
+        # G23 -- found here, RESOLVED by D98/WO-33: wall temperature
+        # is not a boundary given; it is the OUTPUT of the coupled
+        # solve, ZONE-VALUED, and now written in the landed
+        # compute-field form (a `compute` claim producing the field,
+        # sibling claims projecting it):
+        compute wall_T: thermo.wall_temperature over self.zones
+        wall_hot: wall_T at zone(throat_band) < 750K
+        # G24: the discharging solver is a 1-D STATION-MARCHING regen
+        # model (Bartz hot side + Gnielinski coolant side + wall
+        # conduction, marched injector->exit); the axial max is an
+        # INTERNAL reduction -- intermediate stations are not
+        # routable ports in v1 (OPEN-14).
+
+    require Structural:
+        # Thermal-structural coupling: hoop stress needs DELTA-T
+        # across the wall AND pressure -- both outputs of the same
+        # coupled group (G22). Thin margin at the throat -> the
+        # closed-form shell estimate cannot close it -> FEA with the
+        # computed temperature FIELD as load: a `field` payload from
+        # one solver into another (09 sec. 4 -- first real consumer).
+        throat_stress: peak(mech.stress.von_mises, at=throat_band)
+                           < material.sigma_y(T_local) / 1.4
+
+    require Life:
+        # LCF per start cycle: strain range from the startup thermal
+        # transient (OPEN-11 profile payload) -> Coffin-Manson.
+        starts: mech.fatigue.cycles(throat_band,
+                    under=event(startup).thermal_transient) >= 300, sf=4
+        creep: mech.creep.larson_miller(throat_band,
+                   at=duty(hotfire, 120s)) >= design_life

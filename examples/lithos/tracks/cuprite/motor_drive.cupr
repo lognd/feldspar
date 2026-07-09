@@ -1,0 +1,91 @@
+# BLDC motor drive -- exercises: system-level operating modes as config
+# variables (EOPEN-8: `exposing op:` on the system; `during op=x` and
+# `forall op` claims), `arbitrate` on a real wired-AND line, boundary
+# isolation demands, a current-sense error budget, and the intent ->
+# workload seam (EOPEN-15: `realizes`).
+
+import std.intents
+import std.elec.families (cmos_3v3)
+import std.compute (executor)
+
+system MotorDrive:
+    exposing op: {sleep, run, fault}      # operating-mode config variable
+
+    boundary:
+        supply:  dc_bus(24V +- 10%, source_z <= 50mohm)
+        ambient: [-20degC, 70degC]
+        emc:     industrial(CISPR_11_A)
+        design_life: 10 yr
+
+    reserves:
+        gpio: 2
+        power: 100mW avg
+
+    intents:
+        spin: actuate(bldc_motor(24V, i_phase <= 10A)):
+            control: field_oriented
+            speed:   [500rpm, 8000rpm]
+        sense_i: sense(elec.current):
+            range:    [-12A, 12A]
+            accuracy: +-1%
+            bandwidth: >= 20kHz
+        sense_pos: sense(geom.angle):
+            resolution: <= 0.5deg
+            rate: >= 20kHz
+        decide: compute(foc_law):
+            rate:    20kHz
+            latency: < 30us
+            state:   tuning(256B, persistent)
+        report: communicate(can_node):
+            isolation: functional(1kV)
+            rate: <= 1kHz
+
+    flows:
+        sense_i -> decide
+        sense_pos -> decide
+        decide -> spin
+        decide -> report
+
+    require Power:
+        sleep_floor: elec.power(all) <= 50uW during op = sleep
+        run_budget:  elec.power(all) <= 15W during op = run
+    require Safety:
+        fault_entry: within 10us after overcurrent: op = fault
+        forall op: gate_state(spin.bridge) in safe_set(op)
+        # `spin.bridge` -- derived-structure handle: the inverter bridge
+        # realized for the `spin` intent (the F19 addressing rule).
+
+    budget i_sense_error: kind=error
+        require: error(sense_i -> decide) <= +-1%
+        members: [sense_i.shunt, sense_i.amp, sense_i.adc]
+        allocate: cost_optimal
+        locked: sense_i.shunt.value: 2mohm     # lock family, not `pins:`
+
+    event overcurrent: i(spin.phase.any).crosses(15A)
+
+    # Shared fault line: three gate drivers pull one open-drain net.
+    # Wired-AND is a declared arbitration -- the ownership join for
+    # drive -- not a hope. Written at system level over derived-
+    # structure handles (mixed-altitude escape hatch, like NtcFrontend
+    # in the thermostat example).
+    arbitrate fault_n: open_drain(wired_and):
+        members: spin.drivers.instances.fault_n
+        pullup:  r = in [2.2kohm, 10kohm], to=spin.supply.logic
+    require Bus:
+        rise: rise_time(fault_n) <= 1us   # pull-up R x C_net interval
+
+# --- Intent -> workload seam (EOPEN-15 sketch): the compute intent
+#     becomes this computer's workload; `realizes` ties them, and the
+#     intent's rate/latency demands must be implied by the workload. ---
+
+computer DriveCtl:
+    workloads:
+        foc:  loop(rate=20kHz, work=8kops f32, jitter <= 2us) realizes decide
+        comm: stream(out, 8kB/s, latency <= 5ms) realizes report
+    require Timing:
+        foc_deadline: info.latency(foc) < 30us, sf=1.5
+    require Capacity:
+        headroom: info.utilization(all) <= 60%
+
+bind DriveCtl:
+    cpu0 = vendor(stm32g431)      # FOC-class MCU; ops by test(coremark_ref)

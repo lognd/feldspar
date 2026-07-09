@@ -1,0 +1,81 @@
+# Transit bus shelter -- exercises: calcite/02 simplest shape: one
+# space, four members, one envelope assembly, one circulation edge,
+# the load-path net, and the forall-combination strength sweep.
+# std.civil names are WO-48 content (phantom until the pack lands).
+
+import std.civil (Pinned, BasePlate, Bearing)
+
+site CurbSide:                                  # 02 sec. 1
+    boundary:
+        wind_speed:   [0m/s, 47m/s]             by catalog(asce7_fig26)
+        ground_snow:  1.9kPa                    by catalog(asce7_fig7)
+        frost_depth:  0.9m                      by catalog(county_gis)
+    soil:
+        bearing:      [95kPa, 145kPa]           by test(geotech_s114)
+
+grid bays: A, B spacing 3.6m                    # 02 sec. 1
+level ground: 0m
+level roof:   2.4m
+
+space Waiting:                                  # 02 sec. 2
+    area:      8.6m2
+    occupancy: registry(a3_waiting)             # std.civil table
+    at:        level(ground)
+    bounded_by: RoofPanel on [top]
+
+access:
+    open_front: Exit(width=3600mm)              (Waiting -> exterior)
+
+circulation Egress:                             # 02 sec. 3
+    reference: exterior
+    nodes: Waiting
+    edges: open_front
+
+member C1: column                               # 02 sec. 4
+    section:  registry(hss89x89x6.4)
+    material: registry(astm_a500c)
+    from (A, ground) to (A, roof)
+
+member C2: column
+    section:  registry(hss89x89x6.4)
+    material: registry(astm_a500c)
+    from (B, ground) to (B, roof)
+
+member G1: beam
+    section:  free                              # L3 resolves (03 sec. 1)
+    material: registry(astm_a992)
+    from (A, roof) to (B, roof)
+
+member RoofDeck: slab
+    section:  registry(alum_deck_25mm)
+    material: registry(al_6061_t6)
+    from (A, roof) to (B, roof)
+
+structure Shelter:                              # 02 sec. 6
+    support: F1: footing, F2: footing
+    members: C1, C2, G1, RoofDeck
+    transfers:
+        deck_g1: Bearing(tributary=8.6m2)   (RoofDeck -> G1)
+        g1_c1:   Pinned()                   (G1 -> C1)
+        g1_c2:   Pinned()                   (G1 -> C2)
+        c1_f1:   BasePlate()                (C1 -> F1)
+        c2_f2:   BasePlate()                (C2 -> F2)
+
+loads:                                          # 02 sec. 7
+    dead: derived
+    snow: site.ground_snow -> std.civil.asce7.roof_snow
+    wind: site.wind_speed  -> std.civil.asce7.mwfrs
+
+assembly RoofPanel: roof                        # 02 sec. 8
+    layers:
+        skin: registry(alum_sheet_3mm)
+        core: registry(polycarbonate_16mm)
+    promises:
+        u_value: derived
+
+require Structure:                              # 02 sec. 9
+    forall combo in std.civil.asce7.strength:
+        strength: civil.utilization(Shelter.members.all, under=combo) <= 1.0
+    deflect: mech.deflection(G1, under=std.civil.asce7.service)
+                 <= G1.span / 240
+    bearing: civil.bearing_pressure(F1) <= site.soil.bearing

@@ -1,0 +1,7 @@
+# BREAKS: arithmetic between incompatible quantity dimensions
+#   (regolith/02 sec. 2: `V` and `A` do not share a dimension).
+# EXPECT: E0101
+part Foo:
+    material: AISI_304
+    require Structural:
+        bad: 5V + 5A <= 1

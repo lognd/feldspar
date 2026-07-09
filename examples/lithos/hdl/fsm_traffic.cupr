@@ -1,0 +1,65 @@
+# fsm_traffic -- D120 fixture pair. PROVES cuprite/09 sec. 1 row:
+#   FSMs (case-based or enum types) -> mode machinery + on-event
+#   transitions; modes bind claims per state; exhaustiveness checkable
+# Foreign original: fsm_traffic.vhd (VHDL-2008 two-process enum FSM,
+# committed beside this file). Embedding: OPAQUE-with-contracts in v1
+# (cuprite 09 sec. 3): the VHDL is a pinned artifact; the contract
+# below is retro-declared; equivalence discharges by simulation
+# comparison with declared coverage (transparency for VHDL is
+# demand-gated -- reopen criterion named in 09 sec. 3).
+
+block TrafficCtl<green_ticks: int = 30, yellow_ticks: int = 5>:
+    exposing phase: {red, green, yellow}   # THE enum state, as a mode
+                                           # config variable -- states
+                                           # are modes, not encodings
+    ports:
+        clk:     clock(32.768kHz, domain=ctl)
+        rst_n:   digital(in)
+        tick:    digital(in)               # 1Hz strobe
+        ped_req: digital(in)
+        lamp_r:  digital(out)
+        lamp_y:  digital(out)
+        lamp_g:  digital(out)
+        walk:    digital(out)
+    spec:
+        # Moore outputs bound per mode -- what the VHDL spells as a
+        # decode, the mode machinery states directly; a lamp claim in
+        # a mode where it cannot hold is a compile-time contradiction:
+        lamp_r = (phase = red)             # discrete equality: enum,
+        lamp_y = (phase = yellow)          # not the banned continuous ==
+        lamp_g = (phase = green)
+        walk   = (phase = red)
+        on clk.rise:
+            ped_latch <= 1 when ped_req
+            ped_latch <= 0 when phase = red and not ped_req
+
+    # Transitions: on-event claims over the mode variable. The event
+    # set + `forall phase` claims make exhaustiveness a CHECK (every
+    # mode has an exit; every transition names its source) -- the
+    # two-process FSM's "did I cover every case" by construction:
+    event tick_edge: tick.rise
+
+    require Transitions:
+        red_out:    within 1 tick after timer(yellow_ticks) during phase = red:
+                        phase = green
+        green_out:  within 1 tick after any(timer(green_ticks), ped_latch)
+                        during phase = green: phase = yellow
+        yellow_out: within 1 tick after timer(yellow_ticks)
+                        during phase = yellow: phase = red
+    require Safety:
+        # Claims BOUND to modes -- the "stronger because" of this row:
+        # the conflicting-green is impossible by claim, not by review:
+        exclusive: forall phase: count(lamps.where(on)) = 1
+        walk_red:  walk = 1 only during phase = red
+        ped_serve: within green_ticks + yellow_ticks + 2 ticks
+                       after ped_req: phase = red
+
+# Native realization: the mode machinery synthesizes the register +
+# decode directly from the statechart:
+impl TrafficCtl by spec
+
+# The foreign original, embedded opaque, bound to the same contract.
+# The equivalence obligation's coverage statement must sweep the
+# mode domain (all three phases x both ped inputs) -- below that
+# coverage the discharge is indeterminate, honestly:
+impl TrafficCtl by extern("fsm_traffic.vhd", vhdl2008) as VhdlRef

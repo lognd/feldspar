@@ -1,0 +1,97 @@
+# Kestrel EPS -- solar harvest, 2S li-ion storage, regulated rails,
+# the stack harness. Exercises: cross-directory path import (reusing
+# the Buck block from the elec corpus -- F74: path resolution rule),
+# an energy-harvesting boundary (F77 -> EOPEN-18), battery protection
+# claims with the D42 infix `within`, and the StackHarness impl.
+
+import "contracts.cupr" (StackCard, StackHarness, Umbilical)
+import "../elec/buck_converter.cupr" (Buck)
+# FINDING F74: nothing defined what a relative path is relative TO.
+# Decided this cycle (D51): the importing file's directory, checked
+# against the project root -- see substrate 11 sec. 9.
+
+import std.intents
+import std.elec.power (IdealDiodeOr, ChargeController, LoadSwitch)
+
+system Eps:
+    exposing chg: {bulk, float, idle}     # charge-controller mode, local
+    boundary:
+        # The harvest side of the boundary (F77 -> EOPEN-18, CLOSED
+        # cycle 7, elec 02): `supply:` is reserved for DEFINITE
+        # sources; a harvesting product declares the environmental
+        # resource as profile-structured boundary truth, and the
+        # convert/store intents own the chain.
+        illumination: solar(1361 W/m2, profile=spectrum(orbit_sun_ref))
+        ambient: [-25degC, 60degC]
+        design_life: 2 yr
+
+    intents:
+        harvest: convert(solar -> dc_bus):
+            array:  4 x panel(80mm x 80mm, eff >= 28%)
+            mppt:   required
+        store: store(energy(20Wh, cycles >= 12000)):
+            chemistry_class: li_ion
+        feed: convert(dc_bus -> rails(3.3V, 5.0V)):
+            eta: >= 88%
+
+    flows:
+        harvest -> store
+        store -> feed
+
+    require Battery:
+        # D42 claim-position window: the cells live or die by this.
+        temp_window:  thermo.temperature(store.cells) within [0degC, 45degC]
+                          during chg = bulk
+        dod:          elec.depth_of_discharge(store) <= 30%
+        never_flat:   forall op: elec.min(v(store.cells.any)) > 3.0V
+        # `op` is the ENCLOSING system's mode variable (kestrel.cupr);
+        # FINDING F75: sub-artifact claims over an enclosing config
+        # domain resolve per context, like `boundary.` names -- the
+        # rule existed for boundary, not for config vars; stated this
+        # cycle (mech 03 sec. 4 rule 6 extended).
+
+    require Harvest:
+        worst_orbit: elec.energy(harvest, over=boundary.illumination.profile)
+                         >= 1.15 * elec.energy(all,
+                                over=boundary.illumination.profile)
+        # profile windows are quantity-core vocabulary (substrate 02
+        # sec. 5; F78 -> EOPEN-18 closed): mode-weighted integration
+        # over one period, worst-case phase by corner discipline
+
+board EpsPcb:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        u_mppt  = vendor(spv1040)             # per-string MPPT
+        u_chg   = ChargeController(chem=li_ion_2s, i_chg <= 1A)
+        u_or    = IdealDiodeOr(n=2)           # array | battery
+        conv3   = Buck<v_out=3.3V, i_max=4.5A>()
+        conv5   = Buck<v_out=5.0V, i_max=2A>()
+        sw_pl   = LoadSwitch(i <= 1.5A)       # payload rail, latchable
+        batt    = vendor(molicel_p28a_2s1p)   # cells by test evidence
+
+    impl StackHarness for self:
+        v3v3  = conv3.out
+        vbatt = u_or.out
+        sys   = assembled.stack_conn.i2c      # the physical bus segment;
+                                              # the master lives on OBC
+    impl StackCard for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        conn    = assembled.stack_conn
+        promises:
+            mass: <= 82g                      # inline refinement
+            power: <= 180mW                   # self-consumption
+
+    impl Umbilical for self:
+        chg = assembled.umb_conn.chg
+        dbg = assembled.umb_conn.dbg
+        rbf = assembled.umb_conn.rbf
+
+    require Protection:
+        ovp:  stays_within(v(vbatt), mask=cell_ovp(4.2V, 2))
+        ocp:  within 10us after overcurrent: state(sw_pl) = open
+        rbf_kill: elec.power(all) <= 50uW during rbf = inhibit
+
+    event overcurrent: i(vbatt).crosses(6A)

@@ -1,0 +1,10 @@
+# BREAKS: a compute intent realized by two-or-more workloads (cuprite/05
+#   sec. 1 rule 1: every compute intent must be realized by exactly one
+#   workload).
+# EXPECT: E0433
+system Sys:
+    intents:
+        decide: compute(law)
+    workloads:
+        att: loop(rate=4Hz) realizes decide
+        backup: loop(rate=4Hz) realizes decide

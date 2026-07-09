@@ -1,0 +1,18 @@
+# BREAKS: a declared port terminal that joins no node and is not marked
+#   `sealed` (the net-discipline terminal ledger).
+# EXPECT-TODO: E0301
+# Self-calibration: `en` is a declared port never named in `nets:` and
+# never `sealed`; the file lowers clean today (no unjoined-terminal
+# diagnostic). See README candidate finding.
+block Dangling:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)
+        gnd: reference
+        en:  digital(in, family=cmos_3v3)
+
+impl Dangling by circuit:
+    then:
+        u1 = vendor(tps54331)
+    nets:
+        inn:  (vdd, u1.vin)
+        gndn: (gnd, u1.gnd)

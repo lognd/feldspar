@@ -1,0 +1,16 @@
+# BREAKS: a rule pack's static rule evaluating false against a matched
+#   entity (RulePacks family: `pack.rule` provenance rendered).
+# EXPECT-TODO: E0601
+# Self-calibration: per `regolith-lower/src/checks.rs`'s own doc
+# comment, "Static rule EVALUATION (E0601) ... checks are cut" (WO-28
+# partial) -- only the name-collision half of rule packs (E0602) is
+# wired today; a rule whose `demand:` predicate is false against a real
+# entity does not yet produce E0601. See README candidate finding.
+process sheet_metal:
+    dfm:
+        rule min_web:
+            demand: false
+
+part p:
+    material: AISI_304
+    stage cut: process=sheet_metal

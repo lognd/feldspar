@@ -1,0 +1,8 @@
+# BREAKS: an entity query that matches more than one entity (INV-18
+#   reference determinism: resolution is deterministic or it fails,
+#   never a heuristic pick).
+# EXPECT: E0301
+part p:
+    feature hole
+    feature hole
+    refer hole

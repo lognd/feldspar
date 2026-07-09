@@ -1,0 +1,211 @@
+# Kestrel -- 1U Earth-observation CubeSat, the top-level system.
+# The integration file: mission intents with partition pins (D48
+# inline `hosted_on`), the computer at intent altitude (F79), the
+# cross-domain mass budget (D49 pack-defined budget kinds), orbit
+# thermal + launch boundary truth, the flatsat target, and every
+# board/structure file composed by import (substrate 11 sec. 9).
+
+import "contracts.cupr" (StackMate, CardMount, AntennaMate, Umbilical)
+import "structure.hema" (Frame)
+import "antenna.hema" (Antenna)
+import "eps.cupr" (Eps, EpsPcb)
+import "obc.cupr" (ObcPcb)
+import "adcs.cupr" (AdcsPcb)
+import "comms.cupr" (CommsPcb)
+import "payload.cupr" (PayloadPcb, TileCompressor, tile_bits)
+import std.intents
+import std.debug
+import std.compute (executor, memory, mover)
+
+system Kestrel:
+    exposing op: {detumble, safe, nominal, imaging, downlink}
+
+    parts:
+        frame:   Frame
+        antenna: Antenna
+        eps:     EpsPcb
+        obc:     ObcPcb(fw=flight_fw)         # image injected at binding
+        adcs:    AdcsPcb                      # (F83/D54)
+        comms:   CommsPcb
+        payload: PayloadPcb(bits=tile_bits)
+
+    boundary:
+        launch:     vibration(gevs_qual_ref),
+                    structure: spectrum(gevs_qual_ref)
+        separation: shock(1000g, 0.5ms, half_sine)
+        orbit:      sso(550km, ltdn=10.5h), profile=spectrum(orbit_env_ref)
+        sink:       radiative(deep_space), albedo=spectrum(orbit_env_ref)
+        radiation:  tid(10krad, behind=1mm_al)
+        design_life: 2 yr
+
+    reserves:
+        mass:  80g
+        power: 150mW avg
+        gpio:  4
+
+    intents:
+        # Partition pins are the D48 inline `hosted_on` -- rung 2, the
+        # lock family word EOPEN-17 already used for "this content
+        # lives on that part". Unpinned intents are planner-allocated.
+        image: sense(image(2048 x 1536, 12bit)) hosted_on payload:
+            gsd:  <= 30m
+            rate: >= 16/day
+        sense_att: sense(geom.orientation) hosted_on adcs:
+            accuracy: <= 1deg
+            rate:     >= 4Hz
+        decide: compute(adcs_law) hosted_on obc:
+            rate:    4Hz
+            latency: < 50ms
+            state:   ephemeris(4kB, persistent)
+        crunch: compute(tile_compression) hosted_on payload:
+            rate:    >= 30MB/s in
+            latency: <= 500ms
+        point: actuate(magnetorquer(3 axis, >= 0.18 A*m2)) hosted_on adcs
+        downlink: communicate(ground_station(uhf_437)) hosted_on comms:
+            rate:   >= 9600bps
+            volume: >= 15MB/day
+        uplink: communicate(ground_station(uhf_437)) hosted_on comms:
+            rate: >= 1200bps
+        keep: store(images(2GB, retention >= 7 days)) hosted_on obc
+        deploy_ant: actuate(burn_wire(4J, one_shot)) hosted_on comms
+
+    flows:
+        image -> crunch
+        crunch -> keep
+        keep -> downlink
+        sense_att -> decide
+        uplink -> decide
+        decide -> point
+        decide -> deploy_ant
+
+    connect:
+        # the stack: EPS harness feeds every card; one mating per card
+        bus_obc:     StackMate(a=eps.StackHarness, b=obc.StackCard)
+        bus_adcs:    StackMate(a=eps.StackHarness, b=adcs.StackCard)
+        bus_comms:   StackMate(a=eps.StackHarness, b=comms.StackCard)
+        bus_payload: StackMate(a=eps.StackHarness, b=payload.StackCard)
+        # cards into the frame's bays
+        m_eps:     CardMount(a=frame.bay_eps,     b=eps.StackCard)
+        m_obc:     CardMount(a=frame.bay_obc,     b=obc.StackCard)
+        m_adcs:    CardMount(a=frame.bay_adcs,    b=adcs.StackCard)
+        m_comms:   CardMount(a=frame.bay_comms,   b=comms.StackCard)
+        m_payload: CardMount(a=frame.bay_payload, b=payload.StackCard)
+        # antenna: RF + release-state coupling in one mating
+        ant: AntennaMate(a=comms.AntennaPort, b=antenna.AntennaPort)
+
+    # ---- Budgets. `kind=` names a pack-provided budget math (D49):
+    # std ships tolerance/deflection/power/timing/noise/error and,
+    # from this cycle, mass and energy.
+
+    budget mass_total: kind=mass
+        require: mech.mass(all) <= 1330g     # 1U + margin per LSP
+        members: [frame, antenna, eps, obc, adcs, comms, payload]
+        allocate: cost_optimal
+        locked: frame: 210g                        # already committed
+
+    budget orbit_energy: kind=energy
+        require: elec.energy(all, over=boundary.orbit.profile)
+                     <= elec.energy(eps.harvest, over=boundary.orbit.profile),
+                     sf=1.15
+        members: [obc, adcs, comms, payload]
+        allocate: cost_optimal
+        locked: payload: 1.4W during op = imaging
+        # profile windows (substrate 02 sec. 5, closed EOPEN-18):
+        # `over=` a periodic profile integrates mode-weighted; shares
+        # are per-period quantities, mode-qualified where needed
+
+    budget pointing_knowledge: kind=error
+        require: error(sense_att -> decide) <= 1deg
+        members: [adcs.u_mag, adcs.u_imu, adcs.u_sun, decide]
+        allocate: cost_optimal
+
+    event anomaly: fault(any_part)        # watchdog bite, brownout, SEL
+
+    require Modes:
+        safe_floor:  elec.power(all) <= 400mW during op = safe
+        detumble_in: within 3h after separation:
+                         mech.rate(body) <= 0.5deg/s
+        fault_safe:  within 5s after anomaly: op = safe
+
+    require Thermal:
+        batt_window: thermo.temperature(eps.store.cells)
+                         within [0degC, 45degC] forall op
+        fpga_ceiling: thermo.temperature(payload.u_fpga.junction)
+                          <= 85degC during op = imaging
+
+    require Link:
+        # The dB link budget, writable since SOPEN-5 closed (substrate
+        # 02 sec. 5a): dBm + dBi - dB composes to a power; a second
+        # referenced term (dBm + dBm) would die at L1. Discharge: rf
+        # chain models are future work (the EOPEN-11 posture), so this
+        # is honestly indeterminate until flatsat range test evidence:
+        margin: comms.pa_out + antenna.gain
+                    - path_loss(boundary.orbit.slant_max)
+                    >= gs_uhf437.sensitivity + 6dB
+                    during op = downlink
+
+    policy:
+        prefer vendor(jlc) over vendor(pcbway)
+        forbid dielectric(y5v)               # vacuum + thermal cycling
+        minimize total_cost
+
+# ---- The computer lives at intent altitude (F79): its workloads name
+#      the intents they realize; bind reaches into the boards.
+
+computer FlightCore:
+    workloads:
+        att:   loop(rate=4Hz, work=40kops f32, jitter <= 10ms) realizes decide
+        tiles: stream(30MB/s in, latency <= 500ms) realizes crunch
+        keepw: stream(store, 4MB/s, retention >= 7 days) realizes keep
+        comm:  stream(out, 9600bps, latency <= 2s) realizes downlink
+        hk:    loop(rate=1Hz, work=5kops i32)      # housekeeping, no intent
+    require Capacity:
+        headroom: info.utilization(all) <= 55%
+
+architecture for FlightCore:
+    resources:
+        cpu0:  executor(promises: >= 20Mops f32 sustained)
+        fpga0: executor(promises: >= 1Gops fixed, kind=fabric)
+        dma:   mover(promises: >= 40MB/s, independent of cpu0)
+    memories:
+        sram:  memory(320kB, promises: latency <= 2 cycles)
+        flash: memory(1MB, persistent)
+        bulk:  memory(8GB, persistent, endurance >= 1e4 cycles)
+    schedule:
+        att  -> cpu0: static_priority(highest)
+        hk   -> cpu0
+        comm -> cpu0
+        tiles -> fpga0
+        keepw -> dma
+
+bind FlightCore:
+    cpu0  = obc.u_mcu                     # cross-file instance ref (F79)
+    fpga0 = TileCompressor() hosted_on payload.u_fpga
+    dma   = obc.u_mcu.dma.instances.any
+    sram  = obc.u_mcu.sram
+    flash = obc.u_mcu.flash
+    bulk  = obc.u_sd
+
+image flight_fw:
+    realizes: schedule(FlightCore)
+    toolchain: gcc_arm(13.2, -O2)
+    partitions:
+        boot: flash[0 .. 32kB]
+        appA: flash[32kB .. 512kB]        # A/B images: brick-proof
+        appB: flash[512kB .. 992kB]
+        cfg:  remainder
+    require Resources:
+        fit:   size(text + ro) <= partitions.appA.size
+        stack: info.stack_depth(att) <= 6kB
+        wcet:  info.wcet(att, on=cpu0) <= 120ms
+    require Boot:
+        alive: within 30s after supply.on: comm.beacon
+
+# ---- Ground-support overlay: never flies, never perturbs the base.
+
+target flatsat of Kestrel:
+    intents:
+        console:   debug_access(eps.Umbilical.dbg, uart_log)
+        heartbeat: indicate(decide.status)
+        rails:     probe(power_rails)
+    draws: reserves

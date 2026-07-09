@@ -1,0 +1,203 @@
+# Single-stage gear reducer -- exercises the mesh_alignment budget in
+# anger (the one doc budget no example had used), GearMesh couples:,
+# backlash claims -- and four rungs of the expert ladder (substrate 12)
+# plus a supplied external plan (substrate 08 sec. 4):
+#   rung 2  policy locked: / use pins
+#   rung 3  policy: prefer
+#   rung 4  override <record> by test(...)
+#   rung 5  model= forced on a claim
+#   rung 7  waive dfm(...) with evidence (a deviation)
+#   extern  hand-written G-code for the housing's bore setup
+
+import std.mech.cnc (saw_stock, cnc_mill, cnc_lathe)
+import std.mech.bearings (BearingSeat, BearingJournal, BearingMount)
+import std.mech.matings (GearMesh, KeyedShaft, KeySeat, KeyedBore,
+                         PressFit)
+import std.mech.mounts (BoltPattern)
+
+part ReducerHousing:
+    material: AlSi10Mg
+
+    stage stock: process=saw_stock(rect(120mm, 90mm, 40mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.bottom
+            then:
+                base = FaceMill(on=stock.body.bottom, depth=1mm)
+            then:
+                mounts = PatternOf<CBore<M8>>(n=4, rect(100mm x 70mm),
+                             frame=base.center)
+        setup B:
+            flip about X
+            hold: milled.base
+            # The two bearing bores must be parallel and on-center to
+            # hold mesh alignment: one setup, one datum chain.
+            then:
+                bore_in  = Bore(dia 32mm H7, depth=12mm,
+                                axis=milled.base.center.offset(x=-30mm))
+                bore_out = Bore(dia 42mm H7, depth=12mm,
+                                axis=milled.base.center.offset(x=30mm))
+            then:
+                seat_in  = Ream(bore_in.wall)      # refining ops
+                seat_out = Ream(bore_out.wall)
+            # Supplied plan (extern at L6, substrate 08 sec. 4): the
+            # shop's proven program for this setup, pinned and CHECKED
+            # (reach/collision in planner check mode), not regenerated.
+            # Attachment is per setup; the stage's plan OBLIGATION
+            # (OPEN-12: per stage) composes supplied + generated setups.
+            plan: extern("nc/housing_op20.nc", gcode_fanuc)
+                      by test(first_article_fai_207)
+
+    # Deep-bore DFM rule fires at 3.8x d on bore_out's chain; the shop
+    # has proven the operation -- a DEVIATION (waive + evidence, rung 7):
+    waive dfm(max_depth_to_dia) on milled.bore_out:
+        basis: "proven on FAI lot 207; boring bar B-12 with damper"
+        by test(first_article_fai_207)
+
+    impl BearingSeat<d=32mm, depth=12mm> for self as seat_in:
+        bore     = milled.seat_in
+        shoulder = milled.bore_in.floor
+
+    impl BearingSeat<d=42mm, depth=12mm> for self as seat_out:
+        bore     = milled.seat_out
+        shoulder = milled.bore_out.floor
+
+    impl BoltPattern<M8, n=4, rect(100mm x 70mm)> for self:
+        holes = milled.mounts.instances
+
+profile InShaftProfile:
+    walk:
+        from front_plane
+        line down                     # a: front face
+        line right                    # b: gear seat land
+        close via axis
+    constraints:
+        a.length = dia 20mm / 2
+        b.length = 24mm
+
+profile InJournalProfile:
+    walk:
+        from seat_plane
+        line down                     # a: shoulder drop
+        line right                    # b: journal land
+        close via axis
+    constraints:
+        a.length = dia 15mm / 2
+        b.length = 14mm
+        b.diameter = dia 15mm k6      # press-fit seat; ISO 286
+
+part InputShaft:
+    material: AISI_4140
+    # Registry override with evidence (rung 4): our certified bar stock
+    # beats the class-record yield; checks re-run against the new data.
+    override material.AISI_4140.sigma_y
+        by test(mill_cert_ht_4471): [655MPa, 690MPa]
+
+    stage turned: process=cnc_lathe
+        then:
+            body    = Turn(profile=InShaftProfile)
+            journal = Turn(profile=InJournalProfile)  # bearing seat, k6
+        then:
+            keyway = Keyseat(width=6mm N9, on=body.od,
+                             length=20mm, from=body.front)
+
+    impl KeySeat<d=20mm, key=6mm> for self:
+        seat = turned.keyway
+
+    impl BearingJournal<d=15mm> for self:
+        seat = turned.journal.od
+
+profile OutShaftProfile:
+    walk:
+        from front_plane
+        line down                     # a: front face
+        line right                    # b: gear seat land
+        close via axis
+    constraints:
+        a.length = dia 25mm / 2
+        b.length = 30mm
+
+profile OutJournalProfile:
+    walk:
+        from seat_plane
+        line down                     # a: shoulder drop
+        line right                    # b: journal land
+        close via axis
+    constraints:
+        a.length = dia 20mm / 2
+        b.length = 16mm
+        b.diameter = dia 20mm k6
+
+part OutputShaft:
+    material: AISI_4140
+
+    stage turned: process=cnc_lathe
+        then:
+            body    = Turn(profile=OutShaftProfile)
+            journal = Turn(profile=OutJournalProfile)
+        then:
+            keyway = Keyseat(width=8mm N9, on=body.od,
+                             length=25mm, from=body.front)
+
+    impl KeySeat<d=25mm, key=8mm> for self:
+        seat = turned.keyway
+
+    impl BearingJournal<d=20mm> for self:
+        seat = turned.journal.od
+
+assembly GearReducer:
+    parts:
+        housing: ReducerHousing
+        sh_in:   InputShaft
+        sh_out:  OutputShaft
+        pinion:  vendor(khk_ss2_20)           # module 2, 20T
+        wheel:   vendor(khk_ss2_80)           # module 2, 80T
+        brg_in:  vendor(skf_6002)
+        brg_out: vendor(skf_6004)
+
+    boundary:
+        torque_in: [0, 12 N*m], structure: spectrum(duty_class_m5)
+        speed_in:  <= 1450 rpm
+        ambient:   [-10degC, 60degC]
+        design_life: 20000 h
+
+    policy:                                   # rung 3: soft + global
+        prefer vendor(skf) over vendor(generic)
+        minimize total_cost
+
+    locked:                                   # rung 2: pins, own block
+        fit_in.fit: k6/H7
+
+    connect:
+        mesh:    GearMesh<ratio=4>(a=pinion.GearFace, b=wheel.GearFace)
+        key_in:  KeyedShaft<6mm>(a=sh_in.KeySeat, b=pinion.KeyedBore)
+        key_out: KeyedShaft<8mm>(a=sh_out.KeySeat, b=wheel.KeyedBore)
+        fit_in:  PressFit(a=sh_in.BearingJournal, b=brg_in.id)
+        fit_out: PressFit(a=sh_out.BearingJournal, b=brg_out.id)
+        m_in:    BearingMount(a=housing.seat_in,  b=brg_in.od)
+        m_out:   BearingMount(a=housing.seat_out, b=brg_out.od)
+                     redundant(axial)         # declared indeterminacy
+
+    require Mesh:
+        # claim-position two-sided comparator: infix `within`, no `=`
+        backlash: mech.backlash(mesh) within [0.05mm, 0.15mm]
+        # rung 5: force the expensive model -- margin math unchanged,
+        # so this can only cost time, never truth:
+        contact:  mech.contact_stress(mesh) < 1400 MPa, sf=1.2,
+                      model=fea_contact
+
+    require Life:
+        bearings: mech.l10_life([brg_in, brg_out]) >= design_life
+        gears:    mech.life([pinion, wheel],
+                      under=boundary.torque_in) >= design_life,
+                      scatter_factor=3
+
+    budget mesh_alignment: kind=deflection
+        require: misalignment(pinion.axis, wheel.axis) < 0.05mm
+        members: [housing, sh_in, sh_out]
+        allocate: cost_optimal
+        locked: housing.bore_parallelism: 0.012mm
+        # E0432 on failure names the worst contributors; the housing
+        # parallelism lock reflects what setup B actually holds.

@@ -1,0 +1,25 @@
+# BREAKS: an edge named in a volume-budget/transient claim with neither
+#   a compliance record nor an extractable wall (fluorite/03 sec. 1: "an
+#   edge with NEITHER a record nor an extractable wall, named in a
+#   transient or volume-budget claim, is a compile diagnostic").
+# EXPECT: E0203
+# WO-32 deliverable 5: `push_fluid_obligation` (regolith-lower/src/
+# claims.rs) checks every `fluids.volume_consumed([...], ...)` claim's
+# named edges against the lowered `FlownetPayload`; `pipe` carries
+# `compliance: None` (no `compliance=` record on the edge, and no
+# realized-geometry wall record resolves through the current
+# `AstFlownetInputs`/WO-42 realized-input channel either), so the claim
+# is undischargeable and E0203 fires at compile time.
+import std.fluorite (Pipe)
+
+medium HydOil: liquid
+    props: registry(iso_vg32_hydraulic)
+
+flownet Rigid(medium=HydOil):
+    reference: ambient(101kPa, 293K)
+    nodes: a, b
+    edges:
+        pipe: Pipe(from=nowhere.run) (a -> b)
+
+require Budget:
+    bad: fluids.volume_consumed([pipe], at=10MPa) < 1L

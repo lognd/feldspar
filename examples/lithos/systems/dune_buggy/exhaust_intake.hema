@@ -1,0 +1,66 @@
+# Exhaust + intake -- muffler acoustics, header expansion, airbox:
+# the acoustics namespace's SECOND customer (G26 added it for
+# combustion chambers; a muffler proves it generalizes), thermal
+# expansion mismatch, hanger vibration fatigue, dust filtration
+# records.
+
+import std.mech.tube (TubeProfile, Bend)
+import std.mech.joining (Weld)
+
+part Exhaust:
+    material: SS_409
+    pieces:
+        header: TubeStock(od 35mm, wall 1.2mm)
+        muffler_shell: TubeStock(od 89mm, wall 1.0mm)
+        hangers: 3 x PlateStock(t 3mm)
+
+    stage bent: process=mandrel_bend(clr 2.5d)
+        primary = Bend(header, header_450_path)
+    stage welded: process=gtaw, joins=[header, muffler_shell, hangers]
+        system = Weld(fillet 2mm, all_joints)
+
+    boundary:
+        T_gas: [500degC, 780degC]
+        T_env: [-10degC, 55degC]
+        structure: spectrum(engine_orders(omega_band))
+
+    require Acoustics:
+        # G26's namespace, customer #2: muffler insertion loss from
+        # chamber/perforate acoustics (closed-form cavity + Helmholtz
+        # resonator sizing) against the sanctioning sound limit at
+        # the test RPM. The limit claim itself stays empirical-
+        # adjacent: the model discharges the DESIGN margin; the
+        # sound test remains the release evidence (ladder).
+        insertion: acoustics.insertion_loss(muffler,
+                       band=[80Hz, 400Hz]) >= 18dB
+        sound_ok: assume!(pass_by_sound(vehicle, sae_j1287) <= 96dB,
+                      basis="insertion-loss margin + heritage "
+                            "muffler; replace by test(sound_report)")
+
+    require Thermal:
+        # Header growth vs hanger travel: thermal-expansion mismatch
+        # (07 materials) -- the constrained-growth force must not
+        # yield the hanger tabs at the hot corner.
+        growth: peak(mech.stress.von_mises, at=welded.system.hangers)
+                    < material.sigma_y(T_env.hi) / 1.5
+                    given dT = T_gas.hi - T_env.lo
+
+    require Fatigue:
+        # Hanger tabs under engine-order excitation: the vibration
+        # tier's forced-response at the order lines feeding Miner --
+        # spectrum payload again, Phase 3 gated.
+        hanger_life: mech.fatigue.damage(welded.system.hangers,
+                         over=boundary.structure) < 1.0, sf=4
+
+part Airbox:
+    material: HDPE
+    require Breathing:
+        # Filter dP at rated flow from the element vendor RECORD;
+        # dust capacity is a record with a published test dust --
+        # sand is data, not hope.
+        restriction: fluids.dp(inlet -> engine_side) < 2.5kPa
+                     given mdot = 0.055kg/s
+        capacity: assume!(element_service_life(vendor(uni_nu2470),
+                      dust=iso_coarse) >= 25hr,
+                      basis="vendor dust-capacity curve; replace by "
+                            "test(field_log)")

@@ -1,0 +1,116 @@
+# Burin stepper drive bay -- one 4-channel drive board. The power
+# stage is a BLOCK with an `impl by circuit` (elec 03: component
+# classes + `nets:`, the buck_converter shape) monomorphized four
+# times on one board (a block orbit), a wired-AND fault line
+# (`arbitrate`, the declared drive join -- never a pack rule, elec 04
+# sec. 4 note 3), thermal derating claims, and the WO-34 harness
+# prose at every off-board run.
+
+import "contracts.cupr" (StepDirIn, RailTap, EStopNode)
+import std.elec.power (Mosfet, ShuntR, Capacitor, GateDriver)
+import std.elec.families (cmos_5v0)
+
+block DriveChannel<i_run: current = 4.2A>:
+    ports:
+        v48:  supply(in, 48V +- 5%, i <= 6A)
+        gnd:  reference
+        step: digital(in, family=cmos_5v0, opto)
+        dir:  digital(in, family=cmos_5v0, opto)
+        ena:  digital(in, family=cmos_5v0, opto)
+        a1, a2, b1, b2: analog(out, i <= i_run)   # motor phases
+        fault_n: digital(out, open_drain)
+    params:
+        f_chop: frequency = in [20kHz, 40kHz]     # impl-chosen
+    spec:
+        # current regulation across the microstep table; `= x +- tol`
+        # is equal_within, not banned `==`:
+        forall step_angle in [0deg, 360deg]:
+            i(a1) = i_run * sin_table(step_angle) +- 5%
+    promises:
+        power: dissipation <= 6.5W      # at i_run, 48V, 40degC -- the
+                                        # cabinet's thermal budget input
+    event overtemp: temp(bridge).crosses(150degC)
+    require Protection:
+        ot_react: within 10us after overtemp: state(a1.bridge) = open
+
+impl DriveChannel by circuit:
+    then:
+        u_drv  = vendor(tmc5160a)             # SPI-config stepper driver
+        m_hs   = 8 x Mosfet(rds_on <= 8mohm, v_ds >= 100V)
+        r_sh   = 2 x ShuntR(r=75mohm, p >= 3W)
+        c_blk  = Capacitor(c=in [220uF, 470uF], v_rated >= 63V)
+        u_gate = GateDriver(ch=8)
+    nets:
+        # power/analog nets are relational (KCL), single-driver
+        # discipline exempt; the v1 net checks (terminal ledger,
+        # reference reachability, one imposer) run at compile (elec
+        # 03 sec. 2):
+        vbus: (v48, c_blk.a, m_hs[0 .. 4].d)
+        pha:  (m_hs[0].s, m_hs[1].d, a1)
+        phb:  (m_hs[2].s, m_hs[3].d, a2)
+        sha:  (m_hs[1].s, r_sh[0].a)
+        gnd_n: (gnd, c_blk.b, r_sh[0].b, r_sh[1].b, u_drv.gnd)
+
+board DrivePcb:
+    stage bare:      process=pcb_fab(jlc_2l_2oz)   # 2 oz outer: phase
+                                                   # current wants copper
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        chans = 4 x DriveChannel(i_run=4.2A)
+        # the Z axis only needs 2.8A; run-current is firmware-set per
+        # channel -- the BOARD monomorphizes one channel four times
+        # (block orbit; count constructor, substrate 02 sec. 3)
+
+    # shared fault line: four open-drain fault_n pins pull one net;
+    # wired-AND is a DECLARED arbitration -- the ownership join for
+    # drive -- not a hope (motor_drive precedent):
+    arbitrate drv_fault_n: open_drain(wired_and):
+        members: chans.instances.fault_n
+        pullup:  r = in [2.2kohm, 10kohm], to=v5_logic
+
+    impl StepDirIn for self as in_xp:
+        step = assembled.hdr_xp.step
+        dir  = assembled.hdr_xp.dir
+        ena  = assembled.hdr_xp.ena
+    impl StepDirIn for self as in_xm:
+        step = assembled.hdr_xm.step
+        dir  = assembled.hdr_xm.dir
+        ena  = assembled.hdr_xm.ena
+    impl StepDirIn for self as in_y:
+        step = assembled.hdr_y.step
+        dir  = assembled.hdr_y.dir
+        ena  = assembled.hdr_y.ena
+    impl StepDirIn for self as in_z:
+        step = assembled.hdr_z.step
+        dir  = assembled.hdr_z.dir
+        ena  = assembled.hdr_z.ena
+
+    impl RailTap for self:
+        v48 = assembled.pwr_in.v48
+        v24 = assembled.pwr_in.v24
+        v5  = assembled.pwr_in.v5
+
+    impl EStopNode for self:
+        loop_in  = assembled.estop_in.a
+        loop_out = assembled.estop_out.a
+        # loop wired through the drives' hardware-enable path: an open
+        # loop drops ena in HARDWARE; firmware is not in this chain
+
+    require Thermal:
+        # 4 channels x 6.5W into one cabinet wall plate; derating pack
+        # (elec 04 sec. 3) checks the FET SOA at the 62degC cabinet
+        # corner -- the claim here is the board-level sum:
+        sink: elec.power_dissipated(chans.instances.all) <= 26W
+        fets: forall ch in chans.instances:
+                  temp(ch.bridge) <= 125degC, sf=1.2
+
+    # WO-34 harness notes (D119: the runs the grammar cannot carry
+    # yet). Four motor tails leave this board for the axis modules:
+    # 4 x (4 x 1.0mm2) shielded, 0.6-2.8m through the drag chains,
+    # shield grounded HERE only. Chopper edges at 48V/40kHz make each
+    # tail an aggressor: the coupling screen needs run length, bundle
+    # membership (motor tails must not share a chain segment with the
+    # limit-switch loom), and the shield single-point rule -- all of
+    # it `harness:` content; today the lengths live as hand-asserted
+    # givens in the emissions claim of machine_elec.cupr (G42 shape).

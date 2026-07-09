@@ -1,0 +1,22 @@
+# BREAKS: two independent voltage imposers tied to the same analog net
+#   (a supply short -- the v1 analog net discipline's one-voltage-
+#   imposer rule, elec/03 sec. 2).
+# EXPECT-TODO: E0420
+# Self-calibration: the supply-short check is documented (elec/03 sec.
+# 2's "one voltage-imposer per net" rule) but no diagnostic fires for
+# this fixture in the checked pipeline today. See README candidate
+# finding.
+import std.elec.power (Capacitor)
+
+block Short:
+    ports:
+        vin_a: supply(in, [7V, 24V])
+        vin_b: supply(in, [7V, 24V])
+        gnd: reference
+
+impl Short by circuit:
+    then:
+        c1 = Capacitor(c=in [4.7uF, 22uF], v_rated >= 35V, x7r)
+    nets:
+        shortn: (vin_a, vin_b, c1.a)
+        gndn:   (gnd, c1.b)

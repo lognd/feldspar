@@ -1,0 +1,40 @@
+# small_office -- project manifest (the fourth systems/ flagship).
+# Dependency set + the D147 cost-profile declarations: pricing is
+# PROJECT-CONFIGURABLE data (named profiles over pinned records),
+# never compiler content.
+
+[package]
+name = "examples.small_office"
+version = "0.1.0"
+
+[depends]
+"std.quantities" = "^1"
+"std.civil" = "^0.1"        # occupancy/egress tables, transfer classes,
+                            # load models, code packs (WO-48)
+"std.fluid" = "^0.1"        # media + fitting records (WO-45)
+"std.fluorite" = "^0.1"     # component classes
+"std.elec" = "^0.1"         # families, protocol packs
+"std.cost" = "^0.1"         # estimator models + rate-record schemas (D147)
+
+# -- Cost profiles (D147; toolchain/27-costing.md) --------------------
+# A profile names the records an estimate consumes: quantity basis,
+# rate tables, pricing sources. Claims select a profile
+# (`mfg.cost(x, profile=construction)`) or sweep them
+# (`forall profile in ...`). Records are hash-pinned like all
+# registry content; a stale quote record goes indeterminate, never
+# silently stale.
+
+[profiles.cost.prototype]
+quantity = 1
+labor    = "rates.us_midwest_2026"
+pricing  = ["digikey.spot_2026q3", "mcmaster.catalog_2026"]
+markup   = 1.0
+
+[profiles.cost.construction]
+quantity = 1
+labor    = "rates.us_midwest_union_2026"
+pricing  = ["rsmeans.bldg_2026", "sqd.distributor_2026"]
+markup   = 1.18            # GC overhead + profit
+
+[profiles.cost.default]
+profile = "prototype"

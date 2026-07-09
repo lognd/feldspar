@@ -1,0 +1,6 @@
+# BREAKS: an `[i .. j]` index range whose endpoint carries a unit
+#   (regolith/02 sec. 3: range endpoints are bare integers; unit-bearing
+#   endpoints belong to a `[a, b]` interval instead).
+# EXPECT: E0103
+part p:
+    a: [1mm .. 3]

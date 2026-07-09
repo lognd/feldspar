@@ -1,0 +1,78 @@
+# Timber pole barn -- exercises: calcite/02 snow-governed timber
+# frame: site truth -> pack load models, timber material records,
+# tributary partition over a loaded roof, frost-depth footings.
+# std.civil names are WO-48 content (phantom until the pack lands).
+
+import std.civil (Pinned, Moment, Bearing, EmbeddedPost)
+
+site Township:                                  # 02 sec. 1
+    boundary:
+        wind_speed:   [0m/s, 46m/s]             by catalog(asce7_fig26)
+        ground_snow:  2.9kPa                    by catalog(asce7_fig7)
+        frost_depth:  1.2m                      by catalog(county_gis)
+    soil:
+        bearing:      [120kPa, 170kPa]          by test(geotech_p309)
+
+grid frames: 1, 2, 3, 4 spacing 3.0m            # 02 sec. 1
+grid width:  A, B spacing 9.0m
+level ground: 0m
+level eave:   4.3m
+
+space Storage:                                  # 02 sec. 2
+    area:      81m2
+    occupancy: registry(s1_storage)
+    at:        level(ground)
+
+access:
+    slider: Exit(width=3000mm)                  (Storage -> exterior)
+
+circulation Egress:
+    reference: exterior
+    nodes: Storage
+    edges: slider
+
+member P1: column                               # posts, one per frame line
+    section:  registry(sawn_150x150)
+    material: registry(sp_no2_treated)
+    from (A, 1, ground) to (A, 1, eave)
+
+member P2: column
+    section:  registry(sawn_150x150)
+    material: registry(sp_no2_treated)
+    from (B, 1, ground) to (B, 1, eave)
+
+member T1: beam                                 # roof truss, frame line 1
+    section:  free                              # truss family; L3 resolves
+    material: registry(spf_no1)
+    from (A, 1, eave) to (B, 1, eave)
+
+member Purlins: beam
+    section:  registry(sawn_50x100)
+    material: registry(spf_no2)
+    from (A, 1, eave) to (A, 4, eave)
+
+structure BarnFrame:                            # 02 sec. 6 (one frame line
+    support: E1: footing, E2: footing           # shown; the full barn
+    members: P1, P2, T1, Purlins                # repeats per grid line)
+    transfers:
+        pur_t1: Bearing(tributary=13.5m2)   (Purlins -> T1)
+        t1_p1:  Pinned()                    (T1 -> P1)
+        t1_p2:  Pinned()                    (T1 -> P2)
+        p1_e1:  EmbeddedPost(depth=1.4m)    (P1 -> E1)   # below frost
+        p2_e2:  EmbeddedPost(depth=1.4m)    (P2 -> E2)
+
+loads:                                          # 02 sec. 7; snow governs
+    dead: derived
+    snow: site.ground_snow -> std.civil.asce7.roof_snow
+    wind: site.wind_speed  -> std.civil.asce7.mwfrs
+
+require Structure:                              # 02 sec. 9
+    forall combo in std.civil.nds.strength:     # timber code pack
+        strength: civil.utilization(BarnFrame.members.all, under=combo) <= 1.0
+    deflect: mech.deflection(T1, under=std.civil.nds.service)
+                 <= T1.span / 240
+    bearing: civil.bearing_pressure(E1) <= site.soil.bearing
+    # frost: embedment below frost depth is a std.civil code-pack
+    # RULE (demand: depth >= site.frost_depth per foundation), not a
+    # hand claim -- shown here as the rule expands (03 sec. 5):
+    frost:   civil.embedment(P1) >= site.frost_depth

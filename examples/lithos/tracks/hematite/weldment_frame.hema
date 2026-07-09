@@ -1,0 +1,80 @@
+# Welded machine frame -- pressure test that produced the `pieces:`
+# rule (mech 0.6): a weldment is ONE part (one BOM line, machined as a
+# unit after welding) built from several pieces, each with its own
+# stock and material. Piece placement reuses the mating `align:`
+# vocabulary -- a weldment is an assembly frozen into a part.
+# Weld taxonomy, claim form, and models: settled (mech 02 sec. 7a;
+# std.mech.weld pack, closed OPEN-13).
+
+import std.mech.weld (FilletWeld)
+import std.mech.cnc (cnc_mill)
+import std.mech.mounts (BoltPattern)
+
+part MachineFrame:
+    pieces:
+        rail_l:  stock RectTube(60mm x 40mm x 3mm, l=600mm), material: S355
+        rail_r:  stock RectTube(60mm x 40mm x 3mm, l=600mm), material: S355
+        cross_f: stock RectTube(60mm x 40mm x 3mm, l=400mm), material: S355
+        cross_b: stock RectTube(60mm x 40mm x 3mm, l=400mm), material: S355
+        gusset:  import("gusset_rev1.step") sealed, material: S355
+
+    stage welded: process=mig_weld(er70s_6), joins=[rail_l, rail_r,
+                                                    cross_f, cross_b, gusset]
+        align:
+            # same vocabulary as mating align: -- frame coincidence only
+            cross_f.end_l.frame = rail_l.web.frame (contact, flush=top)
+            cross_f.end_r.frame = rail_r.web.frame (contact, flush=top)
+            cross_b.end_l.frame = rail_l.web.frame (contact, flush=top,
+                                                    offset=z: 520mm)
+            cross_b.end_r.frame = rail_r.web.frame (contact, flush=top,
+                                                    offset=z: 520mm)
+            gusset.face.frame   = cross_f.top.frame (contact)
+        then:
+            w_fl = FilletWeld(between=(cross_f.end_l, rail_l.web),
+                              leg=5mm, around)
+            w_fr = FilletWeld(between=(cross_f.end_r, rail_r.web),
+                              leg=5mm, around)
+            w_bl = FilletWeld(between=(cross_b.end_l, rail_l.web),
+                              leg=5mm, around)
+            w_br = FilletWeld(between=(cross_b.end_r, rail_r.web),
+                              leg=5mm, around)
+            w_g  = FilletWeld(between=(gusset.edges.all, cross_f.top),
+                              leg=4mm)
+        # leg sizes are capability-checked against the weld process
+        # pack (min/max leg for 3mm wall); distortion allowance enters
+        # the entity DB as position scatter on all welded pieces.
+
+    stage machined: process=cnc_mill(axes=3), from=welded
+        setup A:
+            hold: welded.rail_l.bottom & welded.rail_r.bottom
+            datum A = welded.rail_l.bottom
+            then:
+                pads = PatternOf<FacePad(depth=1.5mm, rect(50mm x 40mm))>(
+                           n=4, rect(520mm x 340mm),
+                           frame=welded.rail_l.bottom.center)
+                # machining after welding is the point of the weldment:
+                # pad coplanarity is held by one setup, not by weld
+                # fixturing accuracy
+            then:
+                bores = PatternOf<Bore(dia 12mm H8)>(n=4,
+                            rect(520mm x 340mm),
+                            frame=welded.rail_l.bottom.center)
+                # same layout + frame as `pads`: bore-to-pad coaxiality
+                # is held by the shared frame within this setup's
+                # capability, not by a cross-pattern constraint
+
+    impl BoltPattern<M12, n=4, rect(520mm x 340mm)> for self:
+        holes = machined.bores.instances
+
+    require Structural:
+        weld_static: forall w in welded.welds.all:
+            mech.weld_stress(w, under=interface_envelope(BoltPattern))
+                < w.filler.sigma_allow, sf=2.0
+        # weld features export joint entities (`welds.all`) whose
+        # measures include the process/filler record ref (`w.filler`);
+        # discharged by std.mech.weld's weld_line_state models
+        # (mech 02 sec. 7a -- closed OPEN-13)
+
+    require Manufacture:
+        makeable: manufacturable(machined)
+        time:     mfg.cycle_time(welded) <= 45 min

@@ -1,0 +1,52 @@
+# Halfshafts -- CV joints and torsion fatigue: joint-angle config
+# domains tied to suspension travel (G36 crossing part boundaries),
+# torque-spectrum fatigue, boot survival on the honesty ladder.
+
+import std.mech.turned (Shaft, Spline)
+
+part Halfshaft:
+    material: AISI_300M
+
+    stage turned: process=cnc_lathe
+        then:
+            bar = Shaft(dia 22mm, length 520mm)
+            splines = 2 x Spline(din5480, 22mm x 1.0mm x 20t, both_ends)
+        induction = SurfaceHarden(depth 1.2mm, on=bar)
+
+    boundary:
+        torque: [0N*m, vehicle.traction_limit(rear, surface=sand_dry)
+                          * 1.6]              # shock-factored
+        travel: z_wheel in [-110mm, 140mm]    # imported config domain:
+                                              # the CV angle is a
+                                              # FUNCTION of the rear
+                                              # suspension's travel
+                                              # variable (G36 across
+                                              # files)
+        structure: spectrum(drive_torque_spectrum)
+
+    require Joints:
+        # CV plunge/angle over the full travel domain: kinematic
+        # solve (dynamics: mechanisms) feeding the joint vendor
+        # record's angle-torque derating curve.
+        angle_ok: forall z_wheel in [-110mm, 140mm]:
+            mech.joint_angle(cv_outer) < 17deg
+        derated: forall z_wheel in [-110mm, 140mm]:
+            mech.cv.torque_margin(vendor(gkn_vl107),
+                at=mech.joint_angle(cv_outer)) >= 1.3
+
+    require Structural:
+        # Surface-hardened torsion: case-core interface stress; the
+        # hardened-layer property is a CONDITION variant of the
+        # record (gearbox precedent).
+        shear: peak(mech.stress.shear, at=turned.bar)
+                   < material.tau_allow(condition=core) / 1.4
+        spline_fatigue: mech.fatigue.damage(turned.splines.all,
+                            over=boundary.structure) < 1.0, sf=4
+
+    require Environment:
+        # Boot life in sand/UV is empirical vendor data -- honesty
+        # ladder, not a fake solver (G27/G37 pattern).
+        boots: assume!(cv_boot_life(vendor(gkn_vl107), sand_duty)
+                   >= 150hr,
+                   basis="vendor durability report DR-1187, sand "
+                         "slurry cycle; replace by test(field_log)")

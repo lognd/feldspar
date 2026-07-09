@@ -1,0 +1,130 @@
+# Brew boiler -- 0.8L 316 stainless pressure vessel, run FLOODED
+# (dual-boiler machines have no brew-side headspace). Exercises: a
+# welded vessel as one part (`pieces:`, the weldment rule), zones for
+# the wall-temperature split, the computed-field DEMAND block
+# (D98/WO-33 shape), and the fluid->structural promise crossing: the
+# hoop-stress claim's pressure ceiling is BrewPath's water-hammer
+# PEAK promise (fluorite 03 sec. 4).
+
+import "contracts.cupr" (HeaterSeat, ThermoWell)
+import "fittings.hema" (FittingPort)
+import std.mech.cnc (cnc_mill)
+import std.mech.weld (FilletWeld)
+import std.mech.mounts (MountPattern)
+
+part BrewBoiler:
+    pieces:
+        shell:     stock Tube(dia 89mm x 2.0mm, l=150mm), material: AISI_316
+        cap_front: stock Bar(dia 89mm, l=12mm),           material: AISI_316
+        cap_rear:  stock Bar(dia 89mm, l=14mm),           material: AISI_316
+
+    stage welded: process=tig_weld(er316l), joins=[shell, cap_front,
+                                                   cap_rear]
+        align:
+            cap_front.face.frame = shell.front_rim.frame (contact)
+            cap_rear.face.frame  = shell.rear_rim.frame  (contact)
+        then:
+            w_f = FilletWeld(between=(cap_front.rim, shell.front_rim),
+                             leg=2.5mm, around)
+            w_r = FilletWeld(between=(cap_rear.rim, shell.rear_rim),
+                             leg=2.5mm, around)
+        # leg sizes capability-checked against the weld pack for 2mm
+        # wall; distortion scatter enters the entity DB as always
+
+    stage machined: process=cnc_mill(axes=4), from=welded
+        setup A:
+            hold: welded.shell.od
+            datum A = welded.cap_front.face
+            then:
+                heater_land  = Face(mill, on=welded.cap_rear.face)
+                heater_studs = PatternOf<TappedHole<M5>>(n=3,
+                                   circular(dia 44mm),
+                                   frame=heater_land.center)
+            then:
+                # fluid ports: pump feed in low at the front cap;
+                # thermosiphon riser high / return low on the shell
+                # (the natural-circulation geometry the .fluo loop
+                # reads through the FluidPort hook)
+                feed_th   = ThreadedHole(M10x1.0, on=welded.cap_front.face)
+                feed_land = Face(mill, on=welded.cap_front.face)
+                riser_th   = ThreadedHole(M10x1.0, on=welded.shell.top)
+                riser_land = Face(mill, on=welded.shell.top)
+                return_th   = ThreadedHole(M10x1.0, on=welded.shell.bottom)
+                return_land = Face(mill, on=welded.shell.bottom)
+                well = ThreadedHole(M6x0.75, on=welded.shell.top)
+            then:
+                saddle_holes = PatternOf<TappedHole<M5>>(n=4,
+                                   rect(70mm x 60mm),
+                                   frame=welded.shell.bottom.center)
+
+    datum rear_ref    = welded.cap_rear.face
+    datum element_ref = welded.cap_rear.face.offset(z=40mm)
+
+    zones over welded.shell.faces:
+        element_band: .where(between=(rear_ref, element_ref))
+        barrel:       remainder
+
+    impl HeaterSeat for self:
+        land  = machined.heater_land
+        studs = machined.heater_studs.instances
+
+    impl ThermoWell for self as brew_well:
+        pocket = machined.well
+
+    impl FittingPort<M10x1.0> for self as feed_in:
+        thread = machined.feed_th
+        seat   = machined.feed_land
+
+    impl FittingPort<M10x1.0> for self as ts_riser:
+        thread = machined.riser_th
+        seat   = machined.riser_land
+
+    impl FittingPort<M10x1.0> for self as ts_return:
+        thread = machined.return_th
+        seat   = machined.return_land
+
+    impl MountPattern<M5, n=4, rect(70mm x 60mm)> for self as saddle:
+        holes = machined.saddle_holes.instances
+
+    # ---- Computed-field DEMAND (D98 / WO-33 shape; a demand record,
+    #      not invented syntax) ---------------------------------------
+    # The honest source form, once WO-33 lands, is the compute claim:
+    #
+    #     compute wall_T: thermo.wall_temperature over self.zones
+    #
+    # with the sibling consuming a projection instead of a corner:
+    #
+    #     hoop: peak(mech.stress.von_mises, during boundary.brew_pressure)
+    #               < material.sigma_y(wall_T at zone(element_band)) / 1.8
+    #
+    # Until then this file takes the worst-point scalar interim
+    # (feldspar OPEN-14's extremal ports): T_local reads the
+    # zone-indexed wall temperature ASSERTED as machine.hema boundary
+    # truth, and the element_band hot corner (152degC element-dryout
+    # excursion) is hand-carried over EVERY zone -- exactly the
+    # conservatism the field form would localize per zone.
+    require Structural:
+        trust: >= certified
+        hoop: peak(mech.stress.von_mises, during boundary.brew_pressure)
+                  < material.sigma_y(T_local) / 1.8
+        # boundary.brew_pressure's 14 bar ceiling is NOT a designer
+        # guess: it is BrewPath.Waterhammer.hammer's PEAK promise
+        # (brew_water.fluo) entering the vessel claim through the
+        # promise chain -- the fluid->structural crossing fluorite 03
+        # sec. 4 names. Hand-carried as a literal until the boundary
+        # spelling can cite a promise ref (see README candidate
+        # findings).
+
+    require Welds:
+        static: forall w in welded.welds.all:
+            mech.weld_stress(w, under=boundary.brew_pressure)
+                < w.filler.sigma_allow, sf=2.5
+
+    require Fatigue:
+        # one pressure cycle per shot: 0 -> 9 bar -> hammer spike -> 0
+        life: mech.life(all, under=boundary.brew_pressure)
+                  >= design_life, scatter_factor=4
+
+    require Manufacture:
+        makeable: manufacturable(machined)
+        cost:     mfg.unit_cost(qty=500) <= 68 USD

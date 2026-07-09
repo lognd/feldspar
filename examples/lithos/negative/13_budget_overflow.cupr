@@ -1,0 +1,10 @@
+# BREAKS: a target's `draws:` exceeds its base system's `reserves:`
+#   (a budget that cannot close at its worst-case corner).
+# EXPECT: E0432
+system Sys:
+    reserves:
+        gpio: 4
+
+target debug of Sys:
+    draws:
+        gpio: 5

@@ -1,0 +1,23 @@
+# Peregrine -- UHF software-defined radio transceiver. Project
+# manifest (regolith 11 sec. 9): manifest + source tree + one
+# lockfile. [package] carries only a name until published.
+
+[package]
+name = "peregrine-sdr"
+
+[depends]
+"std.quantities" = "^1"
+"std.materials" = "^1"
+"std.mech" = "^0.9"
+"std.elec" = "^0.6"
+"std.intents" = "^1"
+"std.debug" = "^1"
+"std.compute" = "^0.5"
+"jlc.pcb" = "^2"
+
+[evidence]
+# hash-pinned source documents records and boundaries may cite
+"fcc-part90-mask.pdf" = "sha256:1e77af..."
+"usb2-hs-eye-template.pdf" = "sha256:9c03b2..."
+"ddr3-jesd79-3f.pdf" = "sha256:44d9e0..."
+"pa-derating-sky65116.pdf" = "sha256:6a21cc..."

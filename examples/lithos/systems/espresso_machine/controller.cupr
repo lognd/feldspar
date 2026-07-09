@@ -1,0 +1,143 @@
+# Espresso controller -- dual-loop PID + autofill + shot sequencing.
+# Exercises: system modes as a config variable, isolated AC actuate
+# intents (SSR/triac switching), the cuprite SIDE of the one event
+# ledger (the commanded-valve events the .fluo files declare with
+# `commanded by` -- fluorite 02 sec. 5), a mains power ceiling
+# forall op, a sensing error budget, and the intent -> workload seam.
+
+import "contracts.cupr" (ThermoWell, LevelWell)
+import "control_board.cupr" (ControlPcb)
+import std.intents
+import std.elec.families (cmos_3v3)
+import std.compute (executor)
+
+system EspressoController:
+    exposing op: {standby, warmup, ready, brew, hot_water}
+
+    parts:
+        pcb: ControlPcb
+
+    boundary:
+        supply:  mains(230V +- 10%, 50Hz, breaker=13A)
+        ambient: [5degC, 48degC]          # kitchen plus the interior
+                                          # soak corner (machine.hema
+                                          # assume! TS-2)
+        emc:     residential(CISPR_11_B)
+        design_life: 7 yr
+
+    reserves:
+        gpio: 3
+        power: 500mW avg
+
+    intents:
+        sense_brew_t: sense(thermo.temperature):
+            range:    [15degC, 135degC]
+            accuracy: +-0.2K
+            rate:     >= 10Hz
+            # the sensor seats in BrewBoiler.brew_well (ThermoWell);
+            # the well's thermo.lag promise is part of this chain
+        sense_steam_p: sense(fluids.pressure):
+            range:    [0bar, 3bar]
+            accuracy: +-0.03bar
+            rate:     >= 10Hz
+        sense_level: sense(fluids.level):
+            kind: discrete(probe)         # SteamBoiler.fill_probe gland
+            rate: >= 1Hz
+        sense_flow: sense(fluids.volume_rate):
+            resolution: <= 0.1mL          # gear flowmeter pulses; the
+            rate: >= 50Hz                 # shot-volume integrator input
+        regulate_brew: compute(pid_law):
+            rate:    10Hz
+            latency: < 20ms
+            state:   setpoints(64B, persistent)
+        regulate_steam: compute(pid_law):
+            rate:    10Hz
+            latency: < 20ms
+        sequence: compute(shot_state_machine):
+            latency: < 50ms
+            state:   shot_log(4kB, persistent)
+        fire_brew: actuate(ac_load(230V, 6.1A), isolated):
+            switching: zero_cross         # 1400W brew element
+        fire_steam: actuate(ac_load(230V, 5.2A), isolated):
+            switching: zero_cross         # 1200W service element
+        drive_pump: actuate(ac_load(230V, 0.3A), isolated)
+        cmd_v3:   actuate(solenoid(230V, 8W), isolated)
+        cmd_fill: actuate(solenoid(230V, 6.5W), isolated)
+        show: indicate(sequence.status)
+
+    flows:
+        sense_brew_t -> regulate_brew
+        regulate_brew -> fire_brew
+        sense_steam_p -> regulate_steam
+        regulate_steam -> fire_steam
+        sense_flow -> sequence
+        sense_level -> sequence
+        sequence -> drive_pump
+        sequence -> cmd_v3
+        sequence -> cmd_fill
+        sequence -> show
+
+    # ---- The one event ledger, cuprite side (fluorite 02 sec. 5:
+    # the cuprite crossing). BrewPath (brew_water.fluo) declares
+    #     event v3.brew:     commanded by EspressoController.cmd_v3
+    #     event v3.release:  commanded by EspressoController.cmd_v3
+    #     event fill.open:   commanded by EspressoController.cmd_fill
+    #     event fill.close:  commanded by EspressoController.cmd_fill
+    # Those are THE SAME datums this system's sequencing emits --
+    # one event, one ledger, two tracks' consequences (the fluid
+    # side windows its hammer/settle claims on them; the elec side
+    # windows its inductive-kick claim in control_board.cupr on the
+    # identical transition). Sequencing claims live here, where the
+    # commander lives; fluid consequences live in the .fluo files.
+    event shot_start: state(sequence.brew_switch).crosses(engaged)
+    event shot_stop:  state(sequence.brew_switch).crosses(released)
+    event overtemp:   thermo.temperature(fire_brew.load).crosses(165degC)
+
+    require Sequencing:
+        open_on_brew:  within 100ms after shot_start: state(cmd_v3) = brew
+        vent_on_stop:  within 100ms after shot_stop:  state(cmd_v3) = release
+        # cmd_v3's release transition is the event BrewPath's
+        # water-hammer peak claim windows on
+        fill_bounded:  within 60s after state(cmd_fill) = open:
+                           state(cmd_fill) = closed
+        # autofill runaway guard: a stuck-dry probe may not flood the
+        # steam boiler through the brew pump
+
+    require Safety:
+        cut: within 500ms after overtemp: state(fire_brew.switch) = open
+
+    require Regulation:
+        brew_hold:  thermo.temperature(regulate_brew.plant)
+                        within [92.5degC, 93.5degC] during op = ready
+        steam_hold: fluids.pressure(regulate_steam.plant)
+                        within [211kPa, 241kPa] during op = ready
+                        # 1.1..1.4 bar gauge; SteamService's shell
+                        # claim is the fluid-side face of this band
+        recover: settles(thermo.temperature(regulate_brew.plant),
+                     to=+-0.3K, within 90s after shot_stop)
+
+    require Power:
+        mains_fit: elec.power(all) <= 2760W forall op
+        # 12A of the 13A breaker: the two elements are 2600W combined,
+        # so the ceiling is only meetable if the sequencer staggers
+        # them -- the interlock is sequencing content, the ceiling is
+        # its checkable consequence
+        standby_floor: elec.power(all) <= 1W during op = standby
+
+    budget brew_temp_error: kind=error
+        require: error(sense_brew_t -> regulate_brew) <= +-0.5K
+        members: [sense_brew_t, regulate_brew]
+        allocate: cost_optimal
+        # the ThermoWell thermo.lag promise and the control_board ADC
+        # noise floor both spend out of this budget
+
+computer BrewCtl:
+    workloads:
+        pid_b: loop(rate=10Hz, work=6kops f32) realizes regulate_brew
+        pid_s: loop(rate=10Hz, work=6kops f32) realizes regulate_steam
+        seq:   loop(rate=50Hz, work=2kops i32) realizes sequence
+    require Capacity:
+        headroom: info.utilization(all) <= 40%
+
+bind BrewCtl:
+    cpu0 = pcb.u_mcu                      # cross-file instance ref

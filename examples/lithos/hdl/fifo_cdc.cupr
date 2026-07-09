@@ -1,0 +1,80 @@
+# fifo_cdc -- D120 fixture pair. PROVES cuprite/09 sec. 1 rows:
+#   SV interfaces / modports  -> cuprite interfaces + roles WITH
+#                                contracts (promises/demands), not
+#                                just signal bundles
+#   clock/reset abstraction   -> clock/voltage DOMAINS with
+#                                membership typing
+#   CDC handling              -> the crossing ledger at L3, an
+#                                E0420-family compile check -- not a
+#                                naming-convention lint
+# Foreign original: fifo_cdc.sv (SystemVerilog-2017 gray-pointer
+# dual-clock FIFO with an interface + modports, committed beside this
+# file). Embedding: OPAQUE-with-contracts in v1.
+
+import std.elec.buses (cdc_sync)
+
+# The SV `interface fifo_if` with wr/rd modports, as cuprite
+# interfaces: the modport split is two CONTRACT roles, and the
+# handshake discipline the SV version documents in comments is a
+# PROMISE the type system holds every implementation to:
+
+interface FifoWr:
+    roles:
+        valid: digital(out)
+        ready: digital(in)
+        data:  digital(out, width=16)
+    promises:
+        # the stream discipline, stated once, checked at every mating:
+        no_overrun: valid stable until ready    # producer holds data
+
+interface FifoRd:
+    roles:
+        valid: digital(in)
+        ready: digital(out)
+        data:  digital(in, width=16)
+    demands:
+        latency: <= 3 cycles                    # consumer-side demand
+
+block AsyncFifo<dw: int = 16, aw: int = 4>:
+    ports:
+        wclk: clock(122.88MHz, domain=wr_dom)
+        rclk: clock(100MHz, domain=rd_dom)
+        wrst_n: digital(in)
+        rrst_n: digital(in)
+        push: bus(stream(dw), domain=wr_dom)    # FifoWr-shaped
+        pop:  bus(stream(dw), domain=rd_dom)    # FifoRd-shaped
+    spec:
+        on wclk.rise:
+            mem[wptr] <= push.data when push.valid and not full
+            wptr <= wptr + 1 when push.valid and not full
+        on rclk.rise:
+            pop.data <= mem[rptr] when pop.ready and not empty
+            rptr <= rptr + 1 when pop.ready and not empty
+    connect:
+        # THE CDC row: what the SV file builds by hand (gray-code +
+        # 2-FF sync, invisible to the compiler, hopefully caught by a
+        # lint) is a DECLARED crossing here -- a ledger row the
+        # compiler owns. The pointer exchange is the crossing; using
+        # `wptr` in an rclk body without it is E0420 naming both
+        # frames:
+        w2r: cdc_sync<stages=2>(a=wr_dom, b=rd_dom)   # wptr gray copy
+        r2w: cdc_sync<stages=2>(a=rd_dom, b=wr_dom)   # rptr gray copy
+    promises:
+        timing.latency(push -> pop): <= 4 cycles + 2 rclk_cycles
+    require Discipline:
+        no_overflow:  forall op: fifo_overflow(mem) = never
+        no_underflow: forall op: fifo_underflow(mem) = never
+        # Reset membership (the clock/reset abstraction row): each
+        # pointer register's reset is DECLARED to its domain; a wptr
+        # reset by rrst_n would be a membership type error, where the
+        # SV version would silently synthesize it:
+        reset_pairing: reset(wr_dom) = wrst_n and reset(rd_dom) = rrst_n
+
+impl AsyncFifo by spec
+
+# The foreign original, embedded opaque, retro-contracted to the
+# same interfaces. Its INTERNAL synchronizers are invisible (opaque
+# route) -- the crossing ledger covers the BOUNDARY only, and the
+# equivalence obligation carries the interior on simulation evidence.
+# That honest asymmetry is a named finding in the README:
+impl AsyncFifo by extern("fifo_cdc.sv", sv2017) as HandSv

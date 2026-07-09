@@ -1,0 +1,60 @@
+# Electrical power -- battery, charging, kill chain, distribution:
+# THE G42 file. Voltage-drop and ampacity claims below need conductor
+# LENGTHS and bundle factors; wires have no routed-geometry home
+# (hoses get TubeRun + fluorite extraction; a wire run along the frame
+# has nothing), so every length given here is HAND-ASSERTED -- the
+# reproduction case for the sec. 7 item 8 ask.
+
+import std.elec.power (Battery, Rectifier, Fuse, Relay)
+
+block PowerSystem:
+    ports:
+        stator:  supply(in, 3ph, [14V, 90V] unloaded)   # PM stator
+        bus12:   supply(out, [11.5V, 14.8V], i <= 25A)
+        kill_in: digital(in, family=switch_gnd)          # bar switch
+        gnd:     chassis_reference
+    then:
+        batt = Battery(agm_12v_8ah)      # Peukert + derating records
+        reg  = Rectifier(vendor(shindengen_fh020))
+        main_fuse = Fuse(30A, ato)
+        kill = Relay(vendor(te_v23074), coil=bus12)
+    promises:
+        power: dissipation(reg) <= 18W   # into bodywork bay thermal
+
+    event kill_cmd: v(kill_in).falls
+    event engine_stop: spark_inhibited
+
+    require Distribution:
+        # G42 -- the finding: these claims are UNLOWERABLE from
+        # design intent today. The drop depends on run LENGTH (hand-
+        # asserted 1.9m), gauge, and BUNDLE derating (hand-asserted
+        # 6-wire bundle); nothing ties them to the routed harness
+        # geometry along the frame, so nothing catches the length
+        # changing when the battery moves.
+        pump_drop: elec.voltage_drop(bus12 -> fuel_pump)
+                       < 0.45V
+                       given length = 1.9m, awg = 14, bundle = 6
+        ampacity: elec.ampacity_margin(harness.all_runs) >= 1.3
+                  given T_amb = 55degC, bundle = 6
+        fuse_coord: elec.fusing_margin(main_fuse,
+                        under=load_profile) >= 2.0
+
+    require Charging:
+        # Charge balance over the duty cycle: stator curve record
+        # (f(rpm)) vs the load profile -- worst corner is night
+        # running (lights) at low rpm on soft sand.
+        balance: elec.charge_balance(batt, over=duty_worst)
+                     >= 0A*hr
+        no_boil: elec.charge_voltage(batt, T=55degC) <= 14.6V
+
+    require Kill:
+        # Safety chain: bar kill to spark-dead latency, and the
+        # relay must be NORMALLY-OPEN so a harness fault kills the
+        # engine (fail-safe direction claim).
+        latency: timing(kill_cmd -> engine_stop) <= 150ms
+        fail_safe: elec.fail_state(kill) == engine_stop
+
+    require Environment:
+        # Connector sealing in dust: vendor IP rating records vs the
+        # environment class -- record vs demand check, cheap tier.
+        sealing: elec.ip_rating(harness.connectors.all) >= ip67

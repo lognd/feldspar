@@ -1,0 +1,71 @@
+# Burin spindle mount -- the clamp-ring plate riding the Z axis
+# carriage. Carries the corpus's SUPPLIED G-CODE PLAN (mech 02
+# sec. 8, the gear_reducer precedent): the shop's proven program for
+# the clamp-bore setup is linked and planner-CHECKED (reach/
+# collision in check mode), never regenerated; first-article evidence
+# discharges the residue. Also: a slit feature interacting with the
+# bore's borrow (rebind), and the clamp-force claim chain the spindle
+# hangs from.
+
+import "contracts.hema" (ClampBore, AxisFoot)
+import std.mech.cnc (saw_stock, cnc_mill)
+
+part SpindleMount:
+    material: AL6082_T6
+
+    stage stock: process=saw_stock(rect(160mm, 150mm, 45mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.back
+            then:
+                back = FaceMill(on=stock.body.back, depth=1mm)
+            then:
+                feet = PatternOf<CBore<M5>>(n=4, rect(112mm x 70mm),
+                           frame=back.center)
+        setup B:
+            flip about Y
+            hold: milled.back
+            datum B = milled.back
+            then:
+                # the 80mm clamp bore: bored, not helixed -- roundness
+                # budget is 8 microns and the spindle's runout stack
+                # sits on it
+                bore = Bore(dia 80mm H7, through,
+                            axis=milled.back.center.offset(y=15mm))
+            then:
+                slit = Slot(width=3mm, from=bore.wall,
+                            to=stock.body.front, through)
+                # the slit consumes an arc of the bore wall; the clamp
+                # claim below re-reads the bore AFTER the slit:
+                pinch = PatternOf<TappedHole<M6>>(n=2,
+                            along(slit.axis, spacing=60mm, centered),
+                            across=rebind(bore.wall))
+            # Supplied plan, THIS setup only (attachment is per setup;
+            # the stage's plan obligation composes supplied + generated
+            # setups, OPEN-12): the boring cycle with the shop's
+            # damped bar, pinned and checked, evidence by FAI:
+            plan: extern("nc/spindle_mount_op30.nc", gcode_fanuc)
+                      by test(fai_zplate_op30)
+
+    impl ClampBore<d=80mm> for self:
+        bore = milled.bore.wall
+
+    impl AxisFoot<n=4, span=112mm> for self:
+        feet = milled.feet.instances
+
+    require Clamp:
+        trust: >= certified
+        # 2 x M6 at 10 N*m through the slit closes the H7/h6 gap and
+        # grips: friction circle must hold the spindle's weight plus
+        # the worst Z cutting pull-out with margin
+        grip:  mech.clamp_grip(milled.bore, screws=milled.pinch.instances)
+                   >= 900 N, sf=2.5
+        round: geom.roundness(milled.bore, clamped) <= 0.008mm
+        # roundness is claimed in the CLAMPED state -- the slit ovals
+        # the bore as it closes; catches the classic clamp-ring bug
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=100) <= 120 USD

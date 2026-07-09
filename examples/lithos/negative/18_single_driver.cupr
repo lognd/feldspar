@@ -1,0 +1,22 @@
+# BREAKS: two driving constructs on one net with no declared `arbitrate`
+#   join (the single-driver ownership rule).
+# EXPECT-TODO: E0301
+# Self-calibration: `regolith_sem::ownership::check_single_driver` (the
+# single-driver rule, E0301/AMBIGUOUS_SELECTION family) is exported but
+# never called from `regolith-lower`'s net-discipline checks; a `nets:`
+# block with two drivers and no `arbitrate` lowers clean today. See
+# README candidate finding.
+import std.elec.power (Inductor)
+
+block TwoDrivers:
+    ports:
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+
+impl TwoDrivers by circuit:
+    then:
+        u1 = vendor(tps54331)
+        u2 = vendor(tps54331)
+    nets:
+        outn: (out, u1.vin, u2.vin)
+        gndn: (gnd, u1.gnd, u2.gnd)

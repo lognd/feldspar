@@ -1,0 +1,8 @@
+# BREAKS: a waiver whose target matches no claim or rule (INV-12 waiver
+#   honesty: a waiver matching nothing is an error).
+# EXPECT: E0701
+part p:
+    require Strength:
+        yield: >= 200
+    waive Strength.ghost on self:
+        basis: "typo"

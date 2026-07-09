@@ -1,0 +1,79 @@
+# Burin spindle VFD -- a purchased 2.2 kW inverter as a contract
+# BLOCK (internals never modeled, vendor evidence only), the source
+# end of the DISSIPATION PROMISE CHAIN (D119): electrical loss
+# promised here -> the spindle's SpindleBody thermal slot
+# (spindle.hema) -> the zone boundary truth machine.hema checks
+# growth against. Also the EOPEN-11 posture on emissions: claim
+# structure real today, discharge honestly deferred to the range
+# test.
+
+import "contracts.cupr" (SpindleCmdIn, EStopNode)
+
+block Vfd22:
+    ports:
+        l:   supply(in, 230V +- 10%, ac(50Hz))
+        u, v, w: analog(out, i <= 9A)     # 3-phase to the spindle
+        gnd: reference
+    params:
+        f_pwm: frequency = in [4kHz, 12kHz]   # impl(vendor)-chosen;
+                                              # audible vs loss trade
+    spec:
+        # V/f drive law over the command range; the spindle sees
+        # 0-400Hz for 0-24000 rpm:
+        forall f_cmd in [0Hz, 400Hz]:
+            f(u) = f_cmd +- 0.5%
+    promises:
+        # the chain's first link: inverter self-loss stays in the
+        # cabinet; SPINDLE loss (what actually heats the mech zones)
+        # is promised against the motor's catalog efficiency map --
+        # spindle.hema's SpindleBody slot consumes it:
+        power: dissipation <= 110W                  # inverter itself
+        spindle_loss: <= 180W by catalog(spindle_2p2kw_datasheet)
+        timing.spin_down(run -> stopped): <= 2s     # DC-brake config
+
+    event run_cmd: state(run_fwd).crosses(run)
+
+    require Drive:
+        # accel current inside the 9A envelope with the 80mm rotor's
+        # inertia -- vendor curve vs catalog inertia, both records:
+        accel: peak(i(u), within 1.5s after run_cmd) <= 9A
+        # EMC: mask claim writable now, dischargeable by the range
+        # test later (EOPEN-11 posture; `--release` refuses the
+        # unacknowledged gap until the evidence lands):
+        emissions: stays_within(elec.emissions(u), mask=CISPR_11_A)
+
+    require Braking:
+        # a jammed cutter must not re-inject enough energy to lift
+        # the DC bus over the brake resistor's clamp:
+        bus_clamp: peak(v(dc_bus), within 500ms after estop) <= 390V
+
+board VfdMount:
+    # the VFD is a purchased sealed unit; this artifact is only its
+    # cabinet adapter: command wiring in, e-stop tap, mains tail.
+    stage assembled: process=panel_assembly(din_rail)
+
+    then:
+        u_vfd = Vfd22()
+        u_flt = vendor(schaffner_fn2090_10)   # mains line filter
+
+    impl SpindleCmdIn for self:
+        speed_ref = assembled.cmd_conn.ain
+        run_fwd   = assembled.cmd_conn.fwd
+        fault     = assembled.cmd_conn.flt
+
+    impl EStopNode for self:
+        loop_in  = assembled.estop_conn.a
+        loop_out = assembled.estop_conn.b
+        # loop wired through the VFD's safe-torque-off terminals: an
+        # open loop is a HARDWARE stop, firmware not in the chain
+
+    # WO-34 harness note (G42): the u/v/w spindle tail is the
+    # machine's loudest aggressor -- 2.2kW of 8kHz PWM edges over
+    # ~2.4m to the gantry. It must run in ITS OWN shielded jacket,
+    # never share a drag-chain compartment with step/dir or the limit
+    # loom, shield bonded 360deg at BOTH ends (the one both-ends
+    # shield on the machine -- motor tails are the exception to the
+    # single-point rule). Segregation-class rules per run are exactly
+    # the harness grammar's job; until then the emissions claim in
+    # machine_elec.cupr hand-asserts the 2.4m length and 40mm
+    # separation as givens.

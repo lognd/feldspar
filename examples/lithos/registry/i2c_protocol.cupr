@@ -1,0 +1,34 @@
+# Protocol pack sketch -- what `protocol` records provide: roles a bus
+# mating demands, timing templates per speed class, and the conformance
+# claim set that `protocol:` promises are checked against. This is the
+# two-halved pack pattern: these declarations plus harness model nodes
+# (rise-time RC model, timing checker) co-version.
+
+protocol i2c:
+    params:
+        speed: {standard: 100kHz, fast: 400kHz, fast_plus: 1MHz}
+
+    roles:
+        scl: open_drain, clock
+        sda: open_drain, bidir
+        # the mating DEMANDS a pull-up per role -- an unbound pull-up
+        # role is an L2 error (hardware-bug ledger: "missing pull-up")
+        pullup(scl): required
+        pullup(sda): required
+
+    demands:
+        c_bus: <= f(speed)              # 400pF std/fast, 550pF fast+
+        vih:   >= 0.7 * vdd
+        vil:   <= 0.3 * vdd
+
+    timing(speed):                      # template, indexed by speed class
+        t_su_dat: >= f(speed)
+        t_hd_dat: >= f(speed)
+        t_r:      <= f(speed)           # rise time: the RC claim's limit
+
+    claims:                             # instantiated per bus attach
+        rise: rise_time(scl) <= timing(speed).t_r
+              # discharged by the cheap RC model over the pull-up value
+              # x C_bus interval, at worst corner
+        contention: arbitration(sda) = lossless
+        levels: family_fit(members.all, vdd_domain)

@@ -1,0 +1,141 @@
+# Steam/service boiler -- 1.4L 316 stainless vessel with a real
+# HEADSPACE: liquid inventory to the fill-probe line, saturated steam
+# above it (the .fluo side models the steam headspace only; see
+# steam_service.fluo and the FOPEN-1 note in the README). Exercises:
+# the same weldment vocabulary as brew_boiler.hema at a different
+# corner (higher wall temperature, lower pressure), a waterline zone
+# split, and the safety/anti-vacuum port set the fluid file's
+# CheckValve edges bind to.
+
+import "contracts.cupr" (HeaterSeat, ThermoWell, LevelWell)
+import "fittings.hema" (FittingPort)
+import std.mech.cnc (cnc_mill)
+import std.mech.weld (FilletWeld)
+import std.mech.mounts (MountPattern)
+
+part SteamBoiler:
+    pieces:
+        shell:     stock Tube(dia 102mm x 2.0mm, l=190mm), material: AISI_316
+        cap_front: stock Bar(dia 102mm, l=12mm),           material: AISI_316
+        cap_rear:  stock Bar(dia 102mm, l=14mm),           material: AISI_316
+
+    stage welded: process=tig_weld(er316l), joins=[shell, cap_front,
+                                                   cap_rear]
+        align:
+            cap_front.face.frame = shell.front_rim.frame (contact)
+            cap_rear.face.frame  = shell.rear_rim.frame  (contact)
+        then:
+            w_f = FilletWeld(between=(cap_front.rim, shell.front_rim),
+                             leg=2.5mm, around)
+            w_r = FilletWeld(between=(cap_rear.rim, shell.rear_rim),
+                             leg=2.5mm, around)
+
+    stage machined: process=cnc_mill(axes=4), from=welded
+        setup A:
+            hold: welded.shell.od
+            datum A = welded.cap_front.face
+            then:
+                heater_land  = Face(mill, on=welded.cap_rear.face)
+                heater_studs = PatternOf<TappedHole<M5>>(n=3,
+                                   circular(dia 44mm),
+                                   frame=heater_land.center)
+            then:
+                # headspace ports, all above the waterline: wand
+                # takeoff, anti-vacuum valve, safety valve, and the
+                # pressure-transducer port the controller reads
+                wand_th   = ThreadedHole(M10x1.0, on=welded.shell.top)
+                wand_land = Face(mill, on=welded.shell.top)
+                avac_th   = ThreadedHole(M10x1.0, on=welded.shell.top)
+                avac_land = Face(mill, on=welded.shell.top)
+                safety_th   = ThreadedHole(M10x1.0, on=welded.shell.top)
+                safety_land = Face(mill, on=welded.shell.top)
+                xdcr_th   = ThreadedHole(M10x1.0, on=welded.shell.top)
+                xdcr_land = Face(mill, on=welded.shell.top)
+                probe_gland = ThreadedHole(M4x0.7, on=welded.shell.top)
+                well = ThreadedHole(M6x0.75, on=welded.shell.top)
+            then:
+                # liquid-side ports, below the waterline: autofill in,
+                # hot-water tap out (tap capped in this trim)
+                fill_th   = ThreadedHole(M10x1.0, on=welded.cap_front.face)
+                fill_land = Face(mill, on=welded.cap_front.face)
+                tap_th    = ThreadedHole(M10x1.0, on=welded.cap_front.face)
+                tap_land  = Face(mill, on=welded.cap_front.face)
+            then:
+                saddle_holes = PatternOf<TappedHole<M5>>(n=4,
+                                   rect(80mm x 70mm),
+                                   frame=welded.shell.bottom.center)
+
+    # waterline = the fill-probe tip height; the autofill loop's
+    # promise (controller.cupr) is what makes this datum truth
+    datum waterline_ref = welded.shell.top.offset(y=-32mm)
+    datum rear_ref      = welded.cap_rear.face
+
+    zones over welded.shell.faces:
+        headspace: .where(between=(waterline_ref, rear_ref))
+        wetted:    remainder
+        # same computed-field demand as brew_boiler.hema (D98/WO-33):
+        # the honest form is `compute wall_T: thermo.wall_temperature
+        # over self.zones`; the interim is the machine.hema boundary
+        # assertion consumed as T_local below
+
+    impl HeaterSeat for self:
+        land  = machined.heater_land
+        studs = machined.heater_studs.instances
+
+    impl ThermoWell for self as steam_well:
+        pocket = machined.well
+
+    impl LevelWell for self as fill_probe:
+        gland = machined.probe_gland
+
+    impl FittingPort<M10x1.0> for self as wand_out:
+        thread = machined.wand_th
+        seat   = machined.wand_land
+
+    impl FittingPort<M10x1.0> for self as avac_port:
+        thread = machined.avac_th
+        seat   = machined.avac_land
+
+    impl FittingPort<M10x1.0> for self as safety_port:
+        thread = machined.safety_th
+        seat   = machined.safety_land
+
+    impl FittingPort<M10x1.0> for self as xdcr_port:
+        thread = machined.xdcr_th
+        seat   = machined.xdcr_land
+
+    impl FittingPort<M10x1.0> for self as fill_in:
+        thread = machined.fill_th
+        seat   = machined.fill_land
+
+    impl FittingPort<M10x1.0> for self as tap_out:
+        thread = machined.tap_th
+        seat   = machined.tap_land
+
+    impl MountPattern<M5, n=4, rect(80mm x 70mm)> for self as saddle:
+        holes = machined.saddle_holes.instances
+
+    require Structural:
+        trust: >= certified
+        # ceiling = the safety valve's 1.8 bar gauge crack promise
+        # (SteamService.Safety.single_fault, steam_service.fluo) --
+        # the same fluid->structural promise crossing as the brew
+        # vessel, at the RELIEF corner instead of the hammer corner
+        hoop: peak(mech.stress.von_mises, during boundary.steam_pressure)
+                  < material.sigma_y(T_local) / 1.8
+        # T_local worst corner here is saturation at relief: 134degC
+        # wetted, 145degC headspace band over the element dry zone
+
+    require Welds:
+        static: forall w in welded.welds.all:
+            mech.weld_stress(w, under=boundary.steam_pressure)
+                < w.filler.sigma_allow, sf=2.5
+
+    require Fatigue:
+        # one thermal+pressure cycle per power-up, not per shot
+        life: mech.life(all, under=boundary.steam_pressure)
+                  >= design_life, scatter_factor=4
+
+    require Manufacture:
+        makeable: manufacturable(machined)
+        cost:     mfg.unit_cost(qty=500) <= 74 USD

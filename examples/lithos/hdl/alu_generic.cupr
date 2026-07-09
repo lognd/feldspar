@@ -1,0 +1,69 @@
+# alu_generic -- D120 fixture pair. PROVES cuprite/09 sec. 1 rows:
+#   parameters / generics        -> generics + monomorphization (INV-11)
+#   generate loops / instance arrays -> orbits + patterns
+# Foreign original: alu_generic.sv (SystemVerilog-2017, committed
+# beside this file). Embedding: OPAQUE-with-contracts in v1 (cuprite
+# 09 sec. 3 -- SV does not elaborate; the artifact is hash-pinned,
+# the contract below is retro-declared, and equivalence + promise
+# obligations attach; discharge is simulation comparison with
+# declared coverage, honestly indeterminate below that coverage).
+
+block AluSlice:
+    ports:
+        a:   digital(in)
+        b:   digital(in)
+        cin: digital(in)
+        op:  digital(in, width=2)
+        y:   digital(out)
+        cout: digital(out)
+    spec:
+        y    = slice_result(a, b, cin, op)
+        cout = slice_carry(a, b, cin, op)
+
+block Alu<w: int = 8>:
+    ports:
+        a:    digital(in, width=w)
+        b:    digital(in, width=w)
+        op:   digital(in, width=2)     # {add, and, or, xor} -- discrete
+        y:    digital(out, width=w)
+        cout: digital(out)
+    spec:
+        y    = alu_result(a, b, op)
+        cout = alu_carry(a, b, op)
+    promises:
+        timing.prop(a -> cout): allocated   # the ripple path
+
+# The generate row, natively: a PATTERN of identical slices with
+# ripple-carry zip. Symmetry is a checked fact usable by verification
+# (INV-4: verify-one-instantiate-n) -- not textual expansion; the
+# cardinalities of every pairwise/flatten below are statically
+# checked against w:
+impl Alu by composing as RippleArray:
+    then:
+        slices = PatternOf<AluSlice>(n=w)
+    connect:
+        pairwise(a.bits, slices.instances.a)
+        pairwise(b.bits, slices.instances.b)
+        op -> slices.instances.op                  # broadcast
+        chain(slices.instances.cout -> slices.instances.cin,
+              seed=0, tail=cout)                   # the ripple
+        flatten(slices.instances.y) -> y
+
+# The foreign original, embedded opaque, same contract:
+impl Alu by extern("alu_generic.sv", sv2017) as HandSv
+
+# Monomorphization pressure (INV-11): two instantiation sites at
+# different widths; each gets its own arity/type check and its own
+# equivalence obligation instance. A generic the design never
+# instantiates is dead (E0503):
+block AluDemoPair:
+    ports:
+        clk: clock(50MHz, domain=demo)
+    then:
+        narrow = Alu<8>()  use RippleArray
+        wide   = Alu<32>() use HandSv
+    # The SV side is parameterized too (parameter int W) -- but its
+    # W=32 instantiation is checked only by the retro-contract at the
+    # boundary (opaque route), where the native RippleArray's w=8 is
+    # checked per-site by construction. That asymmetry is the honest
+    # difference between the two routes, on record here.

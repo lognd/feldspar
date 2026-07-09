@@ -1,0 +1,17 @@
+# BREAKS: mutating a construct after its ownership/borrow verdict has
+#   already been committed at L3 (INV-5 ownership finality: verdicts
+#   hold on the REALIZED artifact, re-checked at L4 for data-dependent
+#   deltas).
+# EXPECT-TODO: INV-5
+# Self-calibration: `modify seat` after `bind seat` is the ordinary
+# borrow-conflict shape (see 25_region_overlap.hema for its sibling,
+# which DOES fire E0302 at L3); this fixture instead models a
+# construct declared data-dependent whose feature-class pack lies about
+# its predicted delta -- the mandatory L4 post-realization
+# verification pass that INV-5 requires is realizer/pack territory
+# (WO-22 lineage) and is not exercised by the static checked pipeline.
+# See README candidate finding.
+part p:
+    bind seat
+    data_dependent seat
+    modify seat

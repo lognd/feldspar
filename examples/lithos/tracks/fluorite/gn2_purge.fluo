@@ -1,0 +1,42 @@
+# GN2 purge line -- exercises: fluorite/01 as amended cycle 27
+# (D141: compressible delivery is a DISCHARGE TIER, not new claim
+# forms): a gas blowdown whose delivered pressure genuinely depends
+# on line friction. The claims are the ordinary dp/pressure forms;
+# the mach/choked screening tags route discharge to the
+# compressible-capable tier (feldspar WO-20) through the D97 regime
+# channel -- honestly indeterminate until that tier registers.
+
+import std.fluorite (Pipe, Orifice, Regulator, Valve)
+
+medium GN2: gas                                 # fluorite/02 sec. 1
+    props: registry(nitrogen_nist)
+
+flownet PurgeLine(medium=GN2):
+    reference: ambient(101kPa, 293K)
+    nodes: bottle_out, reg_dn, valve_dn, line_end
+    edges:
+        reg:    Regulator(set=830kPa, droop=35kPa)
+                                        (bottle_out -> reg_dn)
+        pv:     Valve(cv=0.7, states={open, closed})
+                                        (reg_dn -> valve_dn)
+        line:   Pipe(from=purge_tube.run)       # 9m of 6mm line --
+                                        (valve_dn -> line_end)
+                                        # friction dominates; this is
+                                        # the Fanno-regime case
+        outlet: Orifice(cd=0.8, dia=2.5mm)
+                                        (line_end -> ambient)
+
+require Purge:                                  # fluorite/02 sec. 6 --
+    # every form below predates D141; NOTHING new was added for the
+    # compressible tier (that is the D141 point).
+    supply:  fluids.pressure(line_end) >= 550kPa
+    margin:  fluids.dp(reg_dn -> line_end) <= 280kPa
+    flow:    fluids.mdot(outlet) >= 8g/s
+    choke:   choked(outlet)                     # the metering orifice
+                                                # SHOULD be choked
+    regime:  fluids.mach(line) <= 0.3           # screening: when this
+                                                # tag fails, the
+                                                # incompressible tier
+                                                # no-matches and the
+                                                # compressible tier is
+                                                # the honest route

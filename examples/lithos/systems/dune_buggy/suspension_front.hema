@@ -1,0 +1,67 @@
+# Front suspension -- double wishbone: THE kinematics pressure file.
+# Anchors: G36 (computed curves over a CONFIG domain: camber(travel),
+# toe(travel), motion_ratio(travel)), G40 (statistical build
+# tolerance), four-bar solvers (07 dynamics: mechanisms).
+
+import std.mech.tube (TubeProfile)
+import std.mech.joining (Weld)
+import std.mech.turned (Bushing)
+
+part LowerWishbone:
+    material: AISI_4130_N
+    pieces:
+        tubes: 2 x TubeStock(od 25mm, wall 2.0mm)
+        clevis: PlateStock(t 5mm)
+    stage welded: process=gtaw, joins=[tubes, clevis]
+        arm = Weld(fillet 2.5mm, all_notches)
+
+    require Structural:
+        # Landing case: arm sees the shock load through the motion
+        # ratio -- an input that is ITSELF a kinematic solve output
+        # (G36). Buckling of the compression tube is a LOWER-bound
+        # claim (Euler + Johnson, 07 columns).
+        buckle: mech.buckling_load(welded.arm.front_tube)
+                    >= 12kN, sf=1.5
+        bearing_seat: peak(mech.stress.von_mises, at=welded.arm.clevis)
+                          < material.sigma_y / 2.0
+
+part UpperWishbone:
+    material: AISI_4130_N
+    stage welded: process=gtaw
+        arm = Weld(fillet 2.5mm, all_notches)
+
+assembly FrontCorner:
+    parts:
+        lower: LowerWishbone
+        upper: UpperWishbone
+        upright: import("upright_hub_front.hema", FrontUpright)
+
+    connect:
+        lo_in:  Pivot(a=lower.arm.inner, b=chassis.pickups) exposing theta_l
+        up_in:  Pivot(a=upper.arm.inner, b=chassis.pickups) exposing theta_u
+        lo_bj:  BallJoint(a=lower.arm.outer, b=upright.lower_taper)
+        up_bj:  BallJoint(a=upper.arm.outer, b=upright.upper_taper)
+
+    boundary:
+        travel: z_wheel in [-110mm, 140mm]     # bump/droop config domain
+
+    require Kinematics:
+        # G36 -- the finding: camber, toe, and motion ratio are 1-D
+        # CURVES over the travel config variable, computed by the
+        # four-bar position solver (07 dynamics: mechanisms). Sibling
+        # claims consume the curve (roll stiffness wants
+        # motion_ratio(z); bump steer wants the toe SLOPE). No
+        # language form exists for a claim-computed function of a
+        # config variable feeding other claims -- today each collapses
+        # to worst-point scalar claims over the swept domain:
+        camber_band: forall z_wheel in [-110mm, 140mm]:
+            vehicle.camber(wheel) within [-3.5deg, 0.5deg]
+        no_bind: forall z_wheel in [-110mm, 140mm]:
+            mech.joint_angle(lo_bj) < 24deg
+
+    require Build:
+        # G40: pickup scatter -> toe/camber build tolerance is the
+        # quantile-propagation customer again (worst-case corners
+        # condemn every buildable frame).
+        static_camber: vehicle.camber(wheel) within [-1.8deg, -0.8deg]
+                       given z_wheel = 0mm

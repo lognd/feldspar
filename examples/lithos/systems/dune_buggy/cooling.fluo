@@ -1,0 +1,60 @@
+# Coolant loop -- fluorite customer #2 (G39). Written against the
+# PROPOSED fluorite draft (lithos:docs/spec/fluorite/, COPEN-1 pending):
+# this file is reproduction DEMAND for ratification, exactly as
+# feed_lines.hema was for the language's existence. Exercises: pump
+# curve records as imposers, thermostat state domains, HxSegment
+# zone coupling into engine_top_end.hema's head zones, NPSH at the
+# hot corner.
+
+medium Coolant50: liquid
+    props: registry(egw_50_50)          # rho(T), mu(T), cp(T), pv(T)
+
+flownet EngineCooling(medium=Coolant50):
+    reference: ambient(151kPa, 328K)          # pressurized system:
+                                              # cap pressure absolute
+                                              # at the 55degC corner
+    nodes: pump_out, head_in, head_out, stat_a, stat_b,
+           rad_in, rad_out, pump_in, bypass_a
+    edges:
+        pump:    Pump(curve=registry(davies_craig_ewp80))
+                     (pump_in -> pump_out)
+        jacket:  HxSegment(zone=CylinderHead.bridge)
+                     (head_in -> head_out)
+                 # cross-track: the zone datum here IS the zone the
+                 # head's Thermal CoupledGroup names -- both sides
+                 # bind one datum (fluorite 03 sec. 4); the coupled
+                 # solve is feldspar's (M8), the language only
+                 # guarantees the names meet.
+        stat:    Valve(states={closed, open}, cracking=82degC)
+                     (stat_a -> stat_b)
+        bypass:  Orifice(dia 6mm)              (bypass_a -> pump_in)
+        rad:     HxSegment(zone=Radiator.core) (rad_in -> rad_out)
+        lines:   Pipe(from=coolant_hoses.runs) (head_out -> stat_a)
+
+    states:
+        stat.position in {closed, open}
+
+require Cooling:
+    # Heat balance at the worst corner: full-throttle dune climb,
+    # 55degC ambient, thermostat open. The engine's dissipation
+    # promise (vehicle.hema chain) is the load; the radiator record's
+    # effectiveness-NTU solve (07 heat) closes the loop.
+    reject: heat.rejection(rad) >= 18kW
+                given T_amb = 55degC, duty = dune_climb
+    flow: fluids.mdot(jacket) >= 0.5kg/s
+              given stat.position = open
+
+require Pump:
+    # NPSH at the HOT corner: pv(T) of the 50/50 mix vs suction
+    # pressure -- the vapor-lock machinery, first customer outside
+    # propellants. LOWER-bound margin claim.
+    npsh: fluids.npsh_margin(pump) > 2m
+              given T_coolant = 115degC
+
+require Transients:
+    # Thermostat snap: pressure transient at the pump inlet when the
+    # stat opens into a cold radiator slug -- peak vocabulary +
+    # event, COPEN-5's compliance-extraction question in miniature.
+    stat_snap: peak(fluids.pressure(pump_in),
+                   within 500ms after stat.open) > 20kPa
+               # LOWER bound: suction must not dip below cavitation

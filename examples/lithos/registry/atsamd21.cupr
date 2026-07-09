@@ -1,0 +1,75 @@
+# Component record #2 for EOPEN-12 -- Microchip ATSAMD21G18A. THE
+# schema-breaking case the flat pin->function table could not carry:
+# SERCOM instances are protocol-polymorphic (uart|spi|i2c decided per
+# instance at allocation), and each protocol MODE constrains which
+# role may sit on which PAD (i2c: sda=pad0/scl=pad1 fixed; uart: rx on
+# any pad, tx on pad0|pad2; spi: DOPO/DIPO combination table). The
+# `function_modes:` table is the schema addition (F85): pin-mux stays
+# a monomorphized matching problem, now over
+#   function instance -> mode -> role -> pad -> pin.
+#
+# Transcribed from general part knowledge; evidence tier is
+# `community` UNTIL the datasheet-rev hash is verified -- the trust
+# machinery carrying transcription risk honestly (a `trust: >=
+# certified` claim group will refuse this record, correctly).
+
+component microchip.atsamd21g18a:
+    class: mcu(cortex_m0plus)
+    evidence: by catalog(mchp_ds40001882_revd), tier=community
+
+    limits:
+        vdd:   [1.62V, 3.63V]
+        t_j:   [-40degC, 125degC]
+        i_pin: <= 10mA                 # PL pins 15mA; see derating
+        i_vdd: <= 92mA
+
+    derating:
+        i_pin: f(vdd, pin_class)       # normal vs high-drive pins
+        f_max: f(vdd)                  # 48MHz above 2.7V, 24MHz below
+
+    resources:
+        executor: >= 45Mops i32 sustained, by test(coremark_d21)
+        sram:     32kB
+        flash:    256kB, endurance >= 25e3 cycles
+        movers:   dma x 12
+
+    functions:
+        buses:  sercom x 6             # POLYMORPHIC: uart | spi | i2c,
+                                       # chosen per instance at allocation
+        timers: tcc x 3 (pwm, waveform), tc x 5
+        analog: adc(12bit, 350ksps) x 1 (in x 20), dac(10bit) x 1
+
+    function_modes:                    # the F85 table: per-mode role->pad
+        sercom.i2c:
+            sda: pad0                  # fixed by silicon
+            scl: pad1
+            pads_unused: [pad2, pad3]  # burn or leave to other muxing
+        sercom.uart:
+            rx: any(pad0 .. pad4)      # RXPO: any pad
+            tx: pad0 | pad2            # TXPO 0x0 / 0x1
+            xck: pad1 | pad3
+        sercom.spi:
+            mosi: pad0 | pad3          # DOPO combinations
+            sck:  pad1 | pad3
+            miso: any(pad0 .. pad4)    # DIPO
+            # DOPO/DIPO joint legality is a pair table, not a product:
+            combos: [(mosi=pad0, sck=pad1), (mosi=pad3, sck=pad1),
+                     (mosi=pad0, sck=pad3)]
+
+    packages:
+        tqfp48:
+            # pins list PAD capabilities, not protocol roles -- the
+            # solver joins this table with function_modes:
+            pa08: {sercom0.pad0, sercom2.pad0_alt, adc.in16, tcc0.wo0}
+            pa09: {sercom0.pad1, sercom2.pad1_alt, adc.in17, tcc0.wo1}
+            pa10: {sercom0.pad2, sercom2.pad2_alt, adc.in18, tcc1.wo0}
+            pa11: {sercom0.pad3, sercom2.pad3_alt, adc.in19, tcc1.wo1}
+            pa22: {sercom3.pad0, sercom5.pad0_alt, tc4.wo0}
+            pa23: {sercom3.pad1, sercom5.pad1_alt, tc4.wo1}
+            # ... full table transcribed by the pack, not by users
+
+    straps:
+        reset: {run: high, reset: low}, default=run
+
+    models:
+        power: model<mcu_power_modes>(active, idle, standby)

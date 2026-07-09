@@ -1,0 +1,82 @@
+# Peregrine computer -- the FPGA + MCU PARTITION (D119). Exercises:
+# workloads with `realizes` ties into sdr.cupr's compute intents
+# (exactly-one-realization ledger + demand implication, cuprite 05
+# sec. 1), an architecture split across a hard MCU and FPGA fabric,
+# mode-dependent scheduling (`forall op`), the bind block mixing buy
+# (MCU) with build (both DSP blocks hosted on one FPGA), and pin-mux
+# CONTENTION BY CONSTRUCTION (two flows funneled at one DMA-capable
+# peripheral -- the failure is a constructive L4 error, not bring-up).
+
+import "dsp_core.cupr" (Ddc, Duc)
+import std.compute (executor, memory, mover)
+
+computer SdrCtl:
+    workloads:
+        # FPGA-side signal path:
+        ddc_w: stream(122.88Msps in, latency <= 250us) realizes downconvert
+        duc_w: stream(122.88Msps out, latency <= 250us) realizes upconvert
+        # MCU-side control plane:
+        agc:   loop(rate=1kHz, work=60kops f32, jitter <= 100us,
+                    state: 16kB) realizes supervise
+        usb:   stream(out, 8MB/s, latency <= 3ms) realizes stream_out
+        usb_i: stream(in, 8MB/s, latency <= 3ms) realizes stream_in
+        hk:    loop(rate=10Hz, work=4kops i32)      # housekeeping, no intent
+
+    require Timing:
+        agc_deadline: info.latency(agc) < 500us, sf=2
+    require Capacity:
+        headroom: info.utilization(all) <= 65%
+
+architecture for SdrCtl:
+    resources:
+        cpu0:  executor(promises: >= 100Mops f32 sustained,
+                        context_switch <= 3us)
+        fpga0: executor(promises: >= 4Gops fixed, kind=fabric)
+        dma:   mover(promises: >= 60MB/s, independent of cpu0)
+    memories:
+        sram:   memory(512kB, promises: latency <= 2 cycles)
+        flash:  memory(2MB, persistent, endurance >= 1e5 cycles)
+        buffer: memory(512MB, promises: bandwidth >= 800MB/s)   # the DDR3
+    peripherals:                       # demand vector, from system flows
+        buses:  usb2_hs x 1, spi(>= 20MHz) x 2, uart x 1
+        timers: pwm x 2                # PA bias ramp, fan
+        analog: adc(12bit, >= 100ksps) x 1   # PA current sense
+    schedule:
+        agc  -> cpu0: static_priority(highest)
+        hk   -> cpu0
+        usb  -> dma
+        usb_i -> dma
+        ddc_w -> fpga0
+        duc_w -> fpga0
+        # Mode discipline rides the statechart: duc_w only runs during
+        # op = tx; the schedulability check runs `forall op`, so the
+        # rx-mode budget never pays for the tx path:
+        forall op: info.utilization(fpga0) <= 70%
+
+bind SdrCtl:
+    cpu0   = vendor(stm32h743)            # 480MHz M7; ops by test(coremark_ref)
+    sram   = vendor(stm32h743).sram
+    flash  = vendor(stm32h743).flash
+    dma    = vendor(stm32h743).dma.instances.any
+    buffer = u_ddr                        # board.cupr part, via controller
+    fpga0  = vendor(lattice_ecp5_85k)
+    ddc_w  = Ddc<64>() hosted_on u_fpga
+    duc_w  = Duc<64>() hosted_on u_fpga
+    # Host binding (EOPEN-17): pinned because the DDR3 controller
+    # demands the ECP5's DQS-capable bank pairs (sstl135) while the
+    # ADC/DAC parallel buses need lvcmos18 banks -- the IO-banking
+    # half of the capability match forces a REAL assignment; the bank
+    # map itself stays derived and lockfile-caused.
+
+    # Pin-mux contention BY CONSTRUCTION: usb and usb_i both demand
+    # the one DMA-capable ULPI-attached peripheral; the LO tuning SPI
+    # and the AGC step SPI both want spi(>= 20MHz). The stm32h743
+    # record has exactly one ULPI block and two DMA-capable SPIs on
+    # non-overlapping pin groups -- feasible, but ONLY in the
+    # assignment where SPI4 takes the synth (its alternate pins do
+    # not collide with ULPI D[0..7]). The solver must find that
+    # assignment; a third >= 20MHz SPI demand would die at L4 with
+    # "both flows need the only remaining DMA-capable SPI" -- a
+    # constructive error naming the contended resource, not a
+    # bring-up discovery. (cuprite 04 sec. 1: pin-mux is a
+    # monomorphized matching problem; cause: planner(pinmux u_mcu).)

@@ -1,0 +1,65 @@
+# Steering -- rack, tie rods, geometry: LOWER-sense buckling, config
+# domains crossed with kinematics (G36 slope claims), thread/joint
+# machine design.
+
+import std.mech.turned (Shaft, Thread)
+import std.mech.gear (RackPinion)
+
+part SteeringRack:
+    material: AISI_4140
+
+    stage machined: process=cnc_mill
+        then:
+            rack   = RackPinion(module 1.5mm, pinion_teeth 17,
+                         rack_travel 110mm)
+            body   = Pocket(envelope 420mm x 50mm x 50mm)
+
+    require Mechanism:
+        # Gear-tooth bending (AGMA, 07 gears) on the pinion at the
+        # lock-to-lock jam case; backlash is a two-sided window
+        # (`within` comparator).
+        tooth: peak(mech.stress.bending, at=machined.rack.pinion)
+                   < material.sigma_y / 1.6
+                   given torque = wheel_jam(60N*m)
+        lash: mech.backlash(machined.rack) within [0.05mm, 0.20mm]
+
+part TieRod:
+    material: AISI_4130_N
+    stage turned: process=cnc_lathe
+        rod = Shaft(dia 12mm, length 380mm)
+        ends = Thread(M12x1.25, both_ends, lh_rh)
+
+    require Structural:
+        # LOWER-bound Euler/Johnson buckling under the curb-strike
+        # compression case: the sense discipline (A-2/A-3) again --
+        # and the classic tie-rod failure the claim exists to kill.
+        buckle: mech.buckling_load(turned.rod) >= 7.5kN, sf=1.8
+        thread: mech.thread_shear(turned.ends) >= 1.5 * 7.5kN
+
+assembly SteeringGeometry:
+    parts:
+        rack: SteeringRack
+        rods: 2 x TieRod
+        corner: import("suspension_front.hema", FrontCorner)
+
+    connect:
+        inner: pairwise(rack.ends, rods) by RodEnd
+        outer: pairwise(rods, corner.upright.steer_arms) by RodEnd
+            exposing steer_angle
+
+    boundary:
+        steer: steer_angle in [-28deg, 32deg]
+        travel: z_wheel in [-110mm, 140mm]
+
+    require Geometry:
+        # 2-D config domain (steer x travel): the G29/G43 coverage
+        # problem in kinematic form; per-axis monotonicity does NOT
+        # hold (Ackermann error is interior-extremal in steer), so
+        # grid coverage must be STATED -- the bare-float gap, again.
+        ackermann: forall steer_angle in [-28deg, 32deg]:
+            vehicle.ackermann_error(front) < 4deg
+        compute toe: vehicle.toe over z_wheel in [-110mm, 140mm]
+        bump_steer: slope(toe, z_wheel) in [-0.02deg/mm, 0.02deg/mm]
+            # G36 RESOLVED (D98/WO-33): the bound on the DERIVATIVE
+            # of the computed toe(travel) curve, in the landed
+            # config-indexed compute/slope form.

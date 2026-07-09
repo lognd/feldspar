@@ -1,0 +1,65 @@
+# EFI ECU -- injection, ignition, sensing, lambda loop: the mature
+# elec/control seam under vehicle conditions. Anchors: control-loop
+# claims (Phase 5 fixtures), VR sensor signal chain (signal ns), load
+# dump survival, injector/coil drive transients (the driver.cupr
+# precedents at automotive severity).
+
+import std.elec.power (LowSideDriver, IgnitionIgbt, Buck)
+import std.elec.sense (VrAmp, NtcInput, LambdaInput)
+
+block EfiEcu:
+    ports:
+        vbatt: supply(in, [9V, 16V])         # cranking sag to charge
+        inj:   actuator(out, solenoid, i <= 2.5A)
+        coil:  actuator(out, igbt, i <= 9A)
+        vr:    analog(in, differential)      # crank position VR
+        ntc:   analog(in, [0V, 5V])          # head temp NTC
+        o2:    analog(in, [0V, 1V])          # narrowband lambda
+        tps:   analog(in, [0.5V, 4.5V])
+        can:   digital(bus, family=can_2v5)  # dash link
+        gnd:   reference
+    then:
+        vreg  = Buck<v_out=5.0V, i_max=0.4A>
+        drv_i = LowSideDriver(fet=vendor(vnd5050), i <= 2.5A)
+        drv_c = IgnitionIgbt(vendor(ncv8402), i <= 9A)
+        amp_v = VrAmp(hysteresis=adaptive)
+
+    event spark: v(coil).falls
+    event load_dump: v(vbatt).crosses(24V)
+
+    require Survival:
+        # Automotive transients: load dump (ISO 7637 pulse 5 as a
+        # mask payload), reverse battery, cranking sag -- mask
+        # vocabulary + records; the buck must ride through the sag
+        # corner without resetting.
+        dump_ok: stays_within(v(vbatt_internal),
+                     mask=iso7637_p5_clamped, during load_dump)
+        sag_ride: v(vreg.out) >= 4.75V
+                  given v(vbatt) = 9V, duration = 800ms
+
+    require Sensing:
+        # VR zero-cross timing error across the speed band: amplitude
+        # spans ~50x from crank to redline; the adaptive-hysteresis
+        # amp's timing error is a signal-chain claim (signal ns) that
+        # feeds the ignition-accuracy claim below.
+        vr_timing: signal.timing_error(amp_v, over=[200rpm, 9200rpm])
+                       < 0.3deg_crank
+        ntc_acc: signal.channel_error(ntc_chain) < 3degC
+        adc_budget: signal.enob(tps_chain) >= 9.5bit
+
+    require Control:
+        # The lambda loop: plant = fueling-to-exhaust transport delay
+        # (rpm-dependent dead time) -- gain/phase margins over the
+        # OPERATING config domain, not one linearization point (the
+        # 2-D coverage pressure in control clothing, G43-adjacent).
+        lambda_stable: forall rpm in [1500rpm, 9200rpm]:
+            control.phase_margin(lambda_loop) > 40deg
+        idle: settles(rpm_signal, to=+-80rpm,
+                  within 2s after throttle_close)
+
+    require Drive:
+        inj_clamp: peak(v(inj), within 2ms after inj.close) < 55V
+        spark_energy: elec.stored_energy(drv_c.coil_primary)
+                          >= 45mJ
+                          given v(vbatt) = 9V
+        fet_t: thermo.temperature(drv_i.fet.junction) < 125degC

@@ -1,0 +1,62 @@
+# 5V buck converter block -- exercises: an abstract block with a
+# continuous spec over a load/line domain, impl-chosen `params:` vs
+# caller-chosen `<...>`, the `impl by circuit` body shape (component
+# classes + `nets:`, settled this cycle), directional supply ports,
+# startup masks, ripple and transient claims, and a dissipation promise
+# for cross-domain thermal handoff.
+
+import std.elec.power (Inductor, Capacitor, ResistorDivider)
+
+block Buck<v_out: voltage = 5.0V, i_max: current = 2A>:
+    ports:
+        vin: supply(in, [7V, 24V])
+        out: supply(out, v_out +- 2%, i <= i_max)
+        gnd: reference
+        en:  digital(in, family=cmos_3v3)
+    params:
+        f_sw: frequency = in [300kHz, 1.2MHz]   # impl-chosen (existential)
+    spec:
+        # Regulation law over the whole line/load domain. `= x +- tol`
+        # is an equal_within constraint declaration, not banned `==`.
+        forall i(out) in [0A, i_max], v(vin) in [7V, 24V]:
+            v(out) = v_out +- 2%
+    promises:
+        power: dissipation <= 1.2W          # thermal boundary for the
+                                            # enclosure's mech claims
+        timing.startup(en -> out): <= 5ms
+
+    event enabled: v(en).crosses(vih)
+    event load_step: step(i(out), 1A/us)
+
+    require Regulation:
+        ripple:    rms(v(out), band=[100kHz, 10MHz]) < 20mV
+        transient: settles(v(out), to=+-2%, within 500us after load_step)
+        softstart: stays_within(v(out), mask=monotonic_rise(5ms),
+                       within 5ms after enabled)
+    require Efficiency:
+        eta: forall i(out) in [0.2A, i_max]:
+                 elec.power(out) / elec.power(vin) >= 85%
+
+impl Buck by circuit:
+    then:
+        u1    = vendor(tps54331)                     # controller + switch
+        l1    = Inductor(l=in [10uH, 47uH], i_sat >= 1.3 * i_max)
+        c_in  = Capacitor(c=in [4.7uF, 22uF], v_rated >= 35V, x7r)
+        c_out = Capacitor(c=in [22uF, 100uF], v_rated >= 10V, x7r)
+        fb    = ResistorDivider(ratio=derived, z=in [10kohm, 100kohm])
+    nets:
+        # `nets:` joins terminals. Power/analog nets are relational
+        # (KCL), not single-driver; the v1 analog net discipline
+        # (terminal ledger, reference reachability, one voltage-imposer,
+        # supply-short check) is elec 03 sec. 2.
+        swn:  (u1.sw, l1.a)
+        outn: (l1.b, c_out.a, fb.top, out)
+        inn:  (vin, c_in.a, u1.vin)
+        fbn:  (fb.mid, u1.fb)
+        gndn: (gnd, c_in.b, c_out.b, fb.bottom, u1.gnd)
+        enn:  (en, u1.en)
+    # Equivalence of this circuit to the spec: T3 obligation, discharged
+    # by DC-sweep + transient analysis with declared coverage over the
+    # forall domain. Component values land in the lockfile:
+    #   l1.l = 22uH     cause: obligation(Regulation.ripple)
+    #   c_out.c = 47uF  cause: obligation(Regulation.transient)

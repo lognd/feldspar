@@ -1,0 +1,47 @@
+# Rear hub + axle -- sprocket torque path and impact torque.
+# Anchors: spline shear (machine design), shock-torque factors from
+# the driveline (vehicle namespace load cases, G34), press-fit pair
+# records (G15 pattern).
+
+import std.mech.turned (Shaft, Spline, Disk)
+
+part RearHub:
+    material: AISI_4340_QT
+
+    stage turned: process=cnc_lathe
+        then:
+            axle    = Shaft(dia 30mm, length 140mm)
+            spline  = Spline(din5480, 28mm x 1.25mm x 21t, at=axle.inboard)
+            flange  = Disk(outer_dia 140mm, thickness 14mm)
+            carrier = PatternOf<Thread(M10x1.25)>(n=4, circular(dia 110mm))
+
+    boundary:
+        # G34: the driveline torque envelope is a VEHICLE-namespace
+        # load case -- peak traction torque is adhesion-limited by
+        # the tire-on-sand record (mu ellipse), NOT by engine torque
+        # times ratio (which would be twice the number and pure
+        # fiction on sand). The load case itself routes through
+        # vehicle.traction_limit.
+        drive_torque: <= vehicle.traction_limit(rear, surface=sand_dry)
+        shock_factor: 2.2       # cited driveline shock factor (t)
+        structure: alternating(R=0.1)
+
+    require Structural:
+        spline_shear: mech.spline.shear_margin(turned.spline,
+                          under=boundary.drive_torque
+                          * boundary.shock_factor) >= 1.5
+        axle_static: peak(mech.stress.von_mises, at=turned.axle)
+                         < material.sigma_y / 1.6
+
+    require Fatigue:
+        # Fully-reversed torsion + bending; the duty torque spectrum
+        # is a payload from the vehicle model (speed/gear/surface mix).
+        axle_life: mech.fatigue.damage(turned.axle,
+                       over=drive_torque_spectrum) < 1.0, sf=4
+
+    require Retention:
+        # G15: press-fit sprocket carrier pilot -- the contact
+        # {4340, 7075} pair record again; pair identity is part of
+        # the record edge's identity.
+        pilot_fit: mech.press_fit.torque_capacity(turned.flange.pilot)
+                       >= 0.3 * boundary.drive_torque, sf=2

@@ -1,0 +1,130 @@
+# Peregrine main board -- the physical artifact. Exercises: a
+# DDR-class MATCHED BUS with a timing BUDGET allocating slack between
+# silicon promises and route lengths (cuprite 04 sec. 5 -- the elec
+# tolerance chain), the deliberate `arbitrate` on the DDR DQ lanes,
+# bus length-match DRC-rule pressure (the jlc_6l_ctrl_imp pack's
+# bus_length_match rule fires on `buses.where(matched)` -- see rule
+# notes below), the PDN NOISE BUDGET with a decoupling-bank orbit as
+# members, supply sequencing masks, and the programmed stage loading
+# both realized images.
+
+import "contracts.cupr" (RfDeck)
+import "clock_tree.cupr" (ClockTree, LoSynth)
+import "adc_chain.cupr" (IfDigitizer, IfReconstructor)
+import "firmware.cupr" (ctl_fw, sdr_bits)
+import std.elec.families (cmos_3v3, lvcmos18, sstl135)
+import std.elec.buses (BusAttach, LevelShift)
+import std.elec.power (Capacitor)
+
+board PeregrinePcb:
+    stage bare:      process=pcb_fab(jlc_6l_ctrl_imp)   # 50ohm + 40ohm sstl
+    stage assembled: process=smt_assembly(jlc_advanced), from=bare
+    stage programmed: from=assembled
+        firmware  = load(ctl_fw)          # two independent loads, one
+        bitstream = load(sdr_bits)        # scope; each hash-pinned
+
+    then:
+        u_mcu   = vendor(stm32h743_lqfp144)
+        u_fpga  = vendor(lattice_ecp5_85k_cabga381)
+        u_ddr   = vendor(mt41k256m16)          # 4Gb DDR3L-1600, run at 800
+        u_adc   = IfDigitizer()
+        u_dac   = IfReconstructor()
+        clocks  = ClockTree()
+        synth   = LoSynth()
+        u_tcxo  = vendor(txc_7q_38m4)          # +-0.5ppm reference
+        u_vcore = vendor(tps62912)             # 1.1V FPGA core, 3A
+        u_vddr  = vendor(tps51200)             # 1.35V DDR + VTT tracking
+        u_v5    = vendor(tps54561)             # 5V RF rail from 12V
+        # decoupling bank: an orbit -- verify-one-instantiate-n; the
+        # PDN budget below owns the members:
+        decap_core = PatternOf<Capacitor(c=100nF, x7r, 0402)>(n=16)
+        decap_ddr  = PatternOf<Capacitor(c=100nF, x7r, 0402)>(n=10)
+        bulk_core  = PatternOf<Capacitor(c=47uF, poly)>(n=3)
+
+    connect:
+        # ---- The DDR3 bus: matched, length-budgeted, arbitrated ----
+        ddr: BusAttach<ddr3(800MT, x16)>(a=u_fpga.ddr_ctrl, b=u_ddr.chan)
+        arbitrate ddr.dq: bidir(granted_by=ddr3.direction)
+        # DQ/DQS are shared drive BY PROTOCOL (reads vs writes); the
+        # controller's direction state machine is the granted_by
+        # discipline -- "both driving" is excluded by protocol
+        # conformance, checked, not hoped.
+
+        # ADC/DAC parallel LVCMOS18 buses into their FPGA banks:
+        smp: BusAttach<parallel_lvcmos18(14, ddr_paired)>(
+                 a=u_adc.samples, b=u_fpga.adc_port)
+        rec: BusAttach<parallel_lvcmos18(14, ddr_paired)>(
+                 a=u_fpga.dac_port, b=u_dac.samples)
+        # Host + control plane:
+        host: BusAttach<usb2_hs_ulpi>(a=u_mcu.ulpi, b=u_fpga.usb_bridge)
+        tune: BusAttach<spi(20MHz)>(a=u_mcu.spi4, b=synth.spi)
+        lvl:  LevelShift<lvcmos18, cmos_3v3>(a=u_fpga.ctl_domain,
+                                             b=u_mcu.gpio_domain)
+
+    discard u_fpga.user_led
+    discard u_ddr.odt_b                    # x16 single-die: B-channel
+                                           # terminals unused, explicit
+
+    # ---- The DDR timing budget: slack allocated between silicon
+    # promises and ROUTE LENGTHS in one system (cuprite 04 sec. 5).
+    # tCK = 2.5ns at DDR3-800; controller promises tDQSQ/tQH windows
+    # from the ECP5 datasheet interval; what remains after silicon is
+    # the routes' to spend -- the length-match DRC rule (below) is the
+    # eager face of the same limit.
+
+    budget ddr_timing: kind=timing
+        require: setup_slack(ddr.dq) > 0 at corners(all)
+        members: [u_fpga.ddr_ctrl, u_ddr, routes(ddr.dq), routes(ddr.dqs)]
+        allocate: worst_case
+        locked: routes(ddr.dqs).spread: <= 1.2mm
+        # the lock pins the route share (fab-realistic on 6 layers);
+        # silicon eats the rest. DRC pressure: jlc_6l_ctrl_imp ships
+        #   rule bus_length_match:
+        #       forall b in buses.where(matched)
+        #       demand: spread(routes(b).length) <= 2mm
+        # -- the locked 1.2mm is TIGHTER than the pack floor, so the
+        # budget, not the pack, is binding here; loosening the lock
+        # past 2mm would flip which one fires. Both are provenance-
+        # carrying (E0432 names worst contributors; E06xx names the
+        # rule). Discharge: post-route, from extracted lengths.
+
+    # ---- The PDN as a noise budget (cuprite 04 sec. 6): target
+    # impedance across regulator / bulk / ceramics / plane; the
+    # missing-decap resonance is a violated interval corner, named.
+
+    budget vdd_core_pdn: kind=noise
+        require: elec.min(v(vdd_core)) > 1.045V during load_step(2.5A/us)
+        members: [u_vcore, bulk_core.instances.all,
+                  decap_core.instances.all, plane(vdd_core)]
+        allocate: cost_optimal
+        locked: decap_core.value: 100nF
+
+    budget vdd_ddr_pdn: kind=noise
+        require: rms(v(vdd_ddr), band=[1kHz, 100MHz]) < 25mV
+        members: [u_vddr, decap_ddr.instances.all, plane(vdd_ddr)]
+        allocate: cost_optimal
+
+    require Sequencing:
+        # Power-up order: core before IO before DDR VTT; the mask is
+        # a from_table profile, the claim the standard form:
+        order: stays_within(v(rails.all), mask=ecp5_powerup_mask)
+        por:   within 20ms after supply.on: state(u_fpga.config) = ready
+
+    require HostLink:
+        # The eye-mask claim on the high-speed link (cuprite 04
+        # sec. 6): USB2 HS at 480Mbps against the template; discharge
+        # ladder starts at the coupled-line screen, escalates to IBIS
+        # if the route class thins the margin:
+        eye: stays_within(eye(host), mask=usb2_hs_template1)
+
+    impl RfDeck for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        ant     = assembled.rf_conn
+        host    = assembled.usb_conn
+        promises:
+            mass: <= 118g
+            thermal.dissipation: <= 13.2W during op = tx
+            thermal.dissipation: <= 4.1W during op = rx
+            # refines the contract ceiling (14W / 4.5W); the enclosure
+            # consumes the PROMISE, never the actual (INV-19)

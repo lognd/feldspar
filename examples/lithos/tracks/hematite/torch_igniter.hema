@@ -1,0 +1,259 @@
+# Gas torch igniter -- the end-to-end mech flagship (previously only
+# doc fragments). Exercises: lathe + 4-axis mill pipeline with correct
+# process vocabulary (Turn/BoreTurn, never CSG verbs), refining ops,
+# zones with boundary-zoned temperatures, a mechanism (Revolute +
+# spring) with forall/equilibrium claims, vendor + import parts with a
+# retro-contract, corner discipline replacing ad-hoc point conditions
+# (F35), trust floors, todo!/assume!, and a tolerance budget.
+
+import std.mech.cnc (saw_stock, cnc_lathe, cnc_mill)
+import std.mech.mounts (FlangeFace, MountPattern)
+import std.mech.matings (BoltedFlange, BoltedPattern, Revolute,
+                         CompressionSpring, FaceSeal, ThreadedMate,
+                         SpringSeat)
+import std.mech.seals (SealFace)
+
+# Project-local contracts (mating sides are always interfaces, never
+# raw features):
+
+interface ThreadedPort<spec: thread>:
+    frame:
+        origin: thread.axis & thread.face
+        z: thread.axis
+    roles:
+        thread: threaded(spec), internal
+
+interface PivotBore<d: length>:
+    frame:
+        origin: bore.axis
+        z: bore.axis
+    roles:
+        bore: cylindrical(d=d), internal
+    tolerances:
+        bore: tol_class(H7)
+
+interface HubPivot<d: length>:
+    frame:
+        origin: hub.axis
+        z: hub.axis
+    roles:
+        hub: cylindrical(d=d), external
+    loads:
+        radial: derived(sf=1.5)
+
+profile OuterProfile:
+    walk:
+        from face_plane
+        line down                     # a: front face drop
+        line right                    # b: barrel OD
+        arc tangent, bulge=right      # c: shoulder blend
+        line right                    # d: flange OD
+        close via axis
+    constraints:
+        a.length = dia 38mm / 2
+        b.length = 26mm
+        c.radius = free               # lathe pack minimum nose radius
+        d.length = 9mm
+
+profile FlameTubeBore:
+    walk:
+        from inlet_plane
+        line down                     # a
+        arc tangent, bulge=right      # b: converging
+        line angled                   # c
+        arc tangent, bulge=left      # d: throat blend
+        line down                     # e: exit bore
+        close via axis
+    constraints:
+        a.length = 8mm
+        c.angle = 30deg from axis
+        d.radius = in [1.5mm, 4mm]
+        e.diameter = dia 6mm H9
+        inlet_plane to throat_plane = 22mm +- allocated
+    exports:
+        throat_plane: datum
+        exit_plane:   datum
+
+part IgniterBody:
+    material: AISI_316
+
+    stage barstock: process=saw_stock(dia 45mm)
+
+    stage turned: process=cnc_lathe, from=barstock
+        then:
+            envelope = Turn(profile=OuterProfile)
+            bore     = BoreTurn(profile=FlameTubeBore)
+        then seal_prep on envelope.front:
+            seal_face = Face(turn+polish)     # refining chain; Ra from
+                                              # capability table
+
+    stage milled: process=cnc_mill(axes=4), from=turned
+        setup A:
+            hold: turned.envelope.od
+            datum A = turned.envelope.front
+            then:
+                ports = PatternOf<Drill(dia 2.5mm)>(n=6,
+                            circular(dia 14mm),
+                            frame=turned.bore.axis.offset(z=18mm)
+                                      .tangent_to(dia 14mm, elevation=8deg))
+            then:
+                plug_port    = ThreadedHole(M18x1.5, on=turned.envelope.side)
+                # C6 orbit of `ports` split here; ports.any afterward = E0502
+                flange_holes = PatternOf<CBore<M6>>(n=4, circular(dia 42mm),
+                                   frame=turned.envelope.back.center)
+
+    datum throat_ref = turned.bore.throat_plane
+    datum exit_ref   = turned.bore.exit_plane
+
+    zones over turned.envelope.faces:
+        tip:  .where(between=(throat_ref, exit_ref))
+        base: remainder
+
+    impl SealFace<dia 24> for self:
+        face = turned.seal_face               # stage exit; polish composes
+
+    impl FlangeFace<n=4, M6, dia 42> for self:
+        face  = milled.envelope.back      # SEAM-1: the CBores cut into
+                                          # this face, so `milled` (not
+                                          # `turned`) finishes it -- the
+                                          # binding must say so
+        holes = milled.flange_holes.instances
+
+    impl ThreadedPort<M18x1.5> for self as plug_seat:
+        thread = milled.plug_port
+
+    require Structural:
+        trust: >= certified                   # material data floor
+        hoop: peak(mech.stress.von_mises,
+                   during boundary.chamber_pressure)
+                  < material.sigma_y(T_local) / 2.0
+        # T_local is the zone-indexed wall temperature from the
+        # assembly boundary; each zone checks at its own hot corner.
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=200) <= 42 USD
+
+part IgniterBoss:
+    material: AISI_316
+
+    stage stock: process=saw_stock(rect(60mm, 60mm, 14mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            then:
+                pad       = FaceMill(on=stock.body.top, depth=1mm)
+                seal_land = Face(mill+lap, on=stock.body.top.center)
+            then:
+                tapped = PatternOf<TappedHole<M6>>(n=4, circular(dia 42mm),
+                             frame=pad.center)
+                # separate holes for the base joint -- one pattern
+                # cannot serve two bolted joints (each binding is a
+                # whole-orbit permanent borrow)
+                base_holes = PatternOf<CBore<M6>>(n=4,
+                                 rect(52mm x 30mm), frame=pad.center)
+                hinge  = Bore(dia 5mm H7, through, axis=pad.long_edge
+                                  .offset(y=6mm))
+                spring_boss = Boss(dia 6mm, h=5mm, on=pad.edge)
+
+    impl FlangeFace<n=4, M6, dia 42> for self:
+        face  = milled.pad
+        holes = milled.tapped.instances
+
+    impl MountPattern<M6, n=4, rect(52mm x 30mm)> for self as base_mount:
+        holes = milled.base_holes.instances
+
+    impl SealFace<dia 24> for self:
+        face = milled.seal_land
+
+    impl PivotBore<d=5mm> for self:
+        bore = milled.hinge
+
+    impl SpringSeat for self as spring_seat:
+        seat = milled.spring_boss
+
+profile NozzleProfile:
+    walk:
+        from tip_plane
+        line down                     # a
+        line right                    # b: cone flank
+        line up                       # c
+        close via axis
+    constraints:
+        a.length = dia 4mm / 2
+        b.angle = 12deg from axis
+        c.length = dia 12mm / 2
+
+part IgniterNozzle:
+    material: AISI_316
+    stage turned: process=cnc_lathe
+        body = Turn(profile=NozzleProfile)   # bare stmt = own scope
+    stage milled: process=cnc_mill(axes=3), from=turned
+        hub = Boss(dia 5mm g6, h=6mm, on=turned.body.base,
+                   frame=turned.body.base.center.offset(x=8mm))
+        # external journal; rides in boss.PivotBore -- H7/g6 running fit
+        # expands from ISO 286, capability-checked on both parts
+
+    impl HubPivot<d=5mm> for self:
+        hub = milled.hub.od
+
+    impl SpringSeat for self as spring_tab = todo!
+        # contract concrete (the spring solve proceeds on promises);
+        # geometry + conformance proof deferred, ledgered
+
+assembly TorchIgniter:
+    parts:
+        body:   IgniterBody
+        boss:   IgniterBoss
+        nozzle: IgniterNozzle
+        plug:   vendor(ngk_me8)               # catalog evidence
+        base:   import("chamber_rev3.step") sealed
+
+    boundary:
+        chamber_pressure: [0, 25bar], structure: spectrum(cycles_ref)
+        chamber_wall_temp: zones(body.zones.tip:  [600K, 900K],
+                                 body.zones.base: [300K, 420K])
+        ambient: [-20degC, 95degC]
+        design_life: 5000 cycles
+
+    assume!(spectrum(cycles_ref) covers ignition transients,
+            basis="test plan TP-7; replace by test(tp7_report)")
+
+    # Retro-contract on the sealed import:
+    impl MountPattern<M6, n=4, rect(52mm x 30mm)> for base:
+        holes = src.holes.where(kind=tapped, dia=M6)
+
+    connect:
+        mount:  BoltedFlange<4, M6, dia 42>(a=body.FlangeFace,
+                                            b=boss.FlangeFace)
+        anchor: BoltedPattern<M6, 4>(a=boss.base_mount,
+                                     b=base.MountPattern)
+        spark:  ThreadedMate<M18x1.5>(a=body.plug_seat, b=plug.thread)
+        pivot:  Revolute(a=boss.PivotBore, b=nozzle.HubPivot)
+                    exposing theta: angle in [0deg, 95deg]
+        return: CompressionSpring(a=boss.spring_seat, b=nozzle.spring_tab)
+                    k: allocated
+                    preload: at pivot.theta=0deg, scatter=[0.9, 1.1]
+        seal:   FaceSeal(a=body.SealFace, b=boss.SealFace)
+                    lubrication: dry
+
+    require Seal:
+        leak: leak(seal) < 1e-3 scc/s
+        # No "@ 25bar" (F35): corner discipline evaluates the claim at
+        # the worst corner of boundary.chamber_pressure automatically.
+
+    require Function:
+        closing: forall pivot.theta:
+                     closing_torque(pivot.theta) > 0.05 N*m
+        rest:    equilibrium(pivot.theta=0deg): stable
+
+    require Fatigue:
+        life: mech.life(all, under=boundary.chamber_pressure)
+                  >= design_life, scatter_factor=4
+
+    budget seal_stack: kind=tolerance
+        require: flatness_chain(seal) <= 0.02mm
+        members: [body, boss]
+        allocate: cost_optimal
+        locked: body.seal_face.flatness: 0.008mm

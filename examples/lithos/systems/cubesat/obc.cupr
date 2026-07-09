@@ -1,0 +1,56 @@
+# Kestrel OBC -- the flight computer BOARD. Deliberately thin: the
+# `computer` construct (workloads, architecture, bind, image) lives in
+# kestrel.cupr next to the compute intents it realizes, NOT here.
+# FINDING F79: the intent -> workload -> silicon chain resists file
+# splitting -- workloads name intents (`realizes decide`), so the
+# computer must sit at the intent's altitude; the bind block then
+# reaches into this board for the instance (`obc.u_mcu`). Workable,
+# but the reference story deserved a rule; see design log cycle 6.
+
+import "contracts.cupr" (StackCard)
+import std.elec.families (cmos_3v3)
+
+# FINDING F83: the firmware image is declared at intent altitude
+# (kestrel.cupr, `realizes: schedule(FlightCore)`) but loading it is a
+# construction step of THIS board -- an upward import would be a
+# cycle. Resolved with an artifact-typed caller parameter: the board
+# takes the image like a variant choice at binding
+# (`obc: ObcPcb(fw=flight_fw)`). Ledgered as D54 [LEANING]: `<...>`
+# params may be artifact-typed (image, part), not only quantities.
+board ObcPcb<fw: image>:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+    stage programmed: from=assembled
+        firmware = load(fw)               # hash-pinned via the param
+
+    then:
+        u_mcu  = vendor(stm32l496rg)      # LEO heritage, by test(tid_l496)
+        u_fram = vendor(mb85rs1mt)        # config/state, rad-tolerant
+        u_sd   = vendor(sd_industrial_8gb)
+        u_wdt  = vendor(tps3430)          # external watchdog
+
+    # The debug UART must land on the pins the shared umbilical
+    # connector already routes (rung 2; the ONE place package pins may
+    # appear in design source):
+    locked:
+        pinmux(u_mcu.uart3.tx): pc10
+        pinmux(u_mcu.uart3.rx): pc11
+
+    impl StackCard for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        conn    = assembled.stack_conn
+        promises:
+            mass:  <= 62g                 # inline refinement
+            power: <= 350mW               # run mode, before payload
+
+    require Supervision:
+        kick:    within 1.6s after boot: state(u_wdt) = armed
+        latchup: within 5us after overcurrent(v3v3): state(u_mcu.rail) = open
+        # SEL protection: the load switch opens faster than the part
+        # can cook; the switch itself is EPS territory, the DEMAND
+        # lives here with the vulnerable part.
+
+    require Storage:
+        wear: elec.write_endurance(u_sd, over=design_life,
+                  rate=image_store_rate) >= 1.0, sf=2

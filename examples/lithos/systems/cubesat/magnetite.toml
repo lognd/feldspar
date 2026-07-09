@@ -1,0 +1,22 @@
+# Kestrel -- 1U Earth-observation CubeSat. Project manifest
+# (regolith 11 sec. 9): a project is this manifest + the source tree
+# + one lockfile. [package] carries only a name until published.
+
+[package]
+name = "kestrel"
+
+[depends]
+"std.quantities" = "^1"
+"std.materials" = "^1"
+"std.mech" = "^0.9"
+"std.elec" = "^0.6"
+"std.intents" = "^1"
+"std.debug" = "^1"
+"std.compute" = "^0.5"
+"jlc.pcb" = "^2"
+
+[evidence]
+# hash-pinned source documents records and boundaries may cite
+"gevs-qual-vibe.pdf" = "sha256:aa10f3..."
+"orbit-env-550-sso.pdf" = "sha256:bb42c9..."
+"tid-analysis-r2.pdf" = "sha256:cc07d1..."

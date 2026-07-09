@@ -1,0 +1,86 @@
+# Group thermosiphon -- the natural-circulation loop that keeps the
+# E61-style group at brew temperature between shots. Fluorite
+# customer #7 and the deliberately HARD one: there is NO pump edge
+# and no Imposer -- the boiler reference alone satisfies the >= 1
+# imposer discipline (02 sec. 4), and every gram per second of flow
+# is bought with ~3 PASCALS of buoyancy head. A solver that only
+# knows forced circulation has nothing to hold on to here.
+#
+# The driving head is the riser/return DENSITY difference over the
+# ~120mm elevation drop between the boiler ports and the group
+# galleries. Elevation is realized geometry, extracted in lowering
+# (03 sec. 1) -- fluorite never re-declares it. That extraction is
+# exactly where this file bites: see the CF-2 note on the riser and
+# return edges.
+#
+# NOT checkable until WO-31; hand-validated against docs/spec/fluorite/02.
+
+medium BrewWater: liquid
+    props: registry(water_iapws_liquid)
+    # re-declared verbatim from brew_water.fluo: media are file-local
+    # and 02 names no cross-file medium import -- README CF-8. Two
+    # spellings of one fluid is the NO DUPLICATION failure mode
+    # waiting to desync.
+
+flownet GroupThermosiphon(medium=BrewWater):
+    reference: brew_boiler(115kPa, 367K)
+    # the boiler IS the reference: pressure AND temperature anchor
+    # (94degC setpoint at ~0.15 bar gauge static). During a shot the
+    # same physical vessel appears in BrewPath as the `boiler` Plenum
+    # edge -- two representations of one volume across two nets,
+    # with no construct tying them together: README CF-9.
+    nodes: riser_top, group_in, group_out, return_bot
+    edges:
+        riser:   Pipe(from=ThermoLines.riser_run)
+                                             (brew_boiler -> riser_top)
+        feed:    Pipe(from=GroupHead.dome_gallery)
+                                             (riser_top -> group_in)
+        hx_dome: HxSegment(zone=GroupHead.zones.dome)
+                                             (group_in -> group_out)
+        hx_jkt:  HxSegment(zone=GroupHead.zones.jacket)
+                                             (group_out -> return_bot)
+                 # the cross-track names: these two zone datums ARE
+                 # GroupHead's `zones over milled.body.faces` split
+                 # (group_head.hema). Both sides bind one datum
+                 # (fluorite 03 sec. 4); the coupled conjugate solve
+                 # is pack territory. Rename either side and the
+                 # coupling silently loses its subject.
+        return:  Pipe(from=ThermoLines.return_run)
+                                             (return_bot -> brew_boiler)
+        # CF-2, load-bearing HERE: `ThermoLines` does not exist. The
+        # riser and return are bent 10x1mm stainless tubes, and
+        # hematite has no routed-tube construct to realize them
+        # (machine.hema carries the same note on the mech side), so
+        # these from= refs dangle BY DESIGN as recorded demand. A
+        # record-bound Hose would carry compliance but NO elevation
+        # -- and in a buoyancy-driven loop elevation is the entire
+        # physics, so the stand-in that works everywhere else is
+        # dishonest precisely here.
+
+require Circulation:
+    flow:   fluids.mdot(riser) >= 2g/s
+                given T_group = 90degC
+            # ~3 Pa of driving head against laminar loop resistance:
+            # a quarter liter a minute of silent circulation. The
+            # dp/mdot scales in this net are Pa and g/s -- three
+            # orders under BrewPath's -- the unit-range stress this
+            # file exists to apply.
+    stall:  fluids.mdot(riser) > 0.5g/s
+                given T_group = 93degC
+            # the closing corner: group within 1K of the boiler,
+            # density difference nearly gone -- the loop must still
+            # creep, not stall, or the band never closes
+    regime: fluids.reynolds(riser) in [50, 2e3]
+            # honest laminar band; any turbulent-correlation model
+            # must no-match this regime tag (D97 channel)
+    dp:     fluids.dp(riser_top -> group_in) <= 2Pa
+            # the feed gallery may not eat the driving head; a
+            # PASCAL-scale dp claim end to end
+
+require Delivery:
+    warm: thermo.temperature(group_in) >= 92degC
+          # across-quantity at the node (T rides every FluidPort,
+          # 02 sec. 2): the loop delivers boiler-degree water to the
+          # dome with at most 2K of transport loss; the group METAL
+          # band is mech-side truth (machine.hema wall_temp zones)
+          # closed by the HxSegment coupling

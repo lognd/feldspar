@@ -1,0 +1,105 @@
+# Kestrel shared contract pack -- the file every other file imports
+# INSTEAD of importing each other (substrate 11 sec. 9 rule 3:
+# contracts break dependency cycles; the OBC needs the EPS's rails and
+# the EPS needs the OBC's bus -- both import THIS, neither imports the
+# other). Mixed-domain interfaces per substrate 10 sec. 3: one home
+# language (cuprite here), foreign-domain roles in quantity-core geom
+# vocabulary.
+#
+# F76 -> SOPEN-6, now CLOSED (cycle 7): the geometric role vocabulary
+# this file had to invent is the designed **geom role kit**
+# (substrate 10 sec. 3a) -- role predicates with declared measures and
+# T2 measurement semantics both realizers can evaluate. This pack now
+# conforms to the kit.
+
+import std.elec.families (cmos_3v3, lvds_25)
+import std.elec.protocols (i2c, spi, uart, rs485)
+
+# ---- The stack: one card contract, one harness contract, one mating.
+
+interface StackCard:
+    frame:
+        origin: mounts.pattern_center     # kit-derived datums
+        z:      outline.normal
+        gnd:    reference                 # elec reference node
+        logic:  domain(3.3V)              # voltage-domain frame entry
+    roles:
+        # mech-facing roles, quantity-core spelling (F76):
+        outline: geom.plate(96mm x 96mm, t=1.6mm)
+        mounts:  geom.hole_pattern(dia 3.2mm, n=4, rect(90mm x 90mm))
+        conn:    connector(stack_50, at=geom.point(x=-40mm, y=0mm))
+        # elec-facing roles (a card CONSUMES the rails):
+        v3v3:  supply(in, 3.3V +- 3%, i <= 1.5A)
+        vbatt: supply(in, [6.4V, 8.4V], i <= 2A)
+        sys:   bus(i2c(fast))
+    demands:
+        mounts: geom.position(+-0.1mm, to=frame)
+        conn:   geom.position(+-0.15mm, to=frame)
+    promises:
+        mass:  <= 90g                     # per-card ceiling; impls refine
+        power: allocated                  # share of the energy budget
+
+interface StackHarness:
+    frame:
+        gnd:   reference
+        logic: domain(3.3V)
+    roles:
+        v3v3:  supply(out, 3.3V +- 3%, i <= 4.5A)
+        vbatt: supply(out, [6.4V, 8.4V], i <= 6A)
+        sys:   bus(i2c(fast))
+    demands:
+        sys: pullup(scl): required, pullup(sda): required
+
+mating StackMate:
+    between: a: StackHarness, b: StackCard
+    align:   a.frame = b.frame (gnd shared, logic shared)
+    couples: a.sys = b.sys                # one bus, many cards
+    capability:
+        i_3v3: per harness promise, summed over cards
+    require State:
+        no_contention: arbitration(a.sys.sda) = lossless
+
+# ---- Card-to-structure mounting (mech side implements CardBay).
+
+interface CardBay:
+    frame:
+        origin: posts.pattern_center
+        z: posts.plane.normal
+    roles:
+        posts: geom.boss_pattern(tapped=M3, n=4, rect(90mm x 90mm))
+    promises:
+        thermal.sink: conductive, >= 0.5 W/K   # card-to-rail conduction
+
+mating CardMount:
+    between: a: CardBay, b: StackCard
+    align:   a.frame = b.frame (contact)
+    dof:     removed=[all]
+    effects:
+        model<bolted_stack_conduction>(n=4, torque=0.5 N*m)
+            applies -> a: heat(b.power_dissipated)
+
+# ---- Antenna: RF + release linkage in one contract.
+
+interface AntennaPort:
+    frame:
+        gnd: reference
+    roles:
+        rf:      analog(elec.power, z=50ohm)     # the coax role
+        release: discrete({held, released})      # the burn-wire linkage
+    demands:
+        rf: geom.position(+-0.3mm, to=frame)
+
+mating AntennaMate:
+    between: a: AntennaPort, b: AntennaPort
+    align:   a.frame = b.frame (contact)
+    couples: a.release = b.release        # state coupling across the joint
+
+# ---- Umbilical (ground-support only; consumed by the flatsat target).
+
+interface Umbilical:
+    frame:
+        gnd: reference
+    roles:
+        chg:  supply(in, [7V, 9V], i <= 1.5A)
+        dbg:  bus(uart(115200))
+        rbf:  discrete({inhibit, flight})        # remove-before-flight

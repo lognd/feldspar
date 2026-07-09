@@ -1,0 +1,50 @@
+# Espresso machine mech-home contract pack -- the fluid-port and
+# isolation-mount interfaces every wetted part implements. Kept in
+# one hema-home file for the same cycle-breaking reason as
+# contracts.cupr (substrate 11 sec. 9 rule 3); the fluorite files
+# name these ports' implementing features through the FluidPort
+# geometry hook (fluorite 02 sec. 2), so the wetted side is declared
+# exactly once, here and in the implementing stages.
+
+import std.mech.seals (SealFace)
+
+# A threaded fluid fitting seat: internal thread plus the annular
+# sealing land the dowty/fiber washer crushes against. Espresso
+# plumbing is metric-fine in this design (M10x1.0 compression and
+# M6x0.75 gicleur seats) to stay inside the catalog thread table.
+
+interface FittingPort<spec: thread>:
+    frame:
+        origin: thread.axis & seat.face
+        z: thread.axis
+    roles:
+        thread: threaded(spec), internal
+        seat:   planar                    # washer land, machined with
+                                          # the thread in one setup
+    tolerances:
+        seat: flatness(0.05mm)
+    promises:
+        leak: <= 0.02 mL/min              # per-fitting seal promise; the
+                                          # flownet's fluids.leak_total
+                                          # budget consumes these through
+                                          # the promise chain (fluorite
+                                          # 02 sec. 6 -- one budget owner,
+                                          # the flownet)
+
+# The vibratory pump hangs on elastomer isolators: the mount promises
+# an isolation floor at the pump's 50Hz line frequency so the panel
+# claims in frame_panels.hema can consume it instead of re-deriving
+# mount stiffness.
+
+interface IsoMount<n: int>:
+    frame:
+        origin: grommets.pattern_center
+        z: grommets.plane.normal
+    roles:
+        grommets: PatternOf<Bore(dia 8mm)>(n=n)
+    loads:
+        static: <= 25N                    # pump + bracket weight
+        structure: static
+    promises:
+        vibration.isolation: >= 12dB      # at 50Hz forcing; vendor
+                                          # grommet record backs it

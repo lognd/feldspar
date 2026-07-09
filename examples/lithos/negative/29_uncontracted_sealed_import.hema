@@ -1,0 +1,17 @@
+# BREAKS: importing foreign/sealed content with no equivalence contract
+#   binding it (INV-13 no dead uppers: an imported lower realization
+#   with no upper binding).
+# EXPECT-TODO: INV-13
+# Self-calibration: `import std.mech.cnc (saw_stock)` with no impl/
+# extern binding anywhere in the file is the intended trigger shape,
+# but the import edge alone lowers clean -- INV-13's obligation-
+# emission is driven by impl/extern statements (see
+# `contracts.rs::import_and_impl_edges_are_collected`), not bare
+# imports, and this file deliberately has neither. See README candidate
+# finding: a "sealed" (foreign-content-pinned, INV-22) import specific
+# vocabulary was not found anywhere in the checked pipeline.
+import std.mech.cnc (saw_stock)
+
+part p:
+    material: AISI_304
+    stage stock: process=saw_stock(rect(50mm, 50mm, 10mm))

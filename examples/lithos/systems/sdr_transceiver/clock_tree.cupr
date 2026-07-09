@@ -1,0 +1,81 @@
+# Peregrine clock tree -- exercises: MULTI-CLOCK domain declaration as
+# frames (sample clock, bus clock, DDR clock, RF synth reference), the
+# crossing LEDGER as the only legal inter-domain path, jitter as an
+# interval on the event (regolith 02 sec. 5: `clk.rise +- ps` follows
+# ordinary corner discipline), and a phase-noise claim on the LO that
+# feeds the RX spur budget.
+#
+# One reference oscillator fans out to everything; every derived clock
+# is a declared domain, so an undeclared crossing anywhere downstream
+# is E0420-family at L3, not a timing-report surprise.
+
+import std.elec.families (cmos_3v3, lvcmos18)
+
+block ClockTree:
+    ports:
+        ref_in:     clock(38.4MHz)             # TCXO, +-0.5ppm
+        gnd:        reference
+        sample_clk: clock(122.88MHz, domain=samp)   # ADC/DAC/DSP fabric
+        bus_clk:    clock(100MHz, domain=bus)       # MCU-facing fabric
+        ddr_clk:    clock(400MHz, domain=ddr)       # DDR3-800 controller
+        synth_ref:  clock(38.4MHz, domain=rf)       # to the LO synthesizer
+    params:
+        pll_m: int = in [16, 64]               # feedback divider window
+        pll_d: int = in [1, 8]
+
+    spec:
+        # Derivation facts the timing ledger consumes: sample and ddr
+        # clocks are integer-related (400 = 122.88 * 125/38.4 is NOT
+        # integer -- they are asynchronous BY DECLARATION, so every
+        # samp<->ddr path must ride a crossing; the classic "it looked
+        # related" CDC trap is dead at the frame level).
+        sample_clk = pll(ref_in, m=pll_m, d=pll_d)
+        bus_clk    = pll(ref_in, m=pll_m, d=pll_d)
+        ddr_clk    = pll(ref_in, m=pll_m, d=pll_d)
+        synth_ref  = buffer(ref_in)
+
+    promises:
+        timing.jitter(sample_clk): <= 300fs rms    # sets the ADC SNR ceiling
+        timing.jitter(ddr_clk):    <= 2ps rms
+        timing.skew(bus_clk):      <= 80ps
+
+    require Quality:
+        # Aperture jitter vs 14-bit @ 30.72MHz IF: SNR_jitter =
+        # -20*log10(2*pi*f_if*t_j) = 84.7dB at 300fs -- comfortably
+        # above the ADC's 73.5dB SNR, so the oscillator does not
+        # dominate the cascade. The dB view is a ratio (unreferenced),
+        # so this is a plain dB comparison, legal with zero references:
+        jitter_snr: elec.snr_limit(sample_clk.jitter, f=30.72MHz) >= 80dB
+        ref_stability: elec.frequency_error(ref_in) <= +-0.5ppm
+                           forall op
+
+# The LO: a fractional-N synthesizer on its own domain. Its phase
+# noise enters the RX error budget (rf_frontend.cupr) as a claim
+# input, exactly like a gain interval.
+
+block LoSynth:
+    ports:
+        ref:    clock(38.4MHz, domain=rf)
+        lo_out: analog(elec.power, range=[-4dBm, 5dBm], z_out=50ohm)
+        spi:    bus(spi_slave(<= 20MHz))       # tuning, from bus domain
+        gnd:    reference
+    params:
+        n_int:  int = in [10, 65535]
+        n_frac: int = in [0, 4095]
+    spec:
+        lo_out = synth(ref, n_int, n_frac)     # 400-480MHz + IF offset
+    connect:
+        # The tuning writes originate in the bus clock domain; the
+        # synthesizer's register file lives in the rf domain. The
+        # crossing is a declared mating -- ledger row, not lint:
+        cfg_xing: cdc_sync<stages=2>(a=bus.domain, b=rf.domain)
+    promises:
+        phase_noise(offset=10kHz):  <= -95dBc
+        phase_noise(offset=100kHz): <= -110dBc
+        lock_time: <= 400us
+    require Retune:
+        # Frequency-hop budget: a tune command must settle before the
+        # DSP unmutes -- consumed by the cal statechart in sdr.cupr.
+        settled: settles(f(lo_out), to=+-1kHz, within 500us after tune_cmd)
+
+    event tune_cmd: commanded(spi.write(freq_reg))

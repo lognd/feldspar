@@ -1,0 +1,55 @@
+# Reaction-wheel flywheel -- rotor: spin stress, burst margin,
+# inertia, balance. Friction anchors: G13 (body-load case), G17
+# (statistical balance claim), G19 (speed sweep + rpm ingest).
+
+import std.mech.turned (Disk, Bore)
+
+part Flywheel:
+    material: SS_17_4PH_H900
+
+    stage turned: process=cnc_lathe
+        then:
+            rim  = Disk(outer_dia 68mm, thickness 14mm)
+            hub  = Bore(dia 8mm, through)          # shaft press-fit seat
+
+    boundary:
+        speed: omega in [0rpm, 6000rpm]            # G19: rpm ingest
+        T_env: [-10degC, 60degC]
+        structure: static                          # per speed point
+
+    require Inertia:
+        # A property claim: the entity DB predicts Iz from geometry;
+        # feldspar's section/solid property solvers are the cheap
+        # tier; post-geometry verification (regolith WO-22) is the
+        # check. No FEA ever needed here.
+        wheel_iz: mech.inertia.zz(turned.rim) >= 1.1e-4 kg*m^2
+
+    require Structural:
+        # G13: centrifugal loading is a BODY load case -- the
+        # rotating-disk family (catalog: mech.materials rotating
+        # disks) takes omega as an input port, not a surface load.
+        # Fat margin at operating speed: closed form (interference-
+        # fit disk, Roark ch. 15) discharges.
+        rim_stress: forall omega in [0rpm, 6000rpm]:
+            peak(mech.stress.von_mises, at=turned.rim)
+                < material.sigma_y / 3.0
+        # G19: stress is monotone-increasing in omega -- the solver
+        # declares corner_monotone, sweep collapses to the top
+        # corner; evidence coverage = corners.
+
+        # Thin margin: burst speed with sf 1.25 over 2x operating --
+        # forces the FEA tier through the same claim kind (hub bore
+        # stress concentration is beyond the smooth-disk closed form).
+        burst: peak(mech.stress.von_mises, at=turned.hub)
+                   < material.sigma_y / 1.05
+                   given omega = 12000rpm
+
+    require Balance:
+        # G17: ISO 1940 G2.5 at 6000rpm is a STATISTICAL tolerance
+        # claim (residual unbalance from machining scatter) --
+        # worst-case intervals are absurdly pessimistic here; this is
+        # the fixture that motivates the Normal/quantile Propagation
+        # modes (02): discharge wants "P99 unbalance < limit", not
+        # "corner unbalance < limit".
+        grade: mfg.residual_unbalance(turned.rim, at=6000rpm)
+                   <= iso1940(G2.5)

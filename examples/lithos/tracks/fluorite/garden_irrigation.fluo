@@ -1,0 +1,34 @@
+# Garden drip irrigation -- exercises: fluorite/02 simplest shape: a
+# medium, one reference, plain Pipe edges, a four-emitter Orifice
+# orbit (named-list form), the flow_imbalance and dp claim forms
+# (fluorite/02 sec. 6).
+
+import std.fluorite (Pipe, Orifice)
+
+medium Water: liquid
+    props: registry(potable_water_nist)        # fluorite/02 sec. 1
+
+flownet DripZone(medium=Water):
+    reference: ambient(280kPa, 288K)            # hose-bib supply
+                                                # pressure (02 sec. 4)
+    nodes: bib, manifold, e1_in, e2_in, e3_in, e4_in
+    edges:
+        supply: Pipe(from=hose.run)             (bib -> manifold)
+        lat1:   Pipe(from=lateral.run)          (manifold -> e1_in)
+        lat2:   Pipe(from=lateral.run)          (manifold -> e2_in)
+        lat3:   Pipe(from=lateral.run)          (manifold -> e3_in)
+        lat4:   Pipe(from=lateral.run)          (manifold -> e4_in)
+        e1: Orifice(cd=0.61, dia=0.9mm)         (e1_in -> ambient)
+        e2: Orifice(cd=0.61, dia=0.9mm)         (e2_in -> ambient)
+        e3: Orifice(cd=0.61, dia=0.9mm)         (e3_in -> ambient)
+        e4: Orifice(cd=0.61, dia=0.9mm)         (e4_in -> ambient)
+
+require DripPerformance:
+    # margin: worst lateral drop stays under the emitter's rated
+    # operating window (fluorite/02 sec. 6 `margin` form).
+    margin:   fluids.dp(bib -> e4_in) <= 60kPa
+    # balance: the four-emitter orbit (named-list form, no declared
+    # symmetry group here -- INV-4 asymmetric-feed caution applies
+    # per fluorite/03 sec. 3 flow_imbalance row).
+    balance:  fluids.flow_imbalance([e1, e2, e3, e4]) < 5%
+    regime:   fluids.reynolds(supply) in [2e3, 8e4]

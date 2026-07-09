@@ -1,0 +1,91 @@
+# Kestrel deployable antenna -- tape-spring monopole in a machined
+# deployer, held by a nylon loop over a burn resistor, released by the
+# comms board's burn channel. Exercises: a mechanism with a config
+# variable exposed by a hold-down connection (`deploy`), forall-state
+# claims, event-coupled cross-domain release (`couples:` over the
+# AntennaPort's discrete role, F79b), and stowed-vs-deployed modal
+# claims.
+
+import "contracts.cupr" (AntennaPort)
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.matings (Revolute, PinnedLoop)
+
+interface PivotBore<d: length>:
+    frame:
+        origin: bore.axis
+        z: bore.axis
+    roles:
+        bore: cylindrical(d=d), internal
+    tolerances:
+        bore: tol_class(H7)
+
+part DeployerBody:
+    material: AL6061_T6
+
+    stage stock: process=saw_stock(rect(90mm, 14mm, 10mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        setup A:
+            hold: stock.body.sides
+            then:
+                channel = Pocket(rect(84mm x 4mm), depth=6mm)
+                hinge_bore = Bore(dia 2mm H7, through,
+                                  axis=channel.floor.end_left.offset(x=3mm))
+            then:
+                guide = Chamfer(channel.top_edges, 0.5mm)
+                anchor = TappedHole(M2, on=stock.body.top,
+                                    frame=channel.end_right)
+
+    impl PivotBore<d=2mm> for self:
+        bore = milled.hinge_bore
+
+assembly Antenna:
+    parts:
+        body:    DeployerBody
+        element: vendor(tape_spring_170mm)    # spring steel, coined root
+        loop:    vendor(nylon_loop_02)        # the sacrificial restraint
+        rf_conn: vendor(mmcx_edge)
+
+    boundary:
+        launch: vibration(gevs_qual_ref), structure: spectrum(gevs_qual_ref)
+        ambient: [-40degC, 85degC]
+
+    connect:
+        root:  Revolute(a=body.PivotBore, b=element.RootPin)
+                   exposing theta: angle in [0deg, 90deg]
+        hold:  PinnedLoop(a=loop.Loop, b=element.TipCatch)
+                   exposing deploy: {stowed, released, deployed}
+        # `deploy` is the mechanism's config variable; the top system
+        # couples it to the comms board's burn channel through the
+        # AntennaMate (contracts.cupr) -- state coupling by `couples:`.
+
+    impl AntennaPort for self:
+        rf      = rf_conn.Coax
+        release = hold.deploy                # the discrete role IS the
+                                             # connection's config var
+
+    require Stowed:
+        retention: peak(mech.force(hold), during boundary.launch)
+                       < loop.rated_tension / 2.0
+        no_rattle: mech.gap(element.tip, body.channel) <= 0.15mm
+                       during deploy = stowed
+
+    require Deployment:
+        # spring margin over the full sweep, at the cold corner where
+        # the tape is stiffest and the kapton drags most:
+        torque:  forall root.theta:
+                     mech.torque(element.root) >
+                         2.5 * mech.friction_torque(root)
+                         during deploy = released
+        settle:  settles(root.theta, to=90deg +- 2deg,
+                     within 3s after release_event)
+        # FINDING F79b: `release_event` must be the EVENT of the
+        # `deploy` variable leaving `stowed` -- spelled today as a
+        # derived event on a config variable:
+    event release_event: hold.deploy.enters(released)
+
+    require Deployed:
+        pattern_clear: mech.envelope(element, during deploy = deployed)
+                           inside keepout(solar_array) = none
+        # crossing envelope vs owned region: the deployed element must
+        # not sweep the array's keepout -- region machinery at L4

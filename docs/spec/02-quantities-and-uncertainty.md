@@ -40,7 +40,7 @@ dimension). Two rules:
   a non-coherent value. (This mirrors regolith's log-view rule,
   regolith/02 sec. 5a: views affect IO, never the stored value.)
 - **Affine units convert at ingest only** (friction G3,
-  examples/lithos/README.md): table entries are (scale, offset);
+  examples/lithos/feldspar-fixtures.md): table entries are (scale, offset);
   offset units (`degC`, `degF`) are legal at ingest/print and BANNED
   inside derived/compound units (`K/W` fine, `degC/W` is a table-load
   error). The dimensionless unit is `"1"`; `%` is an ingest alias

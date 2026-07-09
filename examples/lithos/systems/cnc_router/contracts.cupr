@@ -1,0 +1,128 @@
+# Burin shared contract pack (elec home) -- the control-cabinet
+# interfaces: step/dir channels, the hardwired e-stop loop, the
+# analog spindle command, and the supply rails. Mixed-domain
+# interfaces per substrate 10 sec. 3: one home language (cuprite
+# here), foreign-domain roles in quantity-core geom vocabulary.
+# Every wiring run between two of these contracts is a WO-34
+# `harness:` candidate -- see the prose notes at each mating.
+
+import std.elec.families (cmos_3v3, cmos_5v0)
+import std.elec.protocols (uart, rs485)
+
+# ---- Motion signals: one channel per axis, differential-friendly.
+
+interface StepDirOut:
+    frame:
+        gnd:   reference
+        logic: domain(5.0V)
+    roles:
+        step: digital(out, family=cmos_5v0, f <= 200kHz)
+        dir:  digital(out, family=cmos_5v0)
+        ena:  digital(out, family=cmos_5v0)
+    promises:
+        timing.dir_setup(dir -> step): >= 5us   # drive datasheet floor
+
+interface StepDirIn:
+    frame:
+        gnd:   reference
+        logic: domain(5.0V)
+    roles:
+        step: digital(in, family=cmos_5v0, opto)
+        dir:  digital(in, family=cmos_5v0, opto)
+        ena:  digital(in, family=cmos_5v0, opto)
+    demands:
+        step: pulse_width >= 2.5us              # opto edge floor
+
+mating StepDirLink:
+    between: a: StepDirOut, b: StepDirIn
+    align:   a.frame = b.frame (gnd shared, logic shared)
+    couples: a.step = b.step, a.dir = b.dir, a.ena = b.ena
+    # WO-34 harness note: this link is a ~1.2m shielded twisted-pair
+    # run through the drag chain. When the `harness:` grammar lands,
+    # the run declares length, bundle membership (with the VFD leg it
+    # must NOT share a bundle), and shield termination; today the
+    # length that the edge-rate/crosstalk screens need is a
+    # hand-asserted given (the G42 gap, verbatim).
+
+# ---- Safety: the hardwired e-stop loop. The loop is a series
+#      circuit through every station; any break de-energizes the
+#      drive enable relay -- claims live with the commander
+#      (machine_elec.cupr), the contract carries the wiring truth.
+
+interface EStopNode:
+    frame:
+        gnd: reference
+    roles:
+        loop_in:  discrete({closed, open})
+        loop_out: discrete({closed, open})
+
+mating EStopChain:
+    between: a: EStopNode, b: EStopNode
+    align:   a.frame = b.frame (gnd shared)
+    couples: a.loop_out = b.loop_in
+    # WO-34 harness note: safety run, 0.75mm2 minimum, yellow jacket,
+    # routed OUTSIDE the drag chain (a crushed chain must not be able
+    # to take the loop with it) -- routing constraints like "outside
+    # bundle X" are exactly what the harness grammar must carry.
+
+# ---- Spindle command: legacy VFD analog interface.
+
+interface SpindleCmd:
+    frame:
+        gnd: reference
+    roles:
+        speed_ref: analog(out, [0V, 10V], z_out <= 500ohm)
+        run_fwd:   discrete({run, stop})
+        fault:     discrete({ok, fault})
+    demands:
+        speed_ref: geom.none    # no geometric role; electrical only
+
+interface SpindleCmdIn:
+    frame:
+        gnd: reference
+    roles:
+        speed_ref: analog(in, [0V, 10V], z_in >= 20kohm)
+        run_fwd:   discrete({run, stop})
+        fault:     discrete({ok, fault})
+
+mating SpindleCmdLink:
+    between: a: SpindleCmd, b: SpindleCmdIn
+    align:   a.frame = b.frame (gnd shared)
+    couples: a.speed_ref = b.speed_ref, a.run_fwd = b.run_fwd,
+             a.fault = b.fault
+
+# ---- Supply rails out of the PSU cabinet.
+
+interface RailFeed:
+    frame:
+        gnd: reference
+    roles:
+        v48: supply(out, 48V +- 5%, i <= 12A)
+        v24: supply(out, 24V +- 5%, i <= 3A)
+        v5:  supply(out, 5.0V +- 3%, i <= 2A)
+
+interface RailTap:
+    frame:
+        gnd: reference
+    roles:
+        v48: supply(in, 48V +- 5%, i <= 8A)
+        v24: supply(in, 24V +- 5%, i <= 1A)
+        v5:  supply(in, 5.0V +- 3%, i <= 1A)
+
+mating RailDrop:
+    between: a: RailFeed, b: RailTap
+    align:   a.frame = b.frame (gnd shared)
+    couples: a.v48 = b.v48, a.v24 = b.v24, a.v5 = b.v5
+    # WO-34 harness note: the 48V leg is the ampacity-critical run
+    # (8A continuous into the drive cabinet). Voltage-drop and
+    # ampacity claims need the conductor LENGTH and bundle derating
+    # factor; both are hand-asserted givens until `harness:` runs
+    # exist (G42). Planned run: 2.5mm2, 0.8m, bundle of 6.
+
+# ---- Limit/home sensing (NPN proximity, one per axis end).
+
+interface LimitBank<n: int>:
+    frame:
+        gnd: reference
+    roles:
+        sense: n x digital(in, family=cmos_5v0, npn_pullup)

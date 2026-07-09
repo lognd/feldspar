@@ -1,0 +1,65 @@
+# Engine bottom end -- 450cc single: crank, rod, cases. The
+# mech.design showcase: DIN 743 combined loading, journal-bearing
+# films (Raimondi-Boyd charts (t)), rod buckling, single-cylinder
+# balance (dynamics), case stiffness.
+
+import std.mech.turned (Shaft, Journal)
+import std.mech.forged (ForgedBlank)
+
+part Crankshaft:
+    material: AISI_4340_QT
+
+    stage forged: process=drop_forge
+        blank = ForgedBlank(crank_450_die)
+    stage turned: process=cnc_lathe, from=forged
+        then:
+            mains   = 2 x Journal(dia 35mm, width 18mm)
+            pin     = Journal(dia 33mm, width 20mm, offset 31.5mm)
+            webs    = 2 x CounterWeight(from=blank)
+
+    boundary:
+        speed: omega in [1200rpm, 9200rpm]
+        p_cyl_peak: [70bar, 95bar]              # combustion pressure
+        structure: alternating(R=-1)
+
+    require Structural:
+        # DIN 743 at the pin fillet: bending + torsion from gas load
+        # and inertia, worst corner over (omega, p_cyl). Non-monotone
+        # in omega (inertia relief vs gas load) -- the solver either
+        # declares corner_monotone=False and widens eps, or the sweep
+        # is dishonest. The 02 contract, exercised for real.
+        pin_fillet: peak(mech.stress.von_mises, at=turned.pin.fillets)
+                        < material.sigma_y / 1.8
+
+    require Fatigue:
+        crank_life: mech.fatigue.damage(turned.pin.fillets,
+                        over=combustion_spectrum) < 1.0,
+                        sf=4, scatter_factor=6
+
+    require Bearings:
+        # Journal films: Petroff/Raimondi-Boyd charts (t) -- min film
+        # thickness at the HOT idle corner (low speed, hot oil), a
+        # LOWER-bound claim on h_min; the oil-viscosity record
+        # (f(T)) is a G5 edge into the chart solver.
+        film: fluids.min_film_thickness(turned.mains,
+                  oil=SAE_10W40) >= 4 * surface_ra(turned.mains)
+
+    require Balance:
+        # Single-cylinder shaking force with counterweight fraction:
+        # dynamics tier; the residual couples into the frame's
+        # vibration boundary as a promise (G18 chain).
+        residual: dynamics.shaking_force.first_order(crank)
+                      < 900N at omega=9200rpm
+
+part ConnectingRod:
+    material: AISI_4340_QT
+    stage forged: process=drop_forge
+        rod = ForgedBlank(rod_450_die)
+
+    require Structural:
+        # Compression buckling about BOTH axes (Johnson regime),
+        # LOWER-bound; cap-bolt preload per VDI 2230 joint diagram.
+        buckle: mech.buckling_load(forged.rod.shank) >= 1.4
+                    * gas_load(p_cyl_peak.hi), sf=1.3
+        cap_bolts: mech.bolt.separation_margin(forged.rod.cap_joint,
+                       under=inertia_load(omega=9200rpm)) >= 1.5

@@ -1,0 +1,61 @@
+# Wheel + tire -- THE G34 file: the claims below had no catalog home
+# before this project. Tire mechanics and terramechanics enter the 07
+# catalog as the `vehicle` namespace; tire and soil data are G5-style
+# records whose published fit ranges ARE their domains.
+
+import std.mech.formed (SpunRim)
+
+part Wheel:
+    material: AL_6061_T6
+
+    stage spun: process=metal_spinning
+        rim = SpunRim(dia 10in, width 8in, drop_center)
+    stage machined: process=cnc_lathe, from=spun
+        then:
+            bead_seats = Face(both, per=tra_contour)
+            bolt_holes = PatternOf<Drill(dia 10.5mm)>(n=4,
+                             circular(dia 100mm))
+
+    require Structural:
+        # Rock-strike rim impact: energy-based denting bound (impact
+        # factors, 07 energy methods); thin margin forces FEA on the
+        # spun profile.
+        impact: mech.dent_depth(machined.rim.outer_lip,
+                    under=impact(90J)) < 3mm
+        bead_retention: mech.bead_unseat_force(machined.bead_seats)
+                            >= 12kN
+                            given p_tire = 35kPa    # LOW pressure corner:
+                                                # sand running unseats
+                                                # beads, not potholes
+
+part Tire:
+    # vendor part: 22x11-10 paddle/knobby; the "material" is the
+    # TIRE RECORD -- cornering stiffness, friction ellipse, Magic
+    # Formula fit coefficients, load/pressure sensitivity -- all
+    # interval-valued, all with the published fit domain as the
+    # record's box (G34; the record is the solver's data source,
+    # feldspar wraps and never copies).
+    material: vendor(tire_22x11_10_paddle)
+
+    boundary:
+        pressure: p_tire in [28kPa, 70kPa]
+        load: F_z in [400N, 2600N]
+
+    require Traction:
+        # vehicle namespace, tire tier: peak longitudinal force from
+        # the friction-ellipse record at the worst (load, pressure)
+        # corner. On SAND the drawbar chain (Bekker-Wong pressure-
+        # sinkage -> thrust minus compaction resistance) COMPETES with
+        # the on-road ellipse through the same claim kind -- tier
+        # competition where the tiers are DIFFERENT PHYSICS, selected
+        # by surface tag, not by cost alone.
+        grip: vehicle.traction_limit(tire, surface=sand_dry) >= 1.1kN
+        flotation: vehicle.sinkage(tire, surface=sand_dry,
+                       under=F_z) < 40mm
+
+    require Durability:
+        # Carcass temperature under sustained slip: hysteresis power
+        # -> convection -- a cross-namespace route (vehicle -> heat)
+        # with zero new mechanism (G30 pattern).
+        carcass: thermo.temperature(tire.shoulder) < 85degC
+                 given duty = dune_climb(4min, throttle=1.0)

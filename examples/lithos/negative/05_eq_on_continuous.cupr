@@ -1,0 +1,10 @@
+# BREAKS: `==` used on a continuous quantity (regolith/02 sec. 2 equality
+#   ban -- continuous equality is a measure-zero assertion, never legal).
+# EXPECT: E0102
+block Sensor:
+    ports:
+        vdd: supply(in, 3.3V +- 5%, i <= 1mA)
+        gnd: reference
+        out: analog(voltage, range=[0.2V, 3.1V], z_out <= 10kohm)
+    require Gain:
+        bad: v(out) == 1.5V

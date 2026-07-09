@@ -1,0 +1,47 @@
+# Hydraulic manifold body -- feldspar pressure test #1 (the direct
+# hit): a thick-walled cylinder claim feldspar's v1 family solves
+# exactly. Exercises: fat margin (Lame closed form wins, FEA never
+# runs), thin margin (FEA forced through the SAME claim kind),
+# material record -> property ports (G2), mm/MPa/degC ingest (G3),
+# E(T) over an environment range (G5).
+
+import std.mech.turned (Bore, Face)
+
+part ManifoldBody:
+    material: AISI_4140            # G2: a NAME -- the property
+                                   # registry record, not scalars.
+                                   # Someone must resolve E, nu,
+                                   # sigma_y intervals BEFORE the
+                                   # DischargeRequest (inputs are
+                                   # Mapping[str, Interval] only).
+
+    stage turned: process=cnc_lathe
+        then:
+            body = Bore(outer_dia 60mm, inner_dia 30mm, length 120mm)
+            # G3: mm at ingest; feldspar stores coherent SI (0.060 m).
+
+    boundary:
+        pressure: p_work in [0MPa, 35MPa]      # working envelope
+        T_env:    [-20degC, 95degC]            # G3: degC is AFFINE --
+                                               # scale+offset, ingest-
+                                               # only, never derived.
+        structure: static
+
+    require Structural:
+        # Fat margin: sigma_y(AISI_4140 quenched) ~ 655 MPa; bore von
+        # Mises at 35 MPa, ratio 2.0 is ~ 40.4 MPa (Lame). Closed form
+        # discharges in microseconds; sf healthy.
+        hoop_fat: peak(mech.stress.von_mises, at=turned.body.bore)
+                      < material.sigma_y / 4.0
+
+        # Thin margin: a burst-test claim at proof pressure. Lame's
+        # declared ceiling cannot close a 1.05 sf; the SAME claim kind
+        # must route to the FEA tier (G6: no fea.* name appears here).
+        hoop_thin: forall p in [0MPa, 52MPa]:
+                       peak(mech.stress.von_mises, at=turned.body.bore)
+                           < material.sigma_y / 1.05
+        # G5: sigma_y and E are f(T) interval records; the check must
+        # hold at the worst T corner of boundary.T_env. Who evaluates
+        # f(T)? (resolved: property records lower to TABLE SOLVER
+        # edges thermo.temperature -> mech.material.*, so the corner
+        # discipline handles T like any other input.)

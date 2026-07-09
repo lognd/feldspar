@@ -1,0 +1,91 @@
+# Smart servo module -- the second SOPEN-2 pressure test, and the one
+# that settled the seam's two open halves:
+#   [D23] cross-language reference is the ordinary import statement
+#         (extension selects the front-end; contracts are substrate IR);
+#   [D24] joint obligations are owned by the DECLARING system's build
+#         (this assembly owns the thermal/mass/torque obligations; the
+#         board and motor keep their own; evidence is content-addressed
+#         so nothing shared re-verifies).
+# Also exercises [F36] a mixed-domain vendor record (the motor carries
+# mech flange/shaft AND elec winding contracts), [F39] elec matings
+# instantiated inside a mech-home assembly, and [D29] boundary
+# subsumption against the imported board.
+
+import "servo_drive.cupr" (ServoDrivePcb)     # D23: cross-language import
+import servo.interfaces (CartridgeBay, CartridgeMate)
+import std.mech.cnc (cnc_mill)
+import std.mech.matings (FlangeMount, ShaftCouple)
+import std.mech.mounts (PilotBore)
+import std.elec.buses (ConnectorMate)         # elec mating pack (F39)
+
+part ServoBody:
+    material: AL6061_T6
+
+    stage milled: process=cnc_mill(axes=3)
+        setup A:
+            hold: stock.sides
+            then:
+                bay        = Pocket(rect(33mm x 21mm), depth=8mm)
+                motor_bore = Bore(dia 22mm H7, depth=4mm,
+                                  axis=stock.front.center)
+            then:
+                bay_bosses = PatternOf<Boss(dia 4mm, h=3mm, tapped=M2)>(
+                                 n=4, rect(28mm x 16mm),
+                                 frame=bay.floor.center)
+
+    zones over milled.faces:
+        bay_wall: .where(adjacent_to=milled.bay)
+        shell:    remainder
+
+    impl CartridgeBay<outline=rect(32mm x 20mm), screw=M2> for self:
+        posts  = milled.bay_bosses.instances
+        cavity = milled.bay                    # owned region: nothing
+                                               # else may cut into it
+
+    impl PilotBore<d=22mm, depth=4mm> for self:
+        bore = milled.motor_bore.wall
+        face = milled.motor_bore.floor
+
+assembly ServoModule:
+    parts:
+        body:  ServoBody
+        drive: ServoDrivePcb                   # imported artifact (D23)
+        motor: vendor(maxon_dcx22)             # F36: record carries
+                                               # MountFlange + Shaft (mech)
+                                               # AND Windings (elec) +
+                                               # thermal promise
+        gear:  vendor(maxon_gpx22_4to1)
+
+    boundary:
+        ambient: [-5degC, 55degC]
+        # D29 (boundary subsumption): contained in the board's declared
+        # [-10degC, 70degC] and the motor's catalog range -- checked at
+        # L2; widening this past either import is a compile error
+        # naming both declarations.
+        duty: spectrum(servo_duty_ref)
+        design_life: 5 yr
+
+    connect:
+        bay:    CartridgeMate(a=body.CartridgeBay, b=drive.DriveCartridge)
+        mount:  FlangeMount(a=body.PilotBore, b=motor.MountFlange)
+        train:  ShaftCouple(a=motor.Shaft, b=gear.Input)
+        phases: ConnectorMate<jst_ph3>(a=drive.phase_out, b=motor.Windings)
+            # F39: an elec mating inside a mech-home assembly. The
+            # driver/domain ledgers run over this connection; the DOF
+            # ledger runs over the mech ones. Ledgers are domain packs
+            # keyed by the mating's kind.
+
+    require Thermal:
+        rise: thermo.temperature(body.zones.bay_wall)
+                  - boundary.ambient <= 25K
+        # inputs: drive's promised dissipation (1.5W, elec) + motor
+        # loss from the catalog record f(torque) -- both promises,
+        # routed by the matings' effects:. Owned by THIS build (D24).
+
+    require Output:
+        torque: forall load in [0, 0.4 N*m]:
+                    mech.torque(gear.Output) >= load
+        backlash: mech.backlash(train) <= 0.8deg
+
+    require Mass:
+        total: mech.mass(all) <= 95g     # consumes promised masses

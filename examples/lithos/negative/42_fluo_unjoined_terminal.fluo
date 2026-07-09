@@ -1,0 +1,18 @@
+# BREAKS: a declared FluidPort terminal that joins no node and is not
+#   `sealed` (fluorite/02 sec. 4: the terminal ledger).
+# EXPECT: E0202
+# Self-calibration (WO-31 D3): node `c` is declared in `nodes:` but no
+# edge sense-pair joins it and it is not the reference, so the terminal
+# ledger flags an unjoined terminal. Verified against live output.
+import std.fluorite (Pipe, Orifice)
+
+medium Water: liquid
+    props: registry(potable_water_nist)
+
+flownet Dangling(medium=Water):
+    reference: ambient(101kPa, 293K)
+    nodes: a, b, c
+    edges:
+        pipe: Pipe(from=line.run) (a -> b)
+        # node `c` is declared but never joined by any edge, and is not
+        # marked sealed.

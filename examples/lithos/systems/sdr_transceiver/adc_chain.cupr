@@ -1,0 +1,94 @@
+# Peregrine digitizer chain -- the ADC/DAC seam. Exercises: converter
+# PORT kinds as the only continuous/discrete contact (event-bounded
+# semantics, cuprite 03 sec. 1a -- the anti-alias filter is a
+# continuous relation, the sampling is a declared `adc` port with an
+# error contribution), RMS NOISE-FLOOR claims (regolith 02 sec. 5:
+# `rms(x, band=...)` is the elec face of the modal-claim family),
+# SNR/ENOB bookkeeping in dB views, and the aperture-jitter pressure
+# the clock tree's promise must hold.
+
+import std.elec.power (Capacitor, Inductor)
+
+block IfDigitizer:
+    ports:
+        if_in:    analog(elec.voltage, range=[-1V, 1V], z=200ohm)
+        vcm:      supply(in, 0.9V +- 2%, i <= 10mA)
+        avdd:     supply(in, 1.8V +- 3%, i <= 180mA)
+        gnd:      reference
+        samp_clk: clock(122.88MHz, domain=samp)
+        samples:  digital(out, width=14, domain=samp)
+    params:
+        # Anti-alias LC values are impl-chosen within windows; the
+        # eager tier resolves them, the alias claim checks the result:
+        l_aa: inductance  = in [56nH, 220nH]
+        c_aa: capacitance = in [22pF, 100pF]
+    spec:
+        # --- continuous: the anti-alias ladder between event instants
+        continuous:
+            v(aaf_out) ' = (i(l_f) - v(aaf_out) / 200ohm) / c_aa
+            i(l_f) '     = (v(if_in) - v(aaf_out)) / l_aa
+        # --- the ONE continuous->discrete contact: a declared adc
+        #     port with its sampling event and error contribution
+        #     (feeds the error_rx budget in sdr.cupr):
+        samples = adc(v(aaf_out), sample=samp_clk.rise, bits=14,
+                      err=+-1.2 lsb)
+
+    require Noise:
+        # The RMS noise-floor ladder, band by band. In-band floor
+        # referred to the ADC input; the 200uV figure is the 14-bit
+        # quantization floor (uV rms over 61.44MHz Nyquist)
+        # plus the driver's contribution with margin:
+        floor_nyq:  rms(v(aaf_out), band=[1kHz, 61.44MHz]) < 220uV
+        floor_chan: rms(v(aaf_out), band=[100Hz, 12.5kHz]) < 4uV
+        # SNR/ENOB as dB ratio views (unreferenced -- legal alone):
+        snr:  elec.snr(samples, f_in=30.72MHz) >= 72dB
+        enob: elec.enob(samples) >= 11.4
+    require Alias:
+        # Alias rejection at the first fold (f_s - f_if = 92.16MHz)
+        # must exceed the spur-free demand; discharged from the
+        # resolved LC values -- eager rule tier, then rechecked:
+        rejection: elec.attenuation(aaf, at=92.16MHz) >= 60dB
+
+impl IfDigitizer by circuit:
+    then:
+        l_f  = Inductor(l=l_aa, q >= 30)
+        c_f  = Capacitor(c=c_aa, c0g)          # NP0/C0G: no bias derating
+        u_adc = vendor(ad9648_125)             # 14-bit dual, 125Msps
+    nets:
+        inn:  (if_in, l_f.a)
+        fout: (l_f.b, c_f.a, u_adc.vin_a)
+        gndn: (gnd, c_f.b, u_adc.agnd)
+        cmn:  (vcm, u_adc.vcm)
+        pwr:  (avdd, u_adc.avdd)
+
+# ---- The TX-side reconstruction is the mirror image.
+
+block IfReconstructor:
+    ports:
+        samples:  digital(in, width=14, domain=samp)
+        if_out:   analog(elec.voltage, range=[-0.5V, 0.5V], z_out=50ohm)
+        avdd:     supply(in, 3.3V +- 3%, i <= 120mA)
+        gnd:      reference
+        samp_clk: clock(122.88MHz, domain=samp)
+    spec:
+        # discrete->continuous through a declared dac port, ZOH by
+        # construction (non-instantaneous, D32 rule 4):
+        raw = dac(samples, update=samp_clk.rise, bits=14, model=zoh)
+        continuous:
+            v(if_out) = reconstruct(raw, filter=lc_lowpass(fc=40MHz))
+    require Spectral:
+        # sinc droop + image at f_s - f_if; pairs with the Duc block's
+        # image_rej claim (dsp_core.cupr):
+        image:  elec.power(if_out.image(1)) <= -50dBc
+        sfdr:   elec.sfdr(if_out) >= 70dBc
+
+impl IfReconstructor by circuit:
+    then:
+        u_dac = vendor(ad9117)                 # 14-bit dual TxDAC
+        l_r   = Inductor(l=in [82nH, 180nH], q >= 30)
+        c_r   = Capacitor(c=in [33pF, 68pF], c0g)
+    nets:
+        dout: (u_dac.iout_a, l_r.a)
+        outn: (l_r.b, c_r.a, if_out)
+        gndn: (gnd, c_r.b, u_dac.agnd)
+        pwr:  (avdd, u_dac.avdd)

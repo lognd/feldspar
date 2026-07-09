@@ -1,0 +1,50 @@
+# Peregrine firmware + bitstream -- the realized, measured artifacts
+# (cuprite 05 sec. 4). Exercises: image FIT/STACK/WCET claims over the
+# toolchain-realized binary, partitions as owned memory-map regions
+# (A/B application slots + the `remainder` rule), the BOOT claim as a
+# time-domain claim spanning hardware and firmware, and the FPGA
+# bitstream's utilization/fmax claims discharged by synthesis-report
+# harness models (thin margin buys post-route timing automatically).
+
+import "sdr_ctl.cupr" (SdrCtl)
+import "dsp_core.cupr" (Ddc, Duc)
+
+image ctl_fw:
+    realizes: schedule(SdrCtl)            # the binding contract
+    toolchain: gcc_arm(13.2, -O2)         # hash-pinned realizer
+    partitions:
+        # owned regions; [a .. b] is half-open; overlap = borrow conflict
+        boot: flash[0 .. 64kB]
+        appA: flash[64kB .. 1MB]
+        appB: flash[1MB .. 1984kB]        # A/B slots: brick-proof update
+        cal:  remainder                   # persistent cal tables --
+                                          # the complement, exactly once
+    require Resources:
+        fit:   size(text + ro) <= partitions.appA.size
+        stack: info.stack_depth(agc) <= 6kB        # static analysis model
+        wcet:  info.wcet(agc, on=cpu0) <= 300us    # conservative bound;
+                                                   # sf=2 against the 500us
+                                                   # intent latency ceiling
+        usb_buf: info.stack_depth(usb) <= 2kB
+    require Boot:
+        # Spans hardware and firmware: supply sequencing masks
+        # (board.cupr) + FPGA configuration + USB enumeration:
+        alive:     within 800ms after supply.on: stream_out.enumerated
+        rx_ready:  within 1200ms after supply.on: op = rx
+
+image sdr_bits:
+    realizes: impl(Ddc), impl(Duc)        # both DSP blocks, one fabric
+    toolchain: yosys_nextpnr(0.7)         # hash-pinned realizer
+    require Resources:
+        fit:  info.utilization(u_fpga) <= 75%
+        # 122.88MHz fabric clock with DSP-block inference; the DDR3
+        # controller core is vendor IP entering as a sealed extern at
+        # L4 (board.cupr) and does not count against this fmax claim:
+        fmax_samp: info.fmax(samp_clk) >= 122.88MHz
+        fmax_bus:  info.fmax(bus_clk)  >= 100MHz
+        bram: info.bram_usage(u_fpga) <= 80%
+    # Discharge: synthesis-report models first; the fmax_samp margin
+    # is thin by construction (122.88 demanded, ~135 typical on this
+    # speed grade), so the ladder escalates to post-route static
+    # timing on every build -- the margin-driven selection doing its
+    # job, visibly.

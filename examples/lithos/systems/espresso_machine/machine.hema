@@ -1,0 +1,116 @@
+# Espresso machine -- the mech top level. Composes the vessels,
+# group, chassis, skins, and vendor heaters/pump; owns the boundary
+# truth the part claims consume (pressure ceilings, zone wall
+# temperatures) and the cross-subsystem budgets. The PRESSURE
+# boundary values here are the fluid track's PEAK promises entering
+# mech claims -- the fluorite 03 sec. 4 structural crossing --
+# hand-carried as literals with the promise named in comments (see
+# README candidate findings).
+
+import "brew_boiler.hema" (BrewBoiler)
+import "steam_boiler.hema" (SteamBoiler)
+import "group_head.hema" (GroupHead)
+import "frame_panels.hema" (Chassis, SkinPanel)
+import "reservoir.hema" (Reservoir)
+import std.mech.matings (BoltedPattern, ScrewedLap, ThreadedMate)
+import "contracts.cupr" (HeaterMate)
+
+assembly EspressoMachine:
+    parts:
+        brew_boiler:  BrewBoiler
+        steam_boiler: SteamBoiler
+        group:        GroupHead
+        chassis:      Chassis
+        wrap:         SkinPanel
+        tank:         Reservoir
+        pump:     vendor(ulka_ex5_230v)       # 48W vibratory, curve
+                                              # record cited by the
+                                              # BrewPath pump edge
+        heater_b: vendor(backer_flange_1400w) # brew element
+        heater_s: vendor(backer_flange_1200w) # service element
+        probe:    vendor(gicar_level_probe)
+
+    boundary:
+        # ceiling = BrewPath.Waterhammer.hammer PEAK promise
+        # (brew_water.fluo): 14 bar at solenoid close, above the
+        # 12 bar OPV static ceiling
+        brew_pressure:  [0, 14bar], structure: spectrum(shot_cycle_ref)
+        # ceiling = SteamService safety-valve crack promise
+        # (steam_service.fluo): 1.8 bar gauge = 2.9 bar abs at relief
+        steam_pressure: [0, 2.9bar], structure: spectrum(daily_cycle_ref)
+        # zone wall temperatures, ASSERTED here until the D98 compute
+        # claim exists (the demand block in brew_boiler.hema): the
+        # element_band/headspace corners carry dryout excursions
+        wall_temp: zones(brew_boiler.zones.element_band:  [88degC, 152degC],
+                         brew_boiler.zones.barrel:        [88degC, 128degC],
+                         steam_boiler.zones.headspace:    [118degC, 145degC],
+                         steam_boiler.zones.wetted:       [100degC, 134degC],
+                         group.zones.dome:                [85degC, 96degC],
+                         group.zones.jacket:              [70degC, 92degC])
+        ambient: [5degC, 35degC]
+        design_life: 20000 cycles             # shots; daily cycles for
+                                              # the steam vessel ride
+                                              # the same ledger
+
+    assume!(interior_soak(under=wrap) <= 48degC,
+            basis="proto thermal survey TS-2, vents open; replace by "
+                  "test(ts2_report)")
+    # the reservoir NPSH hot corner (brew_water.fluo) and the skin
+    # touch claim (frame_panels.hema) both consume this soak truth
+
+    connect:
+        heat_b:  HeaterMate(a=brew_boiler.HeaterSeat,
+                            b=heater_b.HeaterFlange)
+        heat_s:  HeaterMate(a=steam_boiler.HeaterSeat,
+                            b=heater_s.HeaterFlange)
+        mount_b: BoltedPattern<M5, 4>(a=chassis.boiler_b_seat,
+                                      b=brew_boiler.saddle)
+        mount_s: BoltedPattern<M5, 4>(a=chassis.boiler_s_seat,
+                                      b=steam_boiler.saddle)
+        mount_g: BoltedPattern<M6, 4>(a=chassis.group_seat,
+                                      b=group.MountPattern)
+        skin:    ScrewedLap<M3>(a=chassis.skin_seat,
+                                b=wrap.BoltPattern)
+        pump_mt: BoltedPattern<M5, 2>(a=chassis.pump_seat,
+                                      b=pump.mount_studs)
+        lvl:     ThreadedMate<M4x0.7>(a=steam_boiler.fill_probe,
+                                      b=probe.thread)
+        # The copper brew/thermosiphon/steam LINES are deliberately
+        # not mech parts: hematite has no routed-tube construct yet
+        # (README candidate finding CF-2; the D99 extraction seam has
+        # a wire-run consumer in WO-34 but no tube-run source form).
+        # Their hydraulic identity lives in the .fluo files as
+        # record-bound Hose edges and gallery-backed Pipe edges.
+
+    budget mass_total: kind=mass
+        require: mech.mass(all) <= 28kg
+        members: [brew_boiler, steam_boiler, group, chassis, wrap, tank]
+        allocate: cost_optimal
+        locked: group: 4.1kg              # the thermal bank is bought
+                                          # mass; the LOWER claim in
+                                          # group_head.hema keeps the
+                                          # optimizer honest
+
+    budget heater_seal_b: kind=tolerance
+        require: flatness_chain(heat_b) <= 0.08mm
+        members: [brew_boiler, heater_b]
+        allocate: cost_optimal
+        locked: brew_boiler.heater_land.flatness: 0.05mm
+
+    require Seal:
+        gasket_b: leak(heat_b) < 0.05 mL/min
+        gasket_s: leak(heat_s) < 0.05 mL/min
+        # circuit-level totals are the FLOWNETS' budgets
+        # (fluids.leak_total, D93 -- one budget owner per quantity
+        # kind); these joint promises feed them through the chain
+
+    # NOTE (README candidate finding CF-10): a machine-wide
+    # per-fitting service claim ("every FittingPort opens with hand
+    # tools after 2 yr of scale") wants a forall over the INTERFACE
+    # IMPLS of the assembly's parts -- `forall f in
+    # <part>.FittingPort.all` -- and no such orbit form exists
+    # (forall covers config domains, boundary intervals, declared
+    # state sets, and feature orbits like welded.welds.all). The
+    # per-fitting leak PROMISES in fittings.hema carry the
+    # serviceable-joint intent instead; the sweep form is recorded as
+    # demand, not invented.

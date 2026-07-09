@@ -1,0 +1,38 @@
+# Rear lower control arm -- exercises the WO-33 computed
+# config-indexed field (D98 shape): a travel-indexed camber curve and
+# motion-ratio curve feed `slope`/extremal projections instead of
+# point-sampled hand-carried values -- the
+# `design/20-solver-abstraction.md` sec. 8.3 precedent
+# (camber(travel)/toe(travel)/motion-ratio(travel)).
+
+import std.mech.cnc (saw_stock, cnc_mill)
+
+part LowerControlArm:
+    material: AISI_4340
+
+    stage stock: process=saw_stock(rect(220mm, 45mm, 12mm))
+
+    stage milled: process=cnc_mill(axes=3), from=stock
+        then:
+            inner_bush = Bore(dia 14mm, through)
+            outer_ball = Bore(dia 18mm, through)
+
+    require Kinematics:
+        # two producers over the same config domain: one obligation +
+        # one FieldDatum ledger entry each.
+        compute camber: vehicle.camber over travel in [-80mm, 120mm]
+        compute mr:     vehicle.motion_ratio over travel in [-80mm, 120mm]
+
+        camber_limit: min(camber) > -3.5deg
+        bump_steer:   slope(camber, travel) in [-0.05deg/mm, 0deg/mm]
+        # the bump-steer demand: slope of an interval-valued field is
+        # the conservative-envelope slope (G36's sharpener).
+
+    require Structural:
+        static_load: peak(mech.stress.von_mises,
+                          during boundary.corner_load)
+                         < material.sigma_y / 2.0
+
+    require Manufacture:
+        makeable: manufacturable(milled)
+        cost:     mfg.unit_cost(qty=500) <= 22 USD

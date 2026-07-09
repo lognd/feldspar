@@ -1,0 +1,61 @@
+# Brake corner -- disc, caliper, pads: THE G38 file. Brake fade is
+# CoupledGroup customer #2: pad mu(T) record <-> friction heat
+# generation <-> disc convection/conduction, two-way coupled, with
+# the fade claim thin-margin on the long-descent duty.
+
+import std.mech.turned (Disk)
+import std.mech.cast (Casting)
+
+part BrakeDisc:
+    material: GG25_GREY_IRON     # mu-relevant record pairs with pad
+
+    stage turned: process=cnc_lathe
+        disc = Disk(outer_dia 220mm, thickness 6mm, vented=false)
+
+    zones over turned.disc:
+        swept:  .where(annulus=(150mm, 214mm))
+        hat:    remainder
+
+    boundary:
+        duty: descent(8min, grade=18%, mass=vehicle.mass)
+        T_env: [-10degC, 55degC]
+
+    require Thermal:
+        # G38 -- the CoupledGroup: friction power splits pad/disc by
+        # thermal effusivity; disc temperature feeds BACK into the
+        # contact{pad_semi_met, GG25}.mu(T, p, v) record which sets
+        # the pedal force for the SAME deceleration, which sets the
+        # friction power. Fixed-point closure, composite-calibrated
+        # accuracy (member eps do not compose, 09 sec. 4b), closure
+        # residual into measured_eps. The claim is deliberately
+        # thin-margin: the cheap uncoupled hot-corner envelope (G20)
+        # cannot close it; the CoupledGroup or a transient (d) tier
+        # must.
+        no_fade: peak(thermo.temperature(swept), during boundary.duty) < 550degC
+        hat_soak: thermo.temperature(hat.bearing_side) < 120degC
+
+    require Structural:
+        # Thermal shock / coning: radial gradient stress (thermal-
+        # expansion mismatch home, 07 materials) at the worst stop.
+        coning: mech.deflection.axial(swept.outer_edge) < 0.15mm
+                given stop = panic(45kph, mu_hot)
+
+part Caliper:
+    material: AL_6061_T6
+    stage machined: process=cnc_mill
+        body = Casting(caliper_2pot_pattern)
+
+    require Structural:
+        # Caliper bridge stiffness is a LOWER-bound claim (pedal
+        # feel + pad taper); bore pressure at panic line pressure.
+        bridge: mech.stiffness(machined.body.bridge) >= 40kN/mm
+        bore: peak(mech.stress.von_mises, at=machined.body.bores)
+                  < material.sigma_y / 2.0
+                  given p_line = 80bar
+
+    require Wear:
+        # Pad wear rate over the duty spectrum: Archard-class wear
+        # RECORD (pair data, published band) -- service-interval
+        # claim, cheap tier end to end.
+        pad_life: mech.wear.thickness_loss(pads, over=duty_100hr)
+                      < 6mm

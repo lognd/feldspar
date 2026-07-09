@@ -1,0 +1,38 @@
+# Shop compressed-air drop -- exercises: a gas medium evaluated at
+# temperature corners, `Regulator`, `Plenum` capacitance, `choked`
+# regime screening, and a `forall` line-up sweep over declared net
+# states (fluorite/02 sec. 1, sec. 3, sec. 5, sec. 6).
+
+import std.fluorite (Pipe, Regulator, Plenum, Valve)
+
+medium ShopAir: gas
+    props: registry(air_nist)
+
+flownet AirDrop(medium=ShopAir):
+    reference: ambient(101kPa, 293K)
+    nodes: tank_out, reg_in, reg_out, tee, tool_in, blowgun_in
+    edges:
+        tank:   Pipe(from=riser.run)            (tank_out -> reg_in)
+        reg:    Regulator(set=620kPa, droop=15kPa)
+                                                 (reg_in -> reg_out)
+        plenum: Plenum(v=8L)                    (reg_out -> tee)
+        tool:   Pipe(from=tool_hose.run)        (tee -> tool_in)
+        gun:    Pipe(from=gun_hose.run)         (tee -> blowgun_in)
+        toolv:  Valve(cv=1.2, states={open, closed} | position in [0,1])
+                                                 (tool_in -> ambient)
+        gunv:   Valve(cv=0.8, states={open, closed} | position in [0,1])
+                                                 (blowgun_in -> ambient)
+    states:
+        toolv.position in {closed, open}
+        gunv.position in {closed, open}
+        state line_up in {tool_only, gun_only, both}
+
+# corner discipline: property evaluation over the winter/summer shop
+# temperature swing (fluorite/02 sec. 1).
+require Supply:
+    forall line_up in {tool_only, gun_only, both}:
+        margin: fluids.dp(tank_out -> tool_in) <= 100kPa
+    # nozzle choke screening -- tag-shaped, feeds the D97 regime
+    # channel (fluorite/02 sec. 6, fluorite/03 sec. 3).
+    choke:  not choked(gunv)
+    regime: fluids.reynolds(tool) in [4e3, 5e5]

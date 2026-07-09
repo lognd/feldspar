@@ -1,0 +1,53 @@
+# Rear suspension -- trailing arms: terrain-spectrum fatigue and
+# elastomer records. Anchors: G35 (speed-scaled spectrum payload
+# transform), G5-family records (bushing stiffness f(T, amplitude)),
+# G14 (closed-form damage from payloads).
+
+import std.mech.tube (TubeProfile)
+import std.mech.joining (Weld)
+
+part TrailingArm:
+    material: AISI_4130_N
+    pieces:
+        spine: TubeStock(od 45mm, wall 2.4mm)
+        gussets: 4 x PlateStock(t 3mm)
+
+    stage welded: process=gtaw, joins=[spine, gussets]
+        arm = Weld(fillet 3mm, all_notches)
+
+    boundary:
+        # G35: the wheel-input PSD is the vehicle-level terrain
+        # spectrum TRANSFORMED by speed (payload -> payload solver
+        # edge: spectrum + vehicle.speed -> spectrum at the hub).
+        structure: spectrum(hub_psd_from(whoops_psd, speed))
+        T_env: [-10degC, 55degC]
+
+    require Structural:
+        arm_stress: peak(mech.stress.von_mises, at=welded.arm.all)
+                        < material.sigma_y / 1.8
+        # Jump landing: quasi-static envelope case, monotone in load
+        # -- corner sweep collapses to the top corner (G19 pattern).
+        landing: peak(mech.stress.von_mises, at=welded.arm.gusset_root)
+                     < material.sigma_y / 1.2
+                     given load = landing_envelope(2.0m_drop)
+
+    require Fatigue:
+        # G14 again: Miner damage = closed form consuming the hub PSD
+        # payload + Kt at the gusset terminations (Peterson (t)).
+        arm_life: mech.fatigue.damage(welded.arm.welds.all,
+                      over=boundary.spectrum) < 1.0, sf=4,
+                      scatter_factor=5
+
+part PivotBushing:
+    material: NR_60A            # elastomer record: G5-family --
+                                # stiffness is f(T, amplitude, freq)
+                                # INTERVAL records; ports are OUTPUTS
+                                # of record edges, never free givens.
+    require Isolation:
+        # Lower-bound stiffness at the worst COLD corner; upper-bound
+        # transmissibility at the worst HOT corner -- BOTH senses of
+        # the same record edge, exercising A-3's sense parameter on
+        # a single component.
+        locate: mech.stiffness.radial(bushing) >= 2.5kN/mm
+        isolate: vibration.transmissibility(bushing,
+                     at=[15Hz, 40Hz]) < 2.2

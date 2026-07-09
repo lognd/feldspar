@@ -1,0 +1,68 @@
+# Front upright + hub -- bearing life, spindle fatigue, brake torque
+# path. Anchors: L10 under a mixed duty spectrum (G14 payload into
+# ISO 281 closed form), abstraction-edge pressure (the upright is a
+# bent-plate weldment a cantilever family cannot idealize -- the G7
+# escape hatch, non-propulsion edition).
+
+import std.mech.turned (Shaft, Bore)
+import std.mech.joining (Weld)
+
+part FrontUpright:
+    material: AISI_4130_N
+    pieces:
+        plates: 3 x PlateStock(t 6mm)
+        spindle_boss: BarStock(dia 45mm)
+
+    stage welded: process=gtaw, joins=[plates, spindle_boss]
+        body = Weld(fillet 4mm, all_notches)
+
+    stage machined: process=cnc_mill, from=welded
+        then:
+            lower_taper = Taper(included 8deg, at=body.lower_ear)
+            upper_taper = Taper(included 8deg, at=body.upper_ear)
+            steer_arms  = Drill(dia 12.1mm, at=body.steer_ear)
+            caliper_mount = PatternOf<Drill(M10)>(n=2, at=body.caliper_ear)
+
+    require Structural:
+        # G7's lesson, non-propulsion edition: a welded plate upright
+        # has NO closed-form family. The route is abstraction-edge ->
+        # out-of-domain (weld cluster in the load path) -> matrix
+        # stiffness (r) or FEA-on-realized-ref (payload channel,
+        # OPEN-2). Today's honest answer names the missing channel;
+        # NEVER a silently-wrong plate formula.
+        ear_stress: peak(mech.stress.von_mises, at=machined.lower_taper)
+                        < material.sigma_y / 2.0
+        brake_torque: peak(mech.stress.von_mises, at=machined
+                          .caliper_mount)
+                          < material.sigma_y / 1.8
+                          given torque = brake_peak(1.4kN*m)
+
+part FrontHub:
+    material: AISI_4140
+
+    stage turned: process=cnc_lathe
+        then:
+            spindle = Shaft(dia 25mm k5, length 85mm)
+            flange  = Disk(outer_dia 130mm, thickness 12mm)
+            studs   = PatternOf<Thread(M10x1.25)>(n=4,
+                          circular(dia 100mm))
+
+    boundary:
+        structure: spectrum(hub_psd_from(whoops_psd, speed))
+
+    require Fatigue:
+        # Rotating-bending spindle fatigue: Marin-corrected endurance
+        # + Kt at the flange fillet (Peterson (t)) + Miner over the
+        # duty spectrum payload -- the full mech.design chain.
+        spindle_life: mech.fatigue.damage(turned.spindle,
+                          over=boundary.spectrum) < 1.0, sf=4
+
+    require Bearings:
+        # ISO 281 L10 with the mode-mix equivalent load from the SAME
+        # payload (G14). Dust environment derates via the seal/
+        # contamination factor RECORD (a G5-style table edge -- sand
+        # is a property source, not a tag).
+        life: mech.bearing.l10_hours(pair=tapered_32005,
+                  under=boundary.spectrum) >= 800hr
+        static: mech.bearing.static_margin(tapered_32005,
+                    under=landing_envelope(2.0m_drop)) >= 1.2

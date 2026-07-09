@@ -1,0 +1,58 @@
+# Regen chamber liner -- exercises the WO-33 computed zone-indexed
+# field (D98 shape): a two-zone wall-temperature `compute` claim feeds
+# a sigma_y(T_local)-shaped structural consumer through an ordinary
+# `at zone(...)` projection instead of a hand-carried worst-point
+# scalar. Closes the interim `brew_boiler.hema` / `torch_igniter.hema`
+# take (T_local asserted as boundary truth, one hot corner carried
+# over every zone) with the honest source form D98 names.
+
+import std.mech.cnc (saw_stock, cnc_lathe)
+
+profile LinerBore:
+    walk:
+        from inlet_plane
+        line down                     # a: inlet wall
+        arc tangent, bulge=right      # b: throat blend
+        line down                     # c: throat bore
+        close via axis
+    constraints:
+        a.length = 40mm
+        b.radius = in [3mm, 8mm] minimize
+        c.length = 60mm
+    exports:
+        throat_plane: datum
+
+part RegenLiner:
+    material: Inconel_718
+
+    stage barstock: process=saw_stock(dia 70mm)
+
+    stage turned: process=cnc_lathe, from=barstock
+        then:
+            envelope = Turn(profile=LinerBore)
+
+    datum throat_ref = turned.envelope.throat_plane
+    datum tip_ref    = turned.envelope.front
+
+    zones over turned.envelope.faces:
+        tip:  .where(between=(tip_ref, throat_ref))
+        base: remainder
+
+    require Thermal:
+        # the producer: one obligation, one FieldDatum ledger entry
+        # (borrow-exempt, like events), discretized over the tip/base
+        # zone set.
+        compute wall_T: thermo.wall_temperature over self.zones
+
+    require Structural:
+        trust: >= certified
+        hoop: peak(mech.stress.von_mises,
+                   during boundary.chamber_pressure)
+                  < material.sigma_y(wall_T at zone(tip)) / 2.2
+        # each zone checks against ITS OWN field value at the point
+        # projection, instead of the tip hot-corner literal hand-
+        # carried over every zone the interim used.
+
+    require Manufacture:
+        makeable: manufacturable(turned)
+        cost:     mfg.unit_cost(qty=100) <= 65 USD

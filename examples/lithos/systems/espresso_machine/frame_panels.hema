@@ -1,0 +1,144 @@
+# Frame and body panels -- folded 1.5mm 304 chassis plus brushed
+# 0.8mm 430 skins. Exercises: sheet vocabulary under DFM pressure
+# (free bend radii, hole-to-bend guard bands, one evidence-less
+# prototype waiver), a panel orbit with pairwise connections in the
+# assembly (machine.hema), and the group cantilever: the E61 group
+# is 3.2kg+ hanging off one panel, so the chassis carries a real
+# deflection claim through the interface envelope.
+
+import "fittings.hema" (IsoMount)
+import std.mech.sheet (Blank, Pierce, Bend)
+import std.mech.mounts (HolePattern, BoltPattern)
+
+profile ChassisFlat:
+    walk:
+        from left_edge
+        line right                    # a: base
+        line up                       # b
+        line left                     # c: top edge (rear flange)
+        close                         # d
+    hole group_pass:
+        circle(dia 52mm)              # group spigot passes the face
+    constraints:
+        a.length = 300mm
+        b.length = 420mm
+        group_pass.center to a = 105mm
+        group_pass.center to d = 150mm
+    regions:
+        flange_band: between(c, c.offset(18mm))
+        web:         interior - flange_band - holes
+    exports:
+        mid_plane: datum
+
+part Chassis:
+    material: AISI_304
+
+    stage cut: process=laser_cut(sheet=1.5mm)
+        then:
+            blank = Blank(ChassisFlat)
+            group_mounts = PatternOf<Pierce<circle(dia 6.4mm)>>(n=4,
+                               rect(64mm x 64mm),
+                               frame=blank.group_pass.center)
+            boiler_b_holes = PatternOf<Pierce<circle(dia 5.4mm)>>(n=4,
+                                 rect(70mm x 60mm),
+                                 frame=blank.mid_plane.offset(x=-70mm))
+            boiler_s_holes = PatternOf<Pierce<circle(dia 5.4mm)>>(n=4,
+                                 rect(80mm x 70mm),
+                                 frame=blank.mid_plane.offset(x=70mm))
+            pump_grommets = PatternOf<Pierce<circle(dia 8mm)>>(n=2,
+                                grid(1, 2, 0mm x 48mm),
+                                frame=blank.mid_plane.offset(y=-160mm))
+        then:
+            skin_studs = PatternOf<Pierce<circle(dia 3.2mm)>>(n=4,
+                             grid(2, 2, 280mm x 380mm),
+                             frame=blank.mid_plane)
+
+    stage formed: process=press_brake, from=cut
+        base_flange = Bend(edge=cut.blank.bottom_edge, angle=90deg,
+                           radius=free)
+        rear_flange = Bend(edge=cut.blank.top_edge, angle=90deg,
+                           radius=free)
+        # radius=free resolves to the press pack minimum for 1.5mm
+        # 304; the lockfile carries the cause dfm(min_bend_radius)
+
+    # The steam-boiler hole cluster sits inside the pack's
+    # hole-to-bend guard band for the rear flange. Prototype lot
+    # accepted evidence-less (substrate 12 rung 7): release-gated.
+    waive dfm(min_hole_to_bend) on cut.boiler_s_holes:
+        basis: "proto lot EV-104; slight draw-in measured 0.2mm, ok"
+
+    impl BoltPattern<M6, n=4, rect(64mm x 64mm)> for self as group_seat:
+        holes = cut.group_mounts.instances
+
+    impl BoltPattern<M5, n=4, rect(70mm x 60mm)> for self as boiler_b_seat:
+        holes = cut.boiler_b_holes.instances
+
+    impl BoltPattern<M5, n=4, rect(80mm x 70mm)> for self as boiler_s_seat:
+        holes = cut.boiler_s_holes.instances
+
+    impl IsoMount<n=2> for self as pump_seat:
+        grommets = cut.pump_grommets.instances
+
+    impl HolePattern<M3, n=4, grid(2, 2, 280mm x 380mm)> for self as skin_seat:
+        holes = cut.skin_studs.instances
+
+    require Structural:
+        # group + full portafilter + tamp load, cantilevered off the
+        # face: the shot video every review shows is the group
+        # nodding while locking in
+        group_sag: mech.deflection(cut.group_mounts.pattern_center,
+                       under=interface_envelope(group_seat)) < 0.15mm
+
+    require Manufacture:
+        makeable: manufacturable(formed)
+        cost:     mfg.unit_cost(qty=500) <= 22 USD
+
+profile SkinFlat:
+    walk:
+        from left_edge
+        line right                    # a
+        line up                       # b
+        line left                     # c
+        close                         # d
+    constraints:
+        a.length = 300mm
+        b.length = 420mm
+        symmetric(b, d, about=mid_plane)
+    exports:
+        mid_plane: datum
+
+part SkinPanel:
+    material: AISI_430                # brushed, magnetic, cheap
+
+    stage cut: process=laser_cut(sheet=0.8mm)
+        then:
+            blank = Blank(SkinFlat)
+            vents = PatternOf<Pierce<circle(dia 4mm)>>(n=24,
+                        grid(4, 6, 120mm x 200mm),
+                        frame=blank.mid_plane.offset(y=90mm))
+            # convection path over the steam boiler; the interior
+            # soak corner the reservoir NPSH claim cites depends on
+            # this venting staying open
+        then:
+            corners = PatternOf<Pierce<circle(dia 3.4mm)>>(n=4,
+                          grid(2, 2, 280mm x 380mm),
+                          frame=blank.mid_plane)
+
+    stage formed: process=press_brake, from=cut
+        hem_top = Bend(edge=cut.blank.top_edge, angle=180deg,
+                       radius=free)
+        # safety hem on the touchable edge; 180deg hem is the tight
+        # corner of the press pack's radius table for 0.8mm 430
+
+    impl BoltPattern<M3, n=4, grid(2, 2, 280mm x 380mm)> for self:
+        holes = cut.corners.instances
+
+    require Touch:
+        # skin over the steam boiler stays below the scald limit at
+        # the 25degC kitchen corner; the insulation blanket promise
+        # (machine.hema) is the given chain here
+        surface: thermo.temperature(cut.blank) <= 55degC
+
+    require Manufacture:
+        makeable: manufacturable(formed)
+        cost:     mfg.unit_cost(qty=1500) <= 9 USD

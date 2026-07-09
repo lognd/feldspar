@@ -1,0 +1,54 @@
+# DDS core -- the EXTERN Verilog seam (D119): a native-declared block
+# contract whose selected realization is hand-written Verilog-2005,
+# linked with `by extern` (regolith 08 sec. 4, cuprite 09 sec. 3:
+# Verilog is TRANSPARENT -- it elaborates into the structural layer,
+# gets the full static tier, and equivalence to the native `spec:` is
+# the SAME T3 obligation a `by composing` impl would carry.
+# Hand-written does not mean less checked).
+#
+# The foreign artifact is committed beside this file
+# (rtl/dds_core.v): a real, synthesizable quadrature DDS -- 32-bit
+# phase accumulator, 32-entry quarter-wave sine LUT folded by
+# symmetry logic, signed 10-bit I/Q out.
+
+block DdsCore<phase_w: int = 32>:
+    ports:
+        clk:       clock(122.88MHz, domain=samp)
+        rst_n:     digital(in)
+        en:        digital(in)
+        fcw:       digital(in, width=phase_w)     # frequency control word
+        phase_ofs: digital(in, width=phase_w)
+        i_out:     digital(out, width=10)         # signed cosine channel
+        q_out:     digital(out, width=10)         # signed sine channel
+    spec:
+        # The functional contract the Verilog must be equivalent to:
+        # a phase accumulator and an ideal quantized quadrature
+        # oscillator. Amplitude is 511 counts full-scale with a
+        # half-LSB phase offset (matches the committed LUT).
+        on clk.rise:
+            phase <= phase + fcw when en
+            i_out <= quantize(cos(turns(phase + phase_ofs, 2^phase_w)),
+                              scale=511) when en
+            q_out <= quantize(sin(turns(phase + phase_ofs, 2^phase_w)),
+                              scale=511) when en
+    promises:
+        # Spectral purity floor of the quantized table: worst spur of
+        # a 32-entry folded LUT with 10-bit amplitude. dBc is an
+        # unreferenced log view (ratio vs carrier) -- legal alone.
+        spur_free: >= 60dBc
+        timing.latency(fcw -> q_out): <= 2 cycles
+
+# Realization 1: synthesize the spec directly (the reference path).
+impl DdsCore by spec
+
+# Realization 2: the hand-written Verilog, externally linked. The
+# format is transparent, so this elaborates into L3 blocks and the
+# static tier (single-driver, domain membership, width checks) runs
+# over the elaborated design; the T3 equivalence obligation
+# equivalence(spec, HandRtl) discharges by formal LEC over the
+# discrete subset. The file reference is hash-pinned (INV-22).
+impl DdsCore by extern("rtl/dds_core.v", verilog2005) as HandRtl
+
+# Selection is the ordinary pin at the instantiation site
+# (dsp_core.cupr): `nco = DdsCore<32>() use HandRtl` -- lockfile-caused
+# like every other impl choice.

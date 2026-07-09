@@ -1,0 +1,81 @@
+# Burin motion-controller board -- deliberately thin, the F79 rule:
+# the `computer` construct (workloads, architecture, bind, image)
+# lives in machine_elec.cupr AT INTENT ALTITUDE; this file is the
+# BOARD -- silicon, connectors, level shifting, the locked pin-mux.
+# The elec rung-2 lock lives here: step/dir outputs pinned to the
+# pins the legacy DB25 breakout already routes (elec 04 sec. 1: the
+# ONE place package pins may appear in design source).
+
+import "contracts.cupr" (StepDirOut, LimitBank, SpindleCmd, EStopNode,
+                         RailTap)
+import std.elec.families (cmos_3v3, cmos_5v0)
+import std.elec.buffers (LineDriver, OptoIn)
+
+board CtrlPcb<fw: image>:
+    stage bare:      process=pcb_fab(jlc_4l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+    stage programmed: from=assembled
+        firmware = load(fw)             # hash-pinned via the param
+                                        # (the F83/D54 artifact param)
+
+    then:
+        u_mcu   = vendor(stm32h743vi)   # 480MHz M7, the planner's home
+        u_step  = LineDriver(ch=12, family=cmos_5v0)   # 4 axes x 3
+        u_lim   = OptoIn(ch=8, family=cmos_5v0)
+        u_dac   = vendor(mcp4725)       # 0-10V spindle ref via op-amp
+        u_esr   = vendor(g6b_2114p)     # e-stop loop relay contact
+
+    # rung 2, elec: the DB25 legacy breakout dictates these pins;
+    # planner pin-mux must route AROUND them (lockfile-mirrored,
+    # cause: planner(pinmux u_mcu) for everything else):
+    locked:
+        pinmux(u_mcu.tim1.ch1): pa8     # X step
+        pinmux(u_mcu.tim1.ch2): pa9     # Y step
+        pinmux(u_mcu.tim1.ch3): pa10    # Z step
+        pinmux(u_mcu.tim8.ch1): pc6     # X2 step (gantry pair)
+
+    impl StepDirOut for self as ch_xp:
+        step = u_step.out[0]
+        dir  = u_step.out[1]
+        ena  = u_step.out[2]
+    impl StepDirOut for self as ch_xm:
+        step = u_step.out[3]
+        dir  = u_step.out[4]
+        ena  = u_step.out[5]
+    impl StepDirOut for self as ch_y:
+        step = u_step.out[6]
+        dir  = u_step.out[7]
+        ena  = u_step.out[8]
+    impl StepDirOut for self as ch_z:
+        step = u_step.out[9]
+        dir  = u_step.out[10]
+        ena  = u_step.out[11]
+
+    impl LimitBank<8> for self:
+        sense = u_lim.in.instances
+
+    impl SpindleCmd for self:
+        speed_ref = assembled.vfd_conn.aout
+        run_fwd   = assembled.vfd_conn.fwd
+        fault     = assembled.vfd_conn.flt
+
+    impl EStopNode for self:
+        loop_in  = assembled.estop_conn.a
+        loop_out = u_esr.contact
+
+    impl RailTap for self:
+        v48 = assembled.pwr_conn.v48    # pass-through to the drive bay
+        v24 = assembled.pwr_conn.v24
+        v5  = assembled.pwr_conn.v5
+
+    require Signals:
+        # opto edge floor at the drive end sets the driver's slew
+        # demand; checked against the line driver's family record at
+        # the slow/low/hot corner (elec 04 sec. 3):
+        step_edges: rise_time(ch_xp.step) <= 200ns
+        dir_setup:  timing.dir_setup(ch_xp.dir -> ch_xp.step) >= 5us
+
+    require Supervision:
+        # the relay must open the loop before the drives can follow a
+        # runaway command stream:
+        estop_relay: within 8ms after fault(u_mcu): state(u_esr) = open

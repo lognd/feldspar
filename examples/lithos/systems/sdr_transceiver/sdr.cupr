@@ -1,0 +1,142 @@
+# Peregrine -- UHF (400-480MHz) software-defined radio transceiver,
+# the top-level system. Exercises (D119, cuprite/computer to the
+# limit): boundary intents with an rx/tx/cal MODE STATECHART
+# (`exposing op:` + on-event transition claims), dB-NATIVE link
+# budgets in BOTH directions (regolith 02 sec. 5a legality under real
+# pressure), an emissions-mask claim, mode-qualified power budget,
+# and the intent -> workload seam consumed by sdr_ctl.cupr.
+#
+# The deliberate NEGATIVE fixture (dBm + dBm, E0104) lives in
+# negative/db_illegal.cupr and is EXCLUDED from the golden corpus.
+
+import "contracts.cupr" (RfDeck, AntennaFeed)
+import std.intents
+import std.debug
+
+system Peregrine:
+    exposing op: {rx, tx, cal}            # the radio statechart
+
+    boundary:
+        supply:  dc(12V +- 10%, source_z <= 100mohm)
+        ambient: [-20degC, 55degC]
+        emc:     land_mobile(fcc_part90)
+        antenna: z(50ohm), vswr <= 2.0
+        # The far ends of both links are genuinely not ours:
+        peer:    uhf_station(437MHz, eirp <= 29dBm, sensitivity <= -110dBm)
+        range_max: 12km
+        design_life: 8 yr
+
+    reserves:
+        gpio: 6
+        power: 250mW avg
+
+    intents:
+        # RX chain: air -> antenna -> digitizer -> DSP -> host.
+        capture: sense(elec.rf_power):
+            band:      [400MHz, 480MHz]
+            bandwidth: <= 8MHz            # instantaneous, per tune
+            noise_figure: <= 5dB
+            spur_free: >= 80dBc
+        downconvert: compute(ddc_law):    # DDC: NCO mix + CIC + FIR
+            rate:    122.88Msps in
+            latency: <= 250us
+            state:   filter_taps(24kB, persistent)
+        stream_out: communicate(usb_host):
+            rate:    >= 8MB/s
+            latency: <= 5ms
+        # TX chain: host -> DSP -> DAC -> PA -> air.
+        stream_in: communicate(usb_host):
+            rate: >= 8MB/s
+        upconvert: compute(duc_law):      # DUC: interp + NCO mix
+            rate:    122.88Msps out
+            latency: <= 250us
+        radiate: actuate(rf_pa(437MHz, p_out >= 30dBm)):
+            harmonics: per emissions mask
+        # Control plane: AGC, calibration, statechart supervision.
+        supervise: compute(agc_cal_law):
+            rate:    1kHz
+            latency: < 500us
+            state:   cal_tables(16kB, persistent)
+
+    flows:
+        capture -> downconvert
+        downconvert -> stream_out
+        stream_in -> upconvert
+        upconvert -> radiate
+        capture -> supervise              # AGC feedback taps the chain
+        supervise -> radiate              # PA bias + ramp control
+
+    # ---- The statechart. Transitions are on-event claims over the
+    #      config variable; each mode binds its own claims below.
+
+    event ptt:        commanded(tx_key)
+    event ptt_drop:   released(tx_key)
+    event cal_due:    periodic(10min)
+    event pa_fault:   thermo.temperature(radiate.pa_junction).crosses(150degC)
+
+    require Modes:
+        tx_entry:  within 150us after ptt: op = tx
+        tx_exit:   within 150us after ptt_drop: op = rx
+        cal_entry: within 1ms after cal_due: op = cal
+        cal_exit:  within 200ms after mode.enter(cal): op = rx
+        fault_rx:  within 20us after pa_fault: op = rx
+        # T/R switch sequencing: the PA must never see drive before
+        # the switch commits (the classic hot-switch kill):
+        tr_order:  within 100us after mode.enter(tx):
+                       state(radiate.tr_switch) = tx_path
+        pa_ramp:   stays_within(v(radiate.pa_bias), mask=tx_ramp_mask)
+
+    require Power:
+        rx_floor:  elec.power(all) <= 4.5W during op = rx
+        tx_burst:  elec.power(all) <= 14W during op = tx
+        cal_cost:  elec.power(all) <= 5W during op = cal
+
+    # ---- The dB-native link budgets, BOTH directions (regolith 02
+    #      sec. 5a). Each sum cancels to at most one referenced term:
+    #      dBm + dBi - dB is a power; the dBm + dBm spelling of the
+    #      same idea dies at L1 (see negative/db_illegal.cupr).
+
+    require Link:
+        # TX direction: our EIRP over the path must clear the peer's
+        # sensitivity with margin. 30dBm + 2dBi - 107dB = -75dBm
+        # against -110dBm + 12dB = -98dBm: closes with 23dB spare.
+        tx_closes: radiate.pa_out + antenna.gain
+                       - path_loss(boundary.range_max)
+                       >= boundary.peer.sensitivity + 12dB
+                       during op = tx
+        # RX direction: the peer's EIRP over the path must clear OUR
+        # sensitivity, which cascades from the noise figure:
+        # -174dBm/Hz + 10*log10(25kHz) + NF(5dB) + SNR(10dB) = -115dBm.
+        rx_closes: boundary.peer.eirp - path_loss(boundary.range_max)
+                       >= capture.sensitivity + 12dB
+                       during op = rx
+        # Reported margin is dB (a ratio view); computed linear.
+
+    require Emissions:
+        # The mask claim (cuprite 04 sec. 6): occupied bandwidth and
+        # out-of-band products against the land-mobile mask. Writable
+        # now, dischargeable late (EOPEN-11 posture: by test in v1).
+        mask_ok:   stays_within(emissions, mask=fcc_part90_mask(25kHz))
+                       during op = tx
+        harmonics: elec.power(radiate.harmonic(2)) <= -36dBm during op = tx
+
+    budget error_rx: kind=error
+        # End-to-end amplitude accuracy of the reported spectrum:
+        # front-end gain scatter + ADC + DDC quantization share it.
+        require: error(capture -> stream_out) <= +-1.5dB
+        members: [capture, downconvert]
+        allocate: cost_optimal
+
+    policy:
+        prefer vendor(jlc) over vendor(pcbway)
+        forbid dielectric(y5v)            # bias derating cliff
+        minimize total_cost
+
+# ---- Ground-support overlay: bring-up console + RF probe points.
+
+target bringup of Peregrine:
+    intents:
+        console:  debug_access(swd, uart_log)
+        rf_taps:  probe(rf_chain_points)
+        heartbeat: indicate(supervise.status)
+    draws: reserves

@@ -1,0 +1,55 @@
+# 6->64 mux with enable -- exercises: abstract block vs concrete
+# realizations, implicit `by spec`, composing with pattern orbits and
+# pairwise connection, equivalence obligations, per-impl promises.
+
+import std.elec.logic (Decoder)
+
+# ---- The abstract block: a functional contract. No parts named. ----
+
+block Mux<sel_w: int = 6, out_w: int = 64>:
+    ports:
+        sel: digital(in, width=sel_w)
+        en:  digital(in)
+        out: digital(out, width=out_w)
+    spec:
+        out = onehot(sel) when en else 0
+    promises:
+        timing.prop(sel -> out): allocated
+
+# ---- Realization 1: synthesize the spec (FPGA/ASIC path). ----
+# Implicit: a realizable spec with no explicit impl gets `by spec`.
+# Written out here only because a second impl exists below.
+
+impl Mux by spec
+
+# ---- Realization 2: a tree of 3->8 decoders (74HC138-class parts). ----
+
+impl Mux by composing as DecoderTree:     # impl naming uses `as`, like
+    then:                                 # every other alias
+        root   = Decoder<3, 8>()
+        leaves = PatternOf<Decoder<3, 8>>(n=8)
+    connect:
+        # Bit ranges are half-open ([i .. j] = bits i to j-1): bit
+        # position is semantic content (binary weight), so slicing is
+        # semantic addressing, not the banned positional indexing.
+        # Slicing splits the bus orbit, as any special-role assignment.
+        sel[0 .. 3] -> leaves.instances.sel   # broadcast: bus -> orbit
+        sel[3 .. 6] -> root.sel
+        en          -> root.en
+        pairwise(root.out.bits, leaves.instances.en)  # orbit zip, cardinality-checked
+        flatten(leaves.instances.out) -> out          # 8x8 -> 64, layout order
+    # T3: equivalence(spec, DecoderTree) -- discharged by formal LEC;
+    # timing.prop promise discharged from decoder catalog propagation
+    # delays summed over the two-level path, at worst-case corner.
+
+# ---- Realization 3: hand-written Verilog, externally linked. ----
+# `by extern` (substrate 08 sec. 4): the foreign source stays foreign
+# (own hash/lifecycle); a transparent format elaborates into design IR,
+# so the full static tier runs, and equivalence to the spec is the
+# same T3 obligation as DecoderTree's -- hand-written does not mean
+# less checked.
+
+impl Mux by extern("rtl/mux_hand.v", verilog2005) as HandRtl
+
+# Selecting between impls at a use site is the ordinary pin:
+#   decode = Mux<6, 64>() use DecoderTree

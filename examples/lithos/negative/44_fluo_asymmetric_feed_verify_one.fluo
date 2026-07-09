@@ -1,0 +1,44 @@
+# BREAKS: extending a verified-once result across a flow-balance orbit
+#   whose GIVENS are not invariant under the orbit's group (INV-4:
+#   fluorite/03 sec. 3 `flow_imbalance(orbit)` row -- "a symmetric
+#   manifold with asymmetric feed does NOT license verify-one").
+# EXPECT-TODO: INV-4
+# Self-calibration: `manifold` is a geometrically symmetric four-leg
+# splitter (identical Pipe edges, identical Orifice legs) fed through
+# an OFF-CENTER supply tee (leg `a`'s supply run is 0.2m, every other
+# leg's is 1.4m) -- an asymmetric given over a geometrically symmetric
+# topology. The `balance` claim's `flow_imbalance` orbit lowers clean
+# today: the givens-invariance check INV-4 requires before extending a
+# per-instance verify-one result across the orbit is model/solver
+# (feldspar) territory (same finding as
+# `23_asymmetric_givens_verify_one.hema`), not exercised by the static
+# checked pipeline -- `regolith-lower` has no orbit/symmetry machinery
+# for flownet edges at all (fluorite has no `pattern`/`any` statement
+# form; `flow_imbalance([...])` is a plain named-list claim), so there
+# is no static hook to refuse extension on today. See README
+# candidate finding.
+import std.fluorite (Pipe, Orifice)
+
+medium Water: liquid
+    props: registry(potable_water_nist)
+
+flownet Manifold(medium=Water):
+    reference: ambient(280kPa, 288K)
+    nodes: bib, tee, a_in, b_in, c_in, d_in
+    edges:
+        supply: Pipe(from=hose.run)             (bib -> tee)
+        leg_a:  Pipe(from=short_leg.run)         (tee -> a_in)
+        leg_b:  Pipe(from=lateral.run)           (tee -> b_in)
+        leg_c:  Pipe(from=lateral.run)           (tee -> c_in)
+        leg_d:  Pipe(from=lateral.run)           (tee -> d_in)
+        a: Orifice(cd=0.61, dia=0.9mm)           (a_in -> ambient)
+        b: Orifice(cd=0.61, dia=0.9mm)           (b_in -> ambient)
+        c: Orifice(cd=0.61, dia=0.9mm)           (c_in -> ambient)
+        d: Orifice(cd=0.61, dia=0.9mm)           (d_in -> ambient)
+
+require ManifoldBalance:
+    # the four Orifice legs are identical (same cd/dia) and the tee
+    # itself is a plain node -- geometrically symmetric -- but leg_a's
+    # supply run is 0.2m against every other leg's 1.4m: an asymmetric
+    # given over a symmetric topology. INV-4 forbids verify-one here.
+    balance: fluids.flow_imbalance([a, b, c, d]) < 5%

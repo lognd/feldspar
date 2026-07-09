@@ -1,0 +1,12 @@
+# BREAKS: a `resolves:` clause naming a field that is never `free` at
+#   any use site in the corpus (a stale resolver, mirror of E0701).
+# EXPECT-TODO: E0604
+# Self-calibration: per `regolith-lower/src/checks.rs`'s own doc
+# comment, stale-resolver checking (E0604) is cut alongside E0601/E0603
+# (WO-28 partial). `resolves: never_free_field` names a field this file
+# never declares `free`; no E0604 fires today. See README candidate
+# finding.
+process sheet_metal:
+    dfm:
+        rule pins_a_field:
+            resolves: never_free_field

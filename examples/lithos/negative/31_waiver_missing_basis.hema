@@ -1,0 +1,28 @@
+# BREAKS: a waiver with no mandatory `basis:` clause (regolith/12 rule
+#   2: an unjustified concession is rejected, never accepted).
+# EXPECT: E0702
+import std.mech.sheet (Blank)
+
+profile Flat:
+    walk:
+        from left_edge
+        line right
+        line up
+        line left
+        close
+    hole h1:
+        circle(dia 8mm)
+    constraints:
+        a.length = 80mm
+        b.length = 50mm
+        h1.center to a = 32mm
+        h1.center to d = 60mm
+
+part Bracket:
+    material: AISI_304
+    stage cut: process=laser_cut(sheet=1.5mm)
+        then:
+            blank = Blank(Flat)
+
+    waive dfm(min_hole_to_bend) on cut.blank.h1:
+        basis:

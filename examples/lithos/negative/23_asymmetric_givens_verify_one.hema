@@ -1,0 +1,20 @@
+# BREAKS: extending a verified-once result across a symmetry orbit whose
+#   GIVENS are not invariant under the orbit's group (INV-4: a
+#   symmetric bolt circle under an asymmetric moment does not license
+#   verify-one).
+# EXPECT-TODO: INV-4
+# Self-calibration: `bolts` is a geometrically symmetric 4-hole circle
+# loaded by an off-axis moment (asymmetric givens); an `any` claim over
+# the orbit lowers clean today -- the givens-invariance check that
+# INV-4 requires before extending a verify-one result across an orbit
+# is model/solver territory (feldspar), not the static core, and is not
+# exercised by this fixture's checked pipeline. See README candidate
+# finding.
+import std.mech.mounts (BoltPattern)
+
+part Flange:
+    material: AISI_304
+    pattern bolts circular 4
+    require Structural:
+        any_bolt: mech.stress(bolts.any) < 200MPa
+            under=off_axis_moment(12Nm)

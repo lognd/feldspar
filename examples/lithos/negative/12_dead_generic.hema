@@ -1,0 +1,8 @@
+# BREAKS: a generic declared and referenced nowhere -- no monomorphization
+#   point exists for it (INV-11: a monomorphization point-set with no
+#   points).
+# EXPECT: E0503
+interface Dead<x>:
+    y: 1
+part plain:
+    z: 2

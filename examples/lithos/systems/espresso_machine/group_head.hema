@@ -1,0 +1,137 @@
+# Group head -- E61-style thermosiphon group, machined from brass
+# billet (boutique-machine style; the classic is a casting, but the
+# corpus keeps to the settled machining vocabulary). Exercises: a
+# 4-axis billet part with cross-drilled galleries, ZONES that the
+# thermosiphon flownet couples to BY NAME (GroupThermosiphon's
+# HxSegment edges bind GroupHead.zones.dome / GroupHead.zones.jacket
+# -- fluorite 03 sec. 4: the language only guarantees both sides
+# name the same zone datum), the gicleur seat the brew path's
+# Orifice edge lives
+# behind, and a LOWER-sense mass claim (thermal bank).
+
+import "contracts.cupr" (ThermoWell)
+import "fittings.hema" (FittingPort)
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.mounts (MountPattern)
+import std.mech.seals (SealFace)
+
+profile BellBore:
+    walk:
+        from face_plane
+        line down                     # a: 58mm basket bore
+        line left                     # b: gasket step
+        line down                     # c: dispersion chamber wall
+        arc tangent, bulge=right      # d: chamber crown blend
+        close via axis
+    constraints:
+        a.length = 12mm
+        c.length = 9mm
+        d.radius = in [3mm, 6mm]
+        a.diameter = dia 58mm H8      # portafilter basket seat
+    exports:
+        gasket_plane: datum
+        crown_plane:  datum
+
+part GroupHead:
+    material: CW614N                  # free-machining brass; chrome
+                                      # plate is a finishing op below
+
+    stage stock: process=saw_stock(rect(90mm, 90mm, 120mm))
+
+    stage milled: process=cnc_mill(axes=4), from=stock
+        setup A:
+            hold: stock.body.sides
+            datum A = stock.body.front
+            then:
+                bell = Contour(BellBore, keep=inside)
+            then seal_prep on bell.gasket_plane:
+                gasket_seat = Face(mill+lap)      # group gasket land
+            then:
+                lugs = PatternOf<Slot(w=8mm, depth=6mm)>(n=2,
+                           circular(dia 62mm), frame=bell.axis)
+                # portafilter bayonet lugs; 2-lug commercial pattern
+        setup B:
+            hold: milled.bell.od
+            datum B = stock.body.top
+            then:
+                # thermosiphon galleries: inlet high into the dome,
+                # return low out of the jacket -- the elevation
+                # difference IS the natural-circulation driving head
+                # the .fluo loop's extraction reads (fluorite 03
+                # sec. 1: elevation change comes from realized
+                # geometry, never re-declared)
+                ts_in_th    = ThreadedHole(M10x1.0, on=stock.body.top)
+                ts_in_land  = Face(mill, on=stock.body.top)
+                ts_out_th   = ThreadedHole(M10x1.0, on=stock.body.bottom)
+                ts_out_land = Face(mill, on=stock.body.bottom)
+                dome_gallery   = Bore(dia 10mm, from=ts_in_th.axis,
+                                      to=bell.crown_plane)
+                jacket_gallery = Bore(dia 10mm, from=bell.crown_plane,
+                                      to=ts_out_th.axis)
+            then:
+                # gicleur: the 0.6mm flow-limiting jet screwed into
+                # the brew inlet; BrewPath's Orifice edge cites this
+                # seat's implementing feature
+                gicleur_seat_th   = ThreadedHole(M6x0.75, on=stock.body.top)
+                gicleur_seat_land = Face(mill, on=stock.body.top)
+                brew_gallery = Bore(dia 4mm, from=gicleur_seat_th.axis,
+                                    to=bell.crown_plane)
+                well = ThreadedHole(M6x0.75, on=stock.body.front)
+            then:
+                mount_holes = PatternOf<TappedHole<M6>>(n=4,
+                                  rect(64mm x 64mm),
+                                  frame=stock.body.back.center)
+
+    stage plated: process=electroplate(cr_ni), from=milled
+        # cosmetic + wear chrome over nickel; plating thickness enters
+        # the H8 bell-bore tolerance stack from the process capability
+        # table, not from a hand allowance
+
+    datum crown_ref  = milled.bell.crown_plane
+    datum gasket_ref = milled.bell.gasket_plane
+
+    zones over milled.body.faces:
+        dome:   .where(between=(crown_ref, gasket_ref))
+        jacket: remainder
+        # THE cross-track names: GroupThermosiphon's HxSegment edges
+        # (thermosiphon.fluo) bind GroupHead.zones.dome and
+        # GroupHead.zones.jacket -- rename either side and the
+        # coupled solve silently loses its datum
+
+    impl FittingPort<M10x1.0> for self as ts_in:
+        thread = milled.ts_in_th
+        seat   = milled.ts_in_land
+
+    impl FittingPort<M10x1.0> for self as ts_out:
+        thread = milled.ts_out_th
+        seat   = milled.ts_out_land
+
+    impl FittingPort<M6x0.75> for self as gicleur_seat:
+        thread = milled.gicleur_seat_th
+        seat   = milled.gicleur_seat_land
+
+    impl ThermoWell for self as group_well:
+        pocket = milled.well
+
+    impl SealFace<dia 58> for self:
+        face = milled.gasket_seat
+
+    impl MountPattern<M6, n=4, rect(64mm x 64mm)> for self:
+        holes = milled.mount_holes.instances
+
+    require Thermal:
+        # LOWER-sense claim: the group is the shot's thermal ballast;
+        # too light and the first shot after idle undershoots. The
+        # thermosiphon's heat claims (thermosiphon.fluo) hold the
+        # bank AT temperature; this claim makes sure the bank exists.
+        heat_bank: mech.mass(all) >= 3.2kg
+
+    require Structural:
+        # brew circuit hammer peak reaches the dome gallery too --
+        # same promise chain as the brew vessel, smaller section
+        crown: peak(mech.stress.von_mises, during boundary.brew_pressure)
+                   < material.sigma_y(T_local) / 2.0
+
+    require Manufacture:
+        makeable: manufacturable(plated)
+        cost:     mfg.unit_cost(qty=500) <= 96 USD

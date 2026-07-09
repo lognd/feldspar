@@ -1,0 +1,84 @@
+# Sheet-metal sensor bracket -- exercises: sheet-metal process
+# vocabulary (Blank, Pierce, Bend), `free` resolved by DFM, a profile
+# with a named hole and regions, cross-stage DFM (hole-to-bend
+# distance), whole-orbit pattern binding, loads arriving through an
+# interface (the standalone-part discipline: parts have no `boundary:`;
+# literal interface promises ARE their asserted truth).
+
+import std.mech.sheet (Blank, Pierce, Bend)
+import std.mech.mounts (HolePattern)
+
+profile BracketFlat:
+    walk:
+        from left_edge
+        line right                    # a: base edge
+        line up                       # b: right edge
+        line left                     # c: top edge (becomes the flange)
+        close                         # d: left edge
+    hole wire_pass:
+        circle(dia 8mm)
+    constraints:
+        a.length = 80mm
+        b.length = 50mm
+        wire_pass.center to a = 32mm
+        wire_pass.center to d = 60mm
+    regions:
+        flange_band: between(c, c.offset(12mm))   # consumed by the bend
+        web:         interior - flange_band - holes
+    exports:
+        mid_plane: datum
+
+interface SensorPad:
+    frame:
+        origin: pad.center
+        z: pad.normal
+    roles:
+        pad: planar, rect(>= 20mm x 20mm)
+    tolerances:
+        pad: flatness(0.2mm)
+    loads:
+        static: <= 12N              # literal promise: the asserted truth
+        structure: static
+
+part SensorBracket:
+    material: AISI_304
+
+    stage cut: process=laser_cut(sheet=1.5mm)
+        then:
+            blank  = Blank(BracketFlat)
+            # DFM note: pierced holes near the future bend line are
+            # checked by the press pack against blank.flange_band --
+            # the hole-to-bend minimum-distance rule is cross-stage.
+            mounts = PatternOf<Pierce<circle(dia 4.5mm)>>(n=4,
+                         grid(2, 2, 56mm x 30mm),
+                         frame=blank.mid_plane.offset(y=8mm))
+
+    stage formed: process=press_brake, from=cut
+        # Bare statement: one bend, its own scope.
+        flange = Bend(edge=cut.blank.top_edge, angle=90deg, radius=free)
+        # `radius=free` resolves to the press pack's minimum for 1.5mm
+        # AISI_304; lockfile:
+        #   flange.radius = 2.4mm   cause: dfm(min_bend_radius)
+
+    # Expert waiver, evidence-less (substrate 12, rung 7): the wire_pass
+    # hole sits inside the pack's hole-to-bend guard band, accepted for
+    # the prototype run. No `by` clause -> release-gated: `--release`
+    # refuses this build without a per-item acknowledgment.
+    waive dfm(min_hole_to_bend) on cut.blank.wire_pass:
+        basis: "prototype lot only; slight distortion acceptable, EV-31"
+
+    impl HolePattern<M4, n=4, grid(2, 2, 56mm x 30mm)> for self:
+        holes = cut.mounts.instances    # whole orbit; bound at stage
+                                        # `cut`'s exit -- the bend never
+                                        # touches them, so no E0302
+
+    impl SensorPad for self:
+        pad = formed.flange.face
+
+    require Structural:
+        sag: mech.deflection(formed.flange.tip,
+                 under=interface_envelope(SensorPad)) < 0.2mm
+
+    require Manufacture:
+        makeable: manufacturable(formed)
+        cost:     mfg.unit_cost(qty=250) <= 4 USD

@@ -1,0 +1,89 @@
+# small_office: the structural frame (calcite/02 secs. 4-7, 9).
+# Two-story steel gravity frame + one braced bay for lateral; the
+# representative interior frame line (row 2) is modeled member-by-
+# member; the drift claim exercises the lateral system end to end.
+
+import "site.calx" (ElmStreet)
+import "hydronics.fluo" (HeatingLoop)           # cross-track promise
+import std.civil (Pinned, Moment, Bearing, BasePlate, Brace)
+
+# -- Members (02 sec. 4): frame line at row 2 --------------------------
+
+member C_A: column
+    section:  registry(w250x73)
+    material: registry(astm_a992)
+    from (A, 2, ground) to (A, 2, roof)
+
+member C_B: column
+    section:  registry(w250x73)
+    material: registry(astm_a992)
+    from (B, 2, ground) to (B, 2, roof)
+
+member G2_AB: beam                              # second-floor girder
+    section:  free                              # L3 resolves from tables
+    material: registry(astm_a992)
+    from (A, 2, second) to (B, 2, second)
+
+member GR_AB: beam                              # roof girder
+    section:  free
+    material: registry(astm_a992)
+    from (A, 2, roof) to (B, 2, roof)
+
+member Deck2: slab
+    section:  registry(comp_deck_140mm)
+    material: registry(concrete_c30)
+    from (A, 2, second) to (B, 2, second)
+
+member DeckR: slab
+    section:  registry(steel_deck_38mm)
+    material: registry(astm_a653)
+    from (A, 2, roof) to (B, 2, roof)
+
+member Br1: brace                               # braced bay A-B, lateral
+    section:  registry(hss127x127x8)
+    material: registry(astm_a500c)
+    from (A, 2, ground) to (B, 2, second)
+
+# -- Structure: the load-path net (02 sec. 6) --------------------------
+
+structure Frame:
+    support: FA: footing, FB: footing
+    members: C_A, C_B, G2_AB, GR_AB, Deck2, DeckR, Br1
+    transfers:
+        d2_g2:  Bearing(tributary=43.2m2)   (Deck2 -> G2_AB)
+        dr_gr:  Bearing(tributary=43.2m2)   (DeckR -> GR_AB)
+        g2_ca:  Moment()                    (G2_AB -> C_A)
+        g2_cb:  Pinned()                    (G2_AB -> C_B)
+        gr_ca:  Moment()                    (GR_AB -> C_A)
+        gr_cb:  Pinned()                    (GR_AB -> C_B)
+        br_ca:  Pinned()                    (Br1 -> C_A)
+        br_g2:  Pinned()                    (Br1 -> G2_AB)
+        ca_fa:  BasePlate(anchors=registry(f1554_g55_m20x4))
+                                            (C_A -> FA)
+        cb_fb:  BasePlate(anchors=registry(f1554_g55_m20x4))
+                                            (C_B -> FB)
+
+# -- Loads and cases (02 sec. 7) ----------------------------------------
+
+loads:
+    dead:    derived
+    live:    2.4kPa on [Deck2]                  by catalog(asce7_t4)
+    roof_lv: 1.0kPa on [DeckR]                  by catalog(asce7_t4)
+    snow:    site.ground_snow -> std.civil.asce7.roof_snow
+    wind:    site.wind_speed  -> std.civil.asce7.mwfrs
+    seismic: site.seismic_sdc -> std.civil.asce7.elf
+    # Cross-track equipment load (03 sec. 7): the boiler's operating
+    # mass promise (hydronics.fluo, vendor catalog) lands on the
+    # second-floor deck under the mech room through the ordinary
+    # promise chain -- a dotted promise ref, the fluorite driven_by=
+    # precedent; nothing hand-copied.
+    equip:   HeatingLoop.boiler.operating_mass on [Deck2]
+
+require Structure:                              # 02 sec. 9
+    forall combo in std.civil.asce7.strength:
+        strength: civil.utilization(Frame.members.all, under=combo) <= 1.0
+    deflect2: mech.deflection(G2_AB, under=std.civil.asce7.service)
+                  <= G2_AB.span / 360
+    drift:    civil.story_drift(level(second), under=wind) <= 9.0mm
+    bearing:  civil.bearing_pressure(FA) <= site.soil.bearing
+    trust: >= tested                            # load-bearing floor

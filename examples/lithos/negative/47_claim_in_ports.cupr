@@ -1,0 +1,18 @@
+# BREAKS: cuprite/03 sec. 3 -- a `ports:` block declares port roles
+#   (typed `name: kind(...)` fields), never claim lines (`subject:
+#   predicate` / bare-comparator shorthand); a claim belongs in `spec:`
+#   or a `require`/`promises` block.
+# EXPECT-TODO: E0301
+# Self-calibration (WO-36 deliverable 4): `ports:` and `spec:` share the
+# same underlying `field`/claim-line grammar productions (WO-05
+# residue; WO-36 does not introduce a second grammar for either block),
+# so a claim-shaped line parses inside `ports:` exactly as it would in
+# `spec:` -- no pass rejects a claim by its enclosing block name.
+# `vout >= 3.3V` inside `ports:` lowers clean (ok=True, zero
+# diagnostics). Demand signal for a future block-shape check
+# (new SEMANTICS, out of WO-36's stated scope).
+block ClaimPorts:
+    ports:
+        vout >= 3.3V
+    spec:
+        vout = 0

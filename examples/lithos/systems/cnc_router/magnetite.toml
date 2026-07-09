@@ -1,0 +1,26 @@
+# Burin -- 3-axis moving-gantry CNC router (750 x 520 x 120 mm).
+# The D119 flagship stress project. Project manifest (regolith 11
+# sec. 9): a project is this manifest + the source tree + one
+# lockfile. [package] carries only a name until published.
+
+[package]
+name = "burin"
+
+[depends]
+"std.quantities" = "^1"
+"std.materials" = "^1"
+"std.mech" = "^0.9"
+"std.elec" = "^0.6"
+"std.fluorite" = "^0.1"
+"std.intents" = "^1"
+"std.compute" = "^0.5"
+"hiwin.linear" = "^3"
+"jlc.pcb" = "^2"
+
+[evidence]
+# hash-pinned source documents records and boundaries may cite
+"cutting-force-survey-r1.pdf" = "sha256:5d1a2e..."
+"fai-zplate-op30.pdf" = "sha256:90cc41..."
+"fai-sideplate-lot2.pdf" = "sha256:77e0b8..."
+"spindle-2p2kw-datasheet.pdf" = "sha256:e3f9a2..."
+"thermal-soak-run4.pdf" = "sha256:1baf60..."

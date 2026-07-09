@@ -1,0 +1,11 @@
+# BREAKS: a `flows:` edge naming a destination that is not a declared
+#   participant (intent/boundary/reserve) -- the flow ledger's domain-
+#   crossing check.
+# EXPECT: E0420
+system Sys:
+    intents:
+        sense: sense(x)
+        decide: compute(y)
+    flows:
+        sense -> decide
+        decide -> ghost

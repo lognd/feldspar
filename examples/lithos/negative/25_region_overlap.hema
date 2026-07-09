@@ -1,0 +1,7 @@
+# BREAKS: a route into a keepout region without a declared `join` that
+#   exempts it (INV-23 region exclusivity: an owned exclusion region is
+#   a borrow like any other).
+# EXPECT: E0302
+part p:
+    keepout solar
+    route trace into solar

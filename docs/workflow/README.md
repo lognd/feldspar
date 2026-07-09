@@ -24,9 +24,11 @@ design decisions):
   bug filed, not a local choice.
 - `02-edge-cases.md` -- the required-test matrix. Before closing a
   WO, grep it for the WO id and cover every matching row.
-- `../../examples/` and `../../examples/lithos/` -- API pressure
-  tests and lithos end-to-end fixtures; if an implementation makes an
-  example uglier, the spec loses, not the example.
+- `../../examples/` -- API pressure tests; if an implementation
+  makes an example uglier, the spec loses, not the example.
+  `../../examples/lithos/` is a verbatim MIRROR of the lithos
+  repo's corpus (lithos D148): fixture changes land in lithos and
+  arrive via `make sync-examples`, never by editing the mirror.
 
 ## Dependency graph
 

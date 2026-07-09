@@ -1,0 +1,60 @@
+# Pedestrian footbridge -- exercises: calcite/02 structure-only file
+# (no spaces at all: a civil design need not have architectural
+# program), steel serviceability: deflection AND the first-mode
+# vibration claim (regolith/02 sec. 5 modal family, shared with mech).
+# std.civil names are WO-48 content (phantom until the pack lands).
+
+import std.civil (Pinned, Roller, Bearing)
+
+site Greenway:                                  # 02 sec. 1
+    boundary:
+        wind_speed:  [0m/s, 43m/s]              by catalog(asce7_fig26)
+        ground_snow: 1.4kPa                     by catalog(asce7_fig7)
+    soil:
+        bearing:     [190kPa, 260kPa]           by test(geotech_g551)
+
+grid ends: A, B spacing 12.0m                   # the span
+level deck: 0m
+
+member G1: beam                                 # twin girders
+    section:  free                              # governed by vibration,
+    material: registry(astm_a992)               # not strength -- the L3
+    from (A, deck) to (B, deck)                 # search must satisfy ALL
+                                                # claims (03 sec. 1)
+member G2: beam
+    section:  free
+    material: registry(astm_a992)
+    from (A, deck) to (B, deck)
+
+member Deck: slab
+    section:  registry(comp_deck_140mm)
+    material: registry(concrete_c30)
+    from (A, deck) to (B, deck)
+
+structure Bridge:                               # 02 sec. 6
+    support: AB1: footing, AB2: footing         # abutments
+    members: G1, G2, Deck
+    transfers:
+        d_g1:  Bearing(tributary=10.8m2)    (Deck -> G1)
+        d_g2:  Bearing(tributary=10.8m2)    (Deck -> G2)
+        g1_a:  Pinned()                     (G1 -> AB1)
+        g1_b:  Roller()                     (G1 -> AB2)
+        g2_a:  Pinned()                     (G2 -> AB1)
+        g2_b:  Roller()                     (G2 -> AB2)
+
+loads:                                          # 02 sec. 7
+    dead:       derived
+    pedestrian: 4.1kPa on [Deck]                by catalog(aashto_ped)
+    snow:       site.ground_snow -> std.civil.asce7.roof_snow
+
+require Structure:                              # 02 sec. 9
+    forall combo in std.civil.aisc.strength:
+        strength: civil.utilization(Bridge.members.all, under=combo) <= 1.0
+    deflect:  mech.deflection(G1, under=std.civil.aisc.service)
+                  <= G1.span / 360
+    # The claim that actually governs: pedestrian-induced vibration.
+    # Modal claims are the regolith/02 sec. 5 frequency family --
+    # same form as a PCB's first-mode claim, discharged by a frame
+    # modal model (feldspar vibration tier) over the frame payload.
+    vibe:     mech.first_mode(Bridge) > 3Hz
+    bearing:  civil.bearing_pressure(AB1) <= site.soil.bearing

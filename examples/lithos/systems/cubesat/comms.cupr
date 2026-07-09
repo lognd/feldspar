@@ -1,0 +1,45 @@
+# Kestrel comms -- UHF transceiver board + the burn-wire deployment
+# channel for the antenna. Exercises: boundary communicate (ground
+# station: genuinely not ours), an RF chain claim that WANTS dB
+# arithmetic (F81 -> SOPEN-5), the burn-wire one-shot actuation, and
+# the AntennaPort contract's discrete release role.
+
+import "contracts.cupr" (StackCard, AntennaPort)
+import std.elec.families (cmos_3v3)
+
+board CommsPcb:
+    stage bare:      process=pcb_fab(jlc_4l_ctrl_imp)   # 50ohm classes
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    then:
+        u_xcvr = vendor(ax5043)             # UHF transceiver
+        u_pa   = vendor(rfpa0133)           # +27dBm PA
+        u_tcxo = vendor(txc_7q_16m)
+        q_burn = vendor(si2302)             # burn-wire low-side switch
+
+    impl StackCard for self:
+        outline = bare.outline
+        mounts  = bare.mount_holes.instances
+        conn    = assembled.stack_conn
+        promises:
+            mass:  <= 71g
+            power: <= 2.8W during op = downlink   # PA burst
+            power: <= 90mW during op = nominal    # RX idle
+
+    impl AntennaPort for self:
+        rf      = assembled.rf_conn
+        release = assembled.burn_ch          # q_burn's output, as a
+                                             # discrete {held, released}
+
+    require Rf:
+        # F81 -> SOPEN-5, now CLOSED (substrate 02 sec. 5a): log units
+        # are views of linear quantities, so this claim is stored and
+        # margin-checked in watts but written and reported in dBm:
+        pa_out:  elec.power(assembled.rf_conn) >= 26dBm during op = downlink
+        harmonics: stays_within(emissions, mask=fcc_part25)
+
+    require Deploy:
+        burn_energy: elec.energy(q_burn.out, over=burn_pulse) >= 4J, sf=2
+        one_shot:    forall op: state(release) = held until fired(burn_pulse)
+
+    event burn_pulse: commanded(deploy_cmd), width=1.5s

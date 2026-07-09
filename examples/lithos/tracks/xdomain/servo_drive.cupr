@@ -1,0 +1,52 @@
+# Servo drive board -- the elec half of the second SOPEN-2 pressure
+# test (see servo_module.hema, which imports this file directly: D23).
+# Declares its own boundary; the enclosing module's context must be
+# CONTAINED in it for this board's evidence to transfer (boundary
+# subsumption, D29).
+
+import std.intents
+import servo.interfaces (DriveCartridge)   # mixed-domain contract pack
+
+system ServoDrive:
+    boundary:
+        supply:  dc([10V, 14V], source_z <= 100mohm)
+        ambient: [-10degC, 70degC]        # wider than the module's
+                                          # [-5degC, 55degC]: subsumes it
+        design_life: 5 yr
+
+    intents:
+        spin: actuate(bldc_motor(12V, i_phase <= 3A)):
+            control: field_oriented
+        sense_pos: sense(geom.angle):
+            resolution: <= 0.1deg
+            rate: >= 10kHz
+        cmd: communicate(rs485_bus):
+            rate: <= 1kHz
+        decide: compute(servo_law):
+            rate:    10kHz
+            latency: < 60us
+
+    flows:
+        sense_pos -> decide
+        cmd -> decide
+        decide -> spin
+
+    require Power:
+        draw: elec.power(all) <= 6W during op = run
+    exposing op: {idle, run, fault}
+
+board ServoDrivePcb:
+    stage bare:      process=pcb_fab(jlc_2l)
+    stage assembled: process=smt_assembly(jlc_basic), from=bare
+
+    # The mixed-domain contract: geometric roles (outline, holes,
+    # connector position) in quantity-core geom vocabulary + elec and
+    # thermal promises. The mech side (the housing's cartridge bay)
+    # implements the complementary CartridgeBay interface.
+    impl DriveCartridge<outline=rect(32mm x 20mm), screw=M2> for self:
+        holes    = bare.mount_holes.instances
+        outline  = bare.outline
+        phase_out = assembled.phase_conn       # connector as a role
+        promises:
+            thermal.dissipation: <= 1.5W       # inline refinement (F31)
+            mass: <= 18g

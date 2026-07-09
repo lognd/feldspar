@@ -1,0 +1,7 @@
+# BREAKS: a `refer` reaching into a sibling scope's declaration (INV-6
+#   snapshot isolation: sibling exports are not name-resolvable).
+# EXPECT: E0301
+part p:
+    feature hole
+part q:
+    refer hole

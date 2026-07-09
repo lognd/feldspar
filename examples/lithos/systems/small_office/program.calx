@@ -1,0 +1,109 @@
+# small_office: architectural program, egress, envelope (calcite/02
+# secs. 2, 3, 8, 9, 10). Two stories, one exit stair + one exterior
+# exit; a mech room offering contracts the MEP files bind.
+
+import "site.calx" (ElmStreet)
+import std.civil (Door, Exit, Stair, FloorDrain, Feeder, HousekeepingPad)
+
+# -- Spaces (02 sec. 2) ------------------------------------------------
+
+space OpenOffice1:
+    area:      168m2
+    occupancy: registry(b_office)
+    at:        level(ground)
+    bounded_by: ExtWall on [north, east, west]
+
+space OpenOffice2:
+    area:      168m2
+    occupancy: registry(b_office)
+    at:        level(second)
+    bounded_by: ExtWall on [north, east, west]
+
+space Corridor1:
+    area:      22m2
+    occupancy: registry(b_office)
+    at:        level(ground)
+    bounded_by: CorridorWall1hr on [north, south]
+
+space Corridor2:
+    area:      22m2
+    occupancy: registry(b_office)
+    at:        level(second)
+    bounded_by: CorridorWall1hr on [north, south]
+
+space MechRoom:
+    area:      18m2
+    occupancy: registry(b_mechanical)
+    at:        level(second)                    # equipment loads land on
+    bounded_by: CorridorWall1hr on [all]        # Deck2 (frame.calx)
+    offers:                                     # 02 sec. 10: the MEP
+        drain: FloorDrain(dia=100mm)            # boundary contracts
+        power: Feeder(capacity=40kW)
+        pad:   HousekeepingPad(area=2m2)
+
+# -- Circulation (02 sec. 3) -------------------------------------------
+
+access:
+    oo1_door:   Door(width=915mm, swing=egress, path_length=24m)
+                    (OpenOffice1 -> Corridor1)
+    oo2_door:   Door(width=915mm, swing=egress, path_length=24m)
+                    (OpenOffice2 -> Corridor2)
+    mech_door:  Door(width=915mm, swing=egress, path_length=6m)
+                    (MechRoom -> Corridor2)
+    stair_up:   Stair(width=1120mm, path_length=9m)
+                    (Corridor2 -> Corridor1)
+    main_exit:  Exit(width=1830mm, path_length=8m)
+                    (Corridor1 -> exterior)
+
+circulation Egress:
+    reference: exterior
+    nodes: OpenOffice1, OpenOffice2, Corridor1, Corridor2, MechRoom
+    edges: oo1_door, oo2_door, mech_door, stair_up, main_exit
+
+# -- Envelope (02 sec. 8) ----------------------------------------------
+
+assembly ExtWall: wall
+    layers:
+        face:  registry(brick_veneer_90mm)
+        gap:   registry(air_gap_25mm)
+        ins:   registry(mineral_wool_152mm)
+        stud:  registry(steel_stud_92mm_600oc)
+        board: registry(gyp_type_x_16mm)
+    promises:
+        u_value:     derived                    # layer series sum (03 sec. 2)
+        fire_rating: >= 1hr    by catalog(ul_u465)
+
+assembly CorridorWall1hr: wall
+    layers:
+        board_a: registry(gyp_type_x_16mm)
+        stud:    registry(steel_stud_92mm_600oc)
+        board_b: registry(gyp_type_x_16mm)
+    promises:
+        fire_rating: >= 1hr    by catalog(ul_u419)
+        stc:         >= 45     by test(ra_tl_1988)
+
+# -- Claims (02 sec. 9) ------------------------------------------------
+
+require Egress:
+    travel:   civil.travel_distance(OpenOffice2 -> exterior) <= 76m
+    capacity: civil.exit_capacity(level(ground))
+                  >= civil.occupant_load(level(ground))
+              + civil.occupant_load(level(second))
+    deadend:  civil.dead_end(Corridor1) <= 6.1m
+
+require Envelope:
+    thermal:  civil.u_value(ExtWall) <= 0.29 W/m2K   # climate zone 5A
+    fire:     civil.fire_rating(Corridor1.bounded_by.all) >= 1hr
+    acoustic: civil.stc(CorridorWall1hr) >= 45
+
+budget FloorArea kind=area:                     # D49 pack kind `area`
+    members: [OpenOffice1, OpenOffice2, Corridor1, Corridor2, MechRoom]
+    allocate: worst_case
+    locked:  MechRoom: 18m2
+
+require Budgeting:                              # D147 estimating axis
+    # Whole-project construction estimate at the declared profile
+    # (magnetite.toml [profiles.cost.construction]): quantity takeoff
+    # from the L6 schedules x the profile's unit-cost records,
+    # discharged by estimator models -- plan-as-evidence, itemized.
+    construction: mfg.cost(all, profile=construction) <= 850000USD

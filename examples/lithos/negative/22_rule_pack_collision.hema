@@ -1,0 +1,10 @@
+# BREAKS: two rules of the same qualified name (`pack.rule`) attached to
+#   one process (design doc D-C: union composition with no priority
+#   arithmetic makes a collision an error, never silent shadowing).
+# EXPECT: E0602
+process sheet_metal:
+    dfm:
+        rule a:
+            demand: true
+        rule a:
+            demand: true

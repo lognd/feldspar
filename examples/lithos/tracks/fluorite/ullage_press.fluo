@@ -1,0 +1,54 @@
+# Pressurant-into-ullage tank interface -- exercises: fluorite/02
+# secs. 1 + 3 as amended cycle 27 (D142): the `Mixer` declared-
+# outlet medium boundary, on FOPEN-1's own expected first case (a
+# GN2-pressurized propellant tank whose ullage interface state is
+# load-bearing). Each flownet stays single-medium; the tank is ONE
+# component whose ports appear in both nets (the InjectorHead
+# component-path precedent, 02 sec. 4); the Mixer edge declares the
+# outlet medium, whose saturated-ullage properties are a RECORD --
+# composition is never node state.
+
+import std.fluorite (Pipe, Regulator, CheckValve, Mixer)
+
+medium GN2: gas
+    props: registry(nitrogen_nist)
+
+medium RP1: liquid
+    props: registry(rp1_mil_dtl_25576)
+
+medium UllageGas: gas                           # the declared outlet:
+    props: registry(gn2_rp1_saturated_ullage)   # a mixture RECORD
+                                                # (fuel-vapor-saturated
+                                                # GN2), the D142 rule
+
+flownet PressSide(medium=GN2):                  # pressurant subnet
+    reference: ambient(101kPa, 293K)
+    nodes: bottle_out, reg_dn, cv_dn, ullage_in
+    edges:
+        reg:    Regulator(set=2.4MPa, droop=50kPa)
+                                        (bottle_out -> reg_dn)
+        cv:     CheckValve(crack_dp=15kPa)
+                                        (reg_dn -> cv_dn)
+        diff:   Pipe(from=diffuser.run) (cv_dn -> ullage_in)
+        ullage: Mixer(outlet=UllageGas) (ullage_in -> press_tank.ullage)
+                                        # the medium boundary: GN2
+                                        # ends here; downstream of
+                                        # this edge is UllageGas
+                                        # territory (D142)
+
+flownet FuelSide(medium=RP1):                   # propellant subnet --
+    reference: ambient(101kPa, 293K)            # its own single medium
+    nodes: tank_out, mv_dn
+    edges:
+        outlet: press_tank.fuel_path    (tank_out -> mv_dn)
+                                        # same physical tank, its
+                                        # liquid-side port (component
+                                        # path, 02 sec. 4 precedent)
+
+require Press:
+    set:      fluids.pressure(press_tank.ullage) within [2.30MPa, 2.45MPa]
+    collapse: fluids.dp(reg_dn -> ullage_in) <= 60kPa
+    # NPSH-analog on the liquid side: the ullage RECORD carries the
+    # load-bearing interface state FOPEN-1 named (vapor partial
+    # pressures), consumed through ordinary property evaluation.
+    feed:     fluids.pressure(tank_out) - RP1.pv(293K) >= 180kPa

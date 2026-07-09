@@ -19,11 +19,27 @@ NOTHING open -- every residual is decided or named-gate deferred.
 
 Wave 1 -- dispatchable NOW:
 
-- [ ] **WO-12** payload ports (M2) -- the root of the forward graph.
-- [ ] **WO-22** symbolic follow-ups (R4/R5, decided 2026-07-08) --
-      independent of the M2 chain.
-- [ ] **Lithos WO-27 conformance run** (lithos-side; expect asks to
-      land here as small fixes, not new milestones).
+- [x] **WO-12** DONE (2026-07-08 completion cycle): payload ports
+      through plan/execute/solve, PayloadStepCache, FINV-12
+      payload-hash-in-digest; 15-row edge matrix tested. Deferred
+      (recorded in the WO): F12 declaration-ordering seam -> WO-14;
+      payload-port targets -> M4.
+- [x] **WO-22** DONE (2026-07-08 completion cycle): differentiate +
+      Normal delta-propagation + R5 re-swept calibration; digests
+      CANON_VERSION-sensitive. NOTE (coordinator ruling): wiring
+      `Normal` propagation into execute()/plan() route selection
+      stays POST-V1 per doc 02's own "Planned, not v1" -- reopen
+      when a consumer needs calibration-grade uncertainty routing,
+      not before.
+- [x] **Lithos WO-27 conformance run** DONE lithos-side (its WO
+      file has the close-out): real-pack discharge signed+verified,
+      uninstall reverts, evidence hash byte-identical. The one ask
+      that landed here: the `regolith.plugins` seam migration +
+      the stderr logging fix (2026-07-08).
+      KNOWN LATENT (flagged by WO-12's agent, fix with WO-14): the
+      WO-08 `fea`-marked tests pin `eps_budget=1e-2`, which the M1
+      sum-surrogate would refuse as BudgetUnreachable if ever run
+      with real gmsh/ccx present.
 
 Wave 2 -- after WO-12:
 

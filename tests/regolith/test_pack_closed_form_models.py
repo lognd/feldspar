@@ -17,6 +17,8 @@ from regolith.harness.quantity import Interval
 from regolith.harness.signature import ClaimSense
 
 from feldspar.pack.models import (
+    _RAIL_INPUTS,
+    _STIFFNESS_INPUTS,
     DEFAULT_RAIL_HI_CLAIM_KIND,
     DEFAULT_RAIL_LO_CLAIM_KIND,
     DEFAULT_STIFFNESS_CLAIM_KIND,
@@ -324,3 +326,66 @@ def test_rail_rejects_degenerate_inputs(vin, r1, r2, rload) -> None:
     error = result.danger_err
     assert isinstance(error, DomainError)
     assert error.model_id == _LO_MODEL.model_id
+
+
+def test_stiffness_rejects_overflowed_deflection_as_domain_error() -> None:
+    """L1 (FINDINGS-e2e-r3.md): e_modulus/i_area ~1e200 overflows the
+    Rust deflection formula to 0.0, which used to feed `1.0 /
+    deflection` and raise `ZeroDivisionError` instead of returning the
+    documented `Result` contract. Must be an honest `DomainError`, not
+    a raise and not a NaN/inf-valued `Prediction`."""
+    model = MechStiffnessModel()
+    request = _stiffness_request(
+        e_modulus=_pinned(1.0e200),
+        i_area=_pinned(1.0e200),
+        length=_pinned(1.0),
+        limit=0.0,
+    )
+
+    result = model.estimate(request)
+
+    assert result.is_err
+    error = result.danger_err
+    assert isinstance(error, DomainError)
+    assert error.model_id == model.model_id
+
+
+def test_rail_rejects_overflowed_vout_as_domain_error() -> None:
+    """L2 (FINDINGS-e2e-r3.md): r2/rload ~1e308 overflows the loaded
+    divider formula to inf/inf = NaN, which used to pass through as a
+    silently NaN-valued `Prediction` instead of the documented `Result`
+    contract. Must be an honest `DomainError`, not a NaN-valued
+    success."""
+    request = _rail_request(
+        claim_kind=DEFAULT_RAIL_LO_CLAIM_KIND,
+        vin=_pinned(10.0),
+        r1=_pinned(1.0),
+        r2=_pinned(1.0e308),
+        rload=_pinned(1.0e308),
+        limit=0.0,
+    )
+
+    result = _LO_MODEL.estimate(request)
+
+    assert result.is_err
+    error = result.danger_err
+    assert isinstance(error, DomainError)
+    assert error.model_id == _LO_MODEL.model_id
+
+
+# ---------------------------------------------------------------------------
+# Cross-repo contract pin (FINDINGS-e2e-r3.md, auditor concern #3)
+# ---------------------------------------------------------------------------
+
+
+def test_claim_kind_and_input_name_contract_pinned() -> None:
+    """The lithos scaffold templates hard-depend on these exact literal
+    strings/tuples (models.py:615-623) to generate a working freshly
+    scaffolded regolith project. A rename here is a silent cross-repo
+    break for those templates -- pin the literals so it fails loudly
+    in THIS repo's test suite instead."""
+    assert DEFAULT_STIFFNESS_CLAIM_KIND == "mech.stiffness"
+    assert DEFAULT_RAIL_LO_CLAIM_KIND == "elec.rail.lo"
+    assert DEFAULT_RAIL_HI_CLAIM_KIND == "elec.rail.hi"
+    assert set(_STIFFNESS_INPUTS) == {"e_modulus", "i_area", "length"}
+    assert set(_RAIL_INPUTS) == {"vin", "r1", "r2", "rload"}

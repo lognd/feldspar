@@ -705,6 +705,17 @@ class MechStiffnessModel(Model):
                     deflection = _feldspar.mech_cantilever_tip_deflection(
                         1.0, length_corner, e, i
                     )
+                    if not math.isfinite(deflection) or deflection <= 0.0:
+                        return Err(
+                            DomainError(
+                                model_id=self.model_id,
+                                message=(
+                                    f"deflection non-finite or non-positive at "
+                                    f"e_modulus={e} i_area={i} "
+                                    f"length={length_corner}: deflection={deflection}"
+                                ),
+                            )
+                        )
                     stiffness = 1.0 / deflection
                     worst = min(worst, stiffness)
 
@@ -809,6 +820,16 @@ class ElecRailModel(Model):
                 for b in sorted({r2.lo, r2.hi}):
                     for c in sorted({rload.lo, rload.hi}):
                         vout = _feldspar.elec_divider_loaded_vout(v, a, b, c)
+                        if not math.isfinite(vout):
+                            return Err(
+                                DomainError(
+                                    model_id=self.model_id,
+                                    message=(
+                                        f"vout non-finite at vin={v} r1={a} r2={b} "
+                                        f"rload={c}: vout={vout}"
+                                    ),
+                                )
+                            )
                         lo_hull = min(lo_hull, vout)
                         hi_hull = max(hi_hull, vout)
 

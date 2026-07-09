@@ -29,6 +29,15 @@ use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
 use library::{
+    fluids_colebrook_friction_factor_py, fluids_darcy_dp_py, fluids_fanno_function_py,
+    fluids_haaland_friction_factor_py, fluids_isentropic_stagnation_pressure_ratio_py,
+    fluids_isentropic_stagnation_temp_ratio_py, fluids_joukowsky_dp_py,
+    fluids_laminar_friction_factor_py, fluids_minor_loss_dp_py, fluids_normal_shock_mach2_py,
+    fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_parallel_flow_py,
+    fluids_pump_operating_flow_py, fluids_pump_operating_head_py, fluids_reynolds_number_py,
+    fluids_series_dp_py, heat_coefficient_from_nusselt_py, heat_convection_resistance_py,
+    heat_cylindrical_wall_resistance_py, heat_dittus_boelter_nusselt_py,
+    heat_plane_wall_resistance_py, heat_rate_from_resistance_py, heat_series_resistance_py,
     mech_bore_von_mises_py, mech_cantilever_required_youngs_modulus_py,
     mech_cantilever_tip_deflection_py, mech_lame_hoop_stress_bore_py,
     mech_lame_radial_stress_bore_py, mech_rect_second_moment_py, mech_von_mises_principal_py,
@@ -75,6 +84,36 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mech_lame_radial_stress_bore_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_von_mises_principal_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_bore_von_mises_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_reynolds_number_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_laminar_friction_factor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_colebrook_friction_factor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_haaland_friction_factor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_darcy_dp_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_minor_loss_dp_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_series_dp_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_parallel_flow_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_pump_operating_flow_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_pump_operating_head_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_npsh_available_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_joukowsky_dp_py, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        fluids_isentropic_stagnation_temp_ratio_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        fluids_isentropic_stagnation_pressure_ratio_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(fluids_normal_shock_mach2_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_normal_shock_pressure_ratio_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_fanno_function_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_plane_wall_resistance_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_cylindrical_wall_resistance_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_convection_resistance_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_series_resistance_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_rate_from_resistance_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_dittus_boelter_nusselt_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_coefficient_from_nusselt_py, m)?)?;
     m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
     m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
     m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;

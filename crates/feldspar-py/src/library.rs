@@ -83,3 +83,194 @@ pub fn mech_von_mises_principal_py(sigma1: f64, sigma2: f64, sigma3: f64) -> f64
 pub fn mech_bore_von_mises_py(pressure: f64, inner_radius: f64, outer_radius: f64) -> f64 {
     feldspar_library::mech::bore_von_mises(pressure, inner_radius, outer_radius)
 }
+
+// ---------------------------------------------------------------------------
+// fluids (WO-20)
+// ---------------------------------------------------------------------------
+
+#[pyfunction]
+#[pyo3(name = "fluids_reynolds_number")]
+pub fn fluids_reynolds_number_py(
+    density: f64,
+    velocity: f64,
+    diameter: f64,
+    viscosity: f64,
+) -> f64 {
+    feldspar_library::fluids::fluids_reynolds_number(density, velocity, diameter, viscosity)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_laminar_friction_factor")]
+pub fn fluids_laminar_friction_factor_py(reynolds: f64) -> f64 {
+    feldspar_library::fluids::fluids_laminar_friction_factor(reynolds)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_colebrook_friction_factor")]
+pub fn fluids_colebrook_friction_factor_py(reynolds: f64, relative_roughness: f64) -> f64 {
+    feldspar_library::fluids::fluids_colebrook_friction_factor(reynolds, relative_roughness)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_haaland_friction_factor")]
+pub fn fluids_haaland_friction_factor_py(reynolds: f64, relative_roughness: f64) -> f64 {
+    feldspar_library::fluids::fluids_haaland_friction_factor(reynolds, relative_roughness)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_darcy_dp")]
+pub fn fluids_darcy_dp_py(
+    friction_factor: f64,
+    length: f64,
+    diameter: f64,
+    density: f64,
+    velocity: f64,
+) -> f64 {
+    feldspar_library::fluids::fluids_darcy_dp(friction_factor, length, diameter, density, velocity)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_minor_loss_dp")]
+pub fn fluids_minor_loss_dp_py(k_factor: f64, density: f64, velocity: f64) -> f64 {
+    feldspar_library::fluids::fluids_minor_loss_dp(k_factor, density, velocity)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_series_dp")]
+pub fn fluids_series_dp_py(dp1: f64, dp2: f64) -> f64 {
+    feldspar_library::fluids::fluids_series_dp(dp1, dp2)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_parallel_flow")]
+pub fn fluids_parallel_flow_py(q1: f64, q2: f64) -> f64 {
+    feldspar_library::fluids::fluids_parallel_flow(q1, q2)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_pump_operating_flow")]
+pub fn fluids_pump_operating_flow_py(h0: f64, a: f64, h_static: f64, r: f64) -> f64 {
+    feldspar_library::fluids::fluids_pump_operating_flow(h0, a, h_static, r)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_pump_operating_head")]
+pub fn fluids_pump_operating_head_py(h_static: f64, r: f64, q_star: f64) -> f64 {
+    feldspar_library::fluids::fluids_pump_operating_head(h_static, r, q_star)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_npsh_available")]
+pub fn fluids_npsh_available_py(
+    p_atm: f64,
+    p_vapor: f64,
+    density: f64,
+    gravity: f64,
+    static_head: f64,
+    friction_head: f64,
+) -> f64 {
+    feldspar_library::fluids::fluids_npsh_available(
+        p_atm,
+        p_vapor,
+        density,
+        gravity,
+        static_head,
+        friction_head,
+    )
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_joukowsky_dp")]
+pub fn fluids_joukowsky_dp_py(density: f64, wave_speed: f64, delta_velocity: f64) -> f64 {
+    feldspar_library::fluids::fluids_joukowsky_dp(density, wave_speed, delta_velocity)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_isentropic_stagnation_temp_ratio")]
+pub fn fluids_isentropic_stagnation_temp_ratio_py(mach: f64, gamma: f64) -> f64 {
+    feldspar_library::fluids::fluids_isentropic_stagnation_temp_ratio(mach, gamma)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_isentropic_stagnation_pressure_ratio")]
+pub fn fluids_isentropic_stagnation_pressure_ratio_py(mach: f64, gamma: f64) -> f64 {
+    feldspar_library::fluids::fluids_isentropic_stagnation_pressure_ratio(mach, gamma)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_normal_shock_mach2")]
+pub fn fluids_normal_shock_mach2_py(mach1: f64, gamma: f64) -> f64 {
+    feldspar_library::fluids::fluids_normal_shock_mach2(mach1, gamma)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_normal_shock_pressure_ratio")]
+pub fn fluids_normal_shock_pressure_ratio_py(mach1: f64, gamma: f64) -> f64 {
+    feldspar_library::fluids::fluids_normal_shock_pressure_ratio(mach1, gamma)
+}
+
+#[pyfunction]
+#[pyo3(name = "fluids_fanno_function")]
+pub fn fluids_fanno_function_py(mach: f64, gamma: f64) -> f64 {
+    feldspar_library::fluids::fluids_fanno_function(mach, gamma)
+}
+
+// ---------------------------------------------------------------------------
+// heat (WO-20)
+// ---------------------------------------------------------------------------
+
+#[pyfunction]
+#[pyo3(name = "heat_plane_wall_resistance")]
+pub fn heat_plane_wall_resistance_py(thickness: f64, conductivity: f64, area: f64) -> f64 {
+    feldspar_library::heat::heat_plane_wall_resistance(thickness, conductivity, area)
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_cylindrical_wall_resistance")]
+pub fn heat_cylindrical_wall_resistance_py(
+    inner_radius: f64,
+    outer_radius: f64,
+    conductivity: f64,
+    length: f64,
+) -> f64 {
+    feldspar_library::heat::heat_cylindrical_wall_resistance(
+        inner_radius,
+        outer_radius,
+        conductivity,
+        length,
+    )
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_convection_resistance")]
+pub fn heat_convection_resistance_py(coefficient: f64, area: f64) -> f64 {
+    feldspar_library::heat::heat_convection_resistance(coefficient, area)
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_series_resistance")]
+pub fn heat_series_resistance_py(r1: f64, r2: f64) -> f64 {
+    feldspar_library::heat::heat_series_resistance(r1, r2)
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_rate_from_resistance")]
+pub fn heat_rate_from_resistance_py(delta_temp: f64, resistance: f64) -> f64 {
+    feldspar_library::heat::heat_rate_from_resistance(delta_temp, resistance)
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_dittus_boelter_nusselt")]
+pub fn heat_dittus_boelter_nusselt_py(reynolds: f64, prandtl: f64, heating: bool) -> f64 {
+    feldspar_library::heat::heat_dittus_boelter_nusselt(reynolds, prandtl, heating)
+}
+
+#[pyfunction]
+#[pyo3(name = "heat_coefficient_from_nusselt")]
+pub fn heat_coefficient_from_nusselt_py(
+    nusselt: f64,
+    fluid_conductivity: f64,
+    diameter: f64,
+) -> f64 {
+    feldspar_library::heat::heat_coefficient_from_nusselt(nusselt, fluid_conductivity, diameter)
+}

@@ -18,11 +18,13 @@ from typani.result import Err, Ok, Result
 
 from feldspar import _feldspar
 from feldspar._feldspar import (
+    CANON_VERSION,
     Accuracy,
     Dimension,
     Domain,
     Expr,
     Interval,
+    Normal,
     PortDecl,
     Predicate,
     Rank,
@@ -34,6 +36,7 @@ from feldspar._feldspar import (
 )
 
 __all__ = [
+    "CANON_VERSION",
     "Accuracy",
     "CoreError",
     "Dimension",
@@ -42,6 +45,7 @@ __all__ = [
     "EXACT",
     "Expr",
     "Interval",
+    "Normal",
     "PortDecl",
     "Predicate",
     "Rank",
@@ -49,6 +53,8 @@ __all__ = [
     "UnitSystem",
     "canonical_digest",
     "corner_sweep",
+    "delta_propagate_numeric",
+    "delta_propagate_symbolic",
     "format_f64",
     "inflate",
     "invert_for",
@@ -311,3 +317,20 @@ inflate = _feldspar.inflate
 #: `half_width(out_hull) + model_eps`: the budget-checked total
 #: worst-case error at a route's target (01-interfaces WO-04).
 total_error = _feldspar.total_error
+
+#: Delta-method `Normal` propagation with SYMBOLIC derivatives (11 sec.
+#: 4 R4, WO-22): every input's partial is the kernel's `differentiate`
+#: of `rhs` evaluated at the input means. Raises `_feldspar.EvalErrorRaised`
+#: on a missing port or a domain fault (mirrors `Expr.eval`'s own raising
+#: contract, e.g. `sugar.py`'s `_make_raw_fn` -- no generic `EvalError`
+#: typani wrapper exists yet; callers needing one catch this locally,
+#: same as every other `Expr.eval` call site).
+delta_propagate_symbolic = _feldspar.delta_propagate_symbolic
+
+#: Delta-method `Normal` propagation with NUMERIC (central finite
+#: difference) derivatives (11 sec. 4 R4, WO-22): the mode a step takes
+#: when it has no declared symbolic law. `callback` is a plain
+#: `Mapping[str, float] -> float`. Raises `_feldspar.EvalErrorRaised` if
+#: `callback` does not return a float; a raising `callback` propagates
+#: its own exception unchanged.
+delta_propagate_numeric = _feldspar.delta_propagate_numeric

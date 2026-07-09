@@ -126,6 +126,12 @@ impl PyExpr {
         PyExpr(self.0.canonicalize())
     }
 
+    /// Symbolic differentiation w.r.t. `var` (11 sec. 4 R4, WO-22):
+    /// kernel differentiation over the canonical AST, canonicalized.
+    fn differentiate(&self, var: &str) -> PyExpr {
+        PyExpr(feldspar_core::symbolic::differentiate(&self.0, var))
+    }
+
     fn canonical_string(&self) -> String {
         self.0.canonical_string()
     }

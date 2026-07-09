@@ -33,7 +33,10 @@ use library::{
     mech_cantilever_tip_deflection_py, mech_lame_hoop_stress_bore_py,
     mech_lame_radial_stress_bore_py, mech_rect_second_moment_py, mech_von_mises_principal_py,
 };
-use propagation::{corner_sweep_py, inflate_py, total_error_py};
+use propagation::{
+    corner_sweep_py, delta_propagate_numeric_py, delta_propagate_symbolic_py, inflate_py,
+    total_error_py, PyNormal,
+};
 use rank::{PyPortDecl, PyRank};
 use search::{plan_py, PyRoute, PyRouteStep, PySolverInput};
 use symbolic::{invert_for_py, invertible_targets_py, predicate_to_box_py, PyExpr, PyPredicate};
@@ -75,8 +78,18 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
     m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
     m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;
+    m.add_function(wrap_pyfunction!(delta_propagate_symbolic_py, m)?)?;
+    m.add_function(wrap_pyfunction!(delta_propagate_numeric_py, m)?)?;
+
+    // The symbolic-kernel canonical-form version (11 sec. 4 R2/R4;
+    // WO-22): every derivation/propagation digest that touches
+    // canonicalized `Expr` output folds THIS constant in, so a future
+    // canonicalization-rule change re-keys exactly the affected results
+    // instead of drifting silently.
+    m.add("CANON_VERSION", feldspar_core::symbolic::CANON_VERSION)?;
 
     m.add_class::<PyInterval>()?;
+    m.add_class::<PyNormal>()?;
     m.add_class::<PyAccuracy>()?;
     m.add_class::<PyDimension>()?;
     m.add_class::<PyRank>()?;

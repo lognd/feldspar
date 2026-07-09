@@ -2,7 +2,7 @@
 
 Where a WO body conflicts with this document, this document wins; WO
 acceptance criteria stand. Mirrors the regolith architecture doc's
-role (`../lithos/docs/spec/toolchain/00-architecture.md`); conventions
+role (`lithos:docs/spec/toolchain/00-architecture.md`); conventions
 shared with regolith are cited, not re-argued.
 
 ## Repository layout (fixed by WO-01)
@@ -82,7 +82,7 @@ keys/                           dev keypair, private key gitignored (06)
 - **AD-12 CI jobs.** (a) make check (ruff, mypy, pytest sans
   markers); (b) cargo fmt/clippy/test; (c) determinism twice-run
   (byte-identical Solution digests, serial AND parallel); (d)
-  `regolith` extra job: install ../lithos regolith + run `regolith`-
+  `regolith` extra job: install the local lithos checkout's regolith + run `regolith`-
   marked tests incl. the conformance suite; (e) `fea` job with
   ccx+gmsh installed for known-answer tests.
 - **AD-13 deterministic transcendentals.** All transcendental math

@@ -59,7 +59,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "fea: requires ccx and gmsh installed (AD-12e)",
-    "regolith: requires ../lithos regolith installed (AD-12d, FINV-3)",
+    "regolith: requires a local lithos regolith install (AD-12d, FINV-3)",
     "slow: long-running test, excluded from the default fast loop",
 ]
 

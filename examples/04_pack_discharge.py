@@ -1,6 +1,6 @@
 """The regolith seam: what feldspar looks like from the host side.
 
-TARGET-API sketch (requires the `regolith` extra + ../lithos installed).
+TARGET-API sketch (requires the `regolith` extra + a local lithos checkout installed).
 regolith code never names feldspar; discovery is the entry point.
 """
 

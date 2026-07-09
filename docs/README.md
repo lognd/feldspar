@@ -104,7 +104,12 @@ examples/          target-API pressure tests (written before code;
 - Every guarantee lives in the invariant table (`00-architecture.md`)
   with its enforcement mechanism; new guarantees enter the table in the
   same change as their implementation.
-- External contracts are cited by their home: regolith design docs are
-  referenced as `../lithos/docs/...` and never copied here (NO
-  DUPLICATION); this repo documents only the feldspar side of each
-  seam.
+- External contracts are cited by their home, repo-qualified and
+  never filesystem-relative: `lithos:docs/spec/...` means that path
+  in the lithos repo (github.com/lognd/lithos); `../` paths out of
+  this repository are banned in docs (they do not resolve on
+  GitHub). Contracts are never copied here (NO DUPLICATION); this
+  repo documents only the feldspar side of each seam. The
+  `pyproject.toml` editable path source and the conformance
+  conftest's sys.path hop are FUNCTIONAL local-dev mechanisms (they
+  do assume a sibling checkout), not doc links.

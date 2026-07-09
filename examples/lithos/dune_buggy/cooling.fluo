@@ -1,5 +1,5 @@
 # Coolant loop -- fluorite customer #2 (G39). Written against the
-# PROPOSED fluorite draft (../lithos/docs/spec/fluorite/, COPEN-1 pending):
+# PROPOSED fluorite draft (lithos:docs/spec/fluorite/, COPEN-1 pending):
 # this file is reproduction DEMAND for ratification, exactly as
 # feed_lines.hema was for the language's existence. Exercises: pump
 # curve records as imposers, thermostat state domains, HxSegment

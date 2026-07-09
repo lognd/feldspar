@@ -2,12 +2,13 @@ from __future__ import annotations
 
 """WO-09 regolith conformance session (06 "Conformance", the WO-27
 deliverable): runs regolith's OWN reusable pack-protocol suite
-(`../lithos/tests/packs/conformance.py`) against `feldspar.pack` from
+(`lithos:tests/packs/conformance.py`) against `feldspar.pack` from
 the outside, plus the WO-27 acceptance list this repo owns.
 
-Every test here is `regolith`-marked and requires `../lithos` checked
+Every test here is `regolith`-marked and requires lithos checked
 out with `regolith` installed (`uv sync --extra regolith`, `conftest.py`
-adds `../lithos` to `sys.path` so `tests.packs.conformance` imports).
+adds the sibling lithos checkout to `sys.path` so
+`tests.packs.conformance` imports).
 Where an acceptance item needs `ccx`/`gmsh` (not present in every dev/CI
 environment, AD-12e/06) the test still runs and asserts the HONEST
 outcome the pack must produce without them (an indeterminate `Evidence`

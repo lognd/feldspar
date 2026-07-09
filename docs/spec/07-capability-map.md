@@ -417,7 +417,7 @@ is committed scope now (WO-05).
   ngspice numeric tier INSIDE feldspar's `elec` namespace (DECIDED
   2026-07-07, closes OPEN-7; regolith/11's `spice.ngspice` naming is
   illustrative -- ask recorded regolith-side,
-  `../lithos/docs/spec/toolchain/20-solver-abstraction.md` sec. 7).
+  `lithos:docs/spec/toolchain/20-solver-abstraction.md` sec. 7).
 - **Phase 5 -- controls and signals**: `control` + `signal`;
   deliberately last, lithos-side demand speculative until cuprite's
   behavioral layer stabilizes.

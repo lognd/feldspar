@@ -45,7 +45,7 @@ audit checklist is `docs/workflow/FINV-audit.md`.
   in one of them, fixed in both in the same change.
 - Every guarantee lives in the FINV table
   (`docs/spec/toolchain/00-architecture.md`) with its mechanism.
-- External contracts cited by home (`../lithos/docs/...`), never
+- External contracts cited by home (`lithos:docs/...`), never
   copied (NO DUPLICATION).
 - The dependency arrow stays one-way: feldspar depends on regolith
   (optionally); regolith never depends on feldspar.

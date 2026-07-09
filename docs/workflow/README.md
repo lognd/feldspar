@@ -9,7 +9,7 @@ only that file, the referenced spec sections, and
 wins; WO acceptance criteria stand).
 
 Ground rules are regolith's, adopted verbatim
-(`../lithos/docs/workflow/README.md` sec. "Ground rules"): pydantic
+(`lithos:docs/workflow/README.md` sec. "Ground rules"): pydantic
 v2 frozen models, typani Result values, tracing/pyo3-log + dictConfig
 logging, docstrings as part of done, ASCII only, conventional
 commits, frob for Python edits, `make check` green before close.

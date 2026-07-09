@@ -36,7 +36,7 @@ models behind the entry point, conformant from the outside.
 ## Acceptance
 
 - CI regolith job: conformance + WO-27 acceptance green against a
-  checkout of ../lithos; import-linter proves no `regolith.*` import
+  checkout of lithos; import-linter proves no `regolith.*` import
   outside `pack/` (FINV-3); regolith's own `make check` untouched.
 
 ## Closing report
@@ -51,7 +51,8 @@ back; `claim_kind` constructor override defaulting to the vocabulary-owned
 closed-form model's cost=1, so fat-margin selection stays cost-ordered),
 `pack/__init__.py::register` (import-cheap: no tool probing until an
 `estimate()` actually runs a route). Added `regolith = ["regolith"]` +
-`[tool.uv.sources]` editable path to `../lithos`, bumped
+`[tool.uv.sources]` editable path to the sibling lithos checkout (a
+functional local-dev source, not a doc link), bumped
 `requires-python` to `>=3.12` (regolith's floor), and an `import-linter`
 contract (`[tool.importlinter]`, `make import-lint`, wired into `make
 check`) proving no `feldspar.core/logging/solve/plan/library/fea` module

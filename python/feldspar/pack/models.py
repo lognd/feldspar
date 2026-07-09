@@ -45,7 +45,7 @@ DEFAULT_DEFLECTION_CLAIM_KIND = "mech.static_deflection"
 
 # FEA is the expensive (reduced) tier: its cost must stay above every
 # closed-form model's cost (regolith's closed-form models all report
-# cost=1, `../lithos/python/regolith/harness/models/*.py`) so fat-margin
+# cost=1, `lithos:python/regolith/harness/models/*.py`) so fat-margin
 # claims keep selecting the cheaper closed-form tier when both compete
 # under one claim kind (06 "cost declares the honest relative expense").
 _REDUCED_TIER_COST = 10

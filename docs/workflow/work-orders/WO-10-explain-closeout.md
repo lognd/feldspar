@@ -89,7 +89,7 @@ promised, verified and documented.
 - NOT verified from this sandbox, and NOT claimed as met: the CI
   matrix running green on this exact commit (no CI runner available
   here). `tests/regolith/` (regolith-marked, `pytest -m regolith`) WAS
-  run locally and passes (24 passed) -- the editable `../lithos`
+  run locally and passes (24 passed) -- the editable local lithos checkout
   install is present -- but that is a local run, not the CI-matrix or
   "regolith conformance job on the same commit" acceptance clause
   itself, which requires infrastructure this sandbox does not have.

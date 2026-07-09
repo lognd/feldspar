@@ -11,7 +11,16 @@ symmetrically on every hit."""
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 from typani.result import Result
 
@@ -20,17 +29,25 @@ from feldspar.core import Domain, Interval
 from feldspar.logging_setup import get_logger
 from feldspar.plan.execute import AttemptRecord, Solution, route_settings_digest
 from feldspar.plan.route import Route, RouteStep
-from feldspar.solve._models import Citation, ClaimSenses
+from feldspar.solve._models import Citation, ClaimSenses, SolverInfo
 from feldspar.solve.digest import canonical_digest
+from feldspar.solve.payload import PayloadRef
 
 if TYPE_CHECKING:
     from feldspar.solve.registry import SolverRegistry
 
-__all__ = ["SolveCache", "cache_key", "is_route_cacheable", "request_digest"]
+__all__ = [
+    "PayloadStepCache",
+    "SolveCache",
+    "cache_key",
+    "is_route_cacheable",
+    "request_digest",
+]
 
 _log = get_logger(__name__)
 
 _DEFAULT_CACHE_DIR = Path(".feldspar") / "cache"
+_DEFAULT_STEP_CACHE_DIR = _DEFAULT_CACHE_DIR / "steps"
 
 
 def request_digest(
@@ -39,16 +56,21 @@ def request_digest(
     target: str,
     eps_budget: float,
     sense: "ClaimSenses | str",
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
 ) -> str:
     """`known` intervals + `tags` + `target` + `eps_budget` + `sense`
     (04-routing "Solve cache" cache-key components; `sense` folds in per
-    audit A-3)."""
+    audit A-3). A known payload port folds in as `port -> digest` only
+    -- a payload in a digest IS its hash (09 sec. 4, FINV-12); `kind`
+    is fixed by the port declaration and `origin` is provenance, so
+    neither can change the answer and neither folds."""
     payload = {
         "known": {port: {"lo": iv.lo, "hi": iv.hi} for port, iv in known.items()},
         "tags": sorted(tags),
         "target": target,
         "eps_budget": eps_budget,
         "sense": ClaimSenses.coerce(sense).value,
+        "payloads": {port: ref.digest for port, ref in (payloads or {}).items()},
     }
     return canonical_digest(payload)
 
@@ -61,6 +83,7 @@ def cache_key(
     eps_budget: float,
     sense: "ClaimSenses | str",
     route: Route,
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
 ) -> str:
     """`blake3(registry_digest || request_digest || settings_digest ||
     feldspar_version)` (04-routing "Solve cache", AD-9) -- computed via
@@ -68,7 +91,7 @@ def cache_key(
     `canonical_digest` already gives byte-stable, order-independent
     hashing (AD-5) rather than reimplementing string concatenation."""
     reg_digest = registry.digest()
-    req_digest = request_digest(known, tags, target, eps_budget, sense)
+    req_digest = request_digest(known, tags, target, eps_budget, sense, payloads)
     settings_dig = route_settings_digest(route, registry)
     key = canonical_digest(
         {
@@ -321,3 +344,98 @@ class SolveCache:
         payload = solution_to_jsonable(solution.model_copy(update={"cache_hit": False}))
         path.write_text(json.dumps(payload, sort_keys=True))
         _log.info("cache store: key=%s", key)
+
+
+#: One cached step result: `(hull, produced payload refs, realized eps)`.
+StepEntry = Tuple[Dict[str, Interval], Dict[str, PayloadRef], float]
+
+
+class PayloadStepCache:
+    """Per-step cache for payload-touching steps (WO-12; the 09 secs.
+    3-4 per-rung/per-payload discipline, extending 04-routing "Solve
+    cache"). Keyed on the step's identity tuple -- `solver_id`,
+    `version`, `settings_digest`, the inflated scalar input box, and
+    each payload input's DIGEST (a payload in a digest is its hash,
+    FINV-12) -- plus `feldspar_version`; per FINV-2 that is everything
+    a deterministic step's output is a function of, so the SolveCache
+    freshness argument carries over verbatim. The point of the per-step
+    grain: two SOLVES with different targets (static and modal) share
+    the mesh step's entry, so one mesh is paid for once ever (09 sec.
+    4 "one mesh feeds multiple solves").
+
+    `hits`/`misses` counters are part of the contract (the WO-12
+    acceptance proves same-mesh reuse BY cache-hit count), not debug
+    conveniences."""
+
+    def __init__(self, root: Optional[Path] = None) -> None:
+        self._root = root if root is not None else _DEFAULT_STEP_CACHE_DIR
+        self.hits = 0
+        self.misses = 0
+
+    def _path(self, key: str) -> Path:
+        return self._root / f"{key}.json"
+
+    def key(
+        self,
+        info: SolverInfo,
+        box: Mapping[str, Interval],
+        payload_inputs: Mapping[str, PayloadRef],
+    ) -> str:
+        """The step-grain cache key; see the class docstring for the
+        component-by-component freshness argument."""
+        return canonical_digest(
+            {
+                "solver_id": info.solver_id,
+                "version": info.version,
+                "settings_digest": info.settings_digest,
+                "box": {port: {"lo": iv.lo, "hi": iv.hi} for port, iv in box.items()},
+                "payloads": {port: ref.digest for port, ref in payload_inputs.items()},
+                "feldspar_version": __version__,
+            }
+        )
+
+    def get(
+        self,
+        key: str,
+        probe_tools: "Optional[Callable[[], Result[None, Any]]]" = None,
+    ) -> Optional[StepEntry]:
+        """A hit requires the blob AND (for tool-backed steps) a passing
+        `probe_tools` -- A-5's argument applied per step: a recompute
+        would fail `ToolMissing` when the tool has vanished, so a hit
+        must not paper over that (the miss lets the real failure
+        surface). Counts exactly one hit or miss per call."""
+        path = self._path(key)
+        if not path.exists():
+            self.misses += 1
+            _log.info("step cache miss: key=%s (no entry)", key)
+            return None
+        if probe_tools is not None and probe_tools().is_err:
+            self.misses += 1
+            _log.info("step cache miss: key=%s (tool vanished)", key)
+            return None
+        data = json.loads(path.read_text())
+        hull = {port: _interval_from_json(iv) for port, iv in data["hull"].items()}
+        refs = {port: PayloadRef(**ref) for port, ref in data["payloads"].items()}
+        self.hits += 1
+        _log.info("step cache hit: key=%s", key)
+        return hull, refs, data["step_eps"]
+
+    def put(
+        self,
+        key: str,
+        hull: Mapping[str, Interval],
+        payloads: Mapping[str, PayloadRef],
+        step_eps: float,
+    ) -> None:
+        """Executor-guarded like `SolveCache.put`: only deterministic,
+        payload-touching steps reach here (execute.py's participation
+        check), so this is a plain unconditional store."""
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "hull": {port: _interval_to_json(iv) for port, iv in hull.items()},
+            "payloads": {port: ref.model_dump() for port, ref in payloads.items()},
+            "step_eps": step_eps,
+        }
+        path.write_text(json.dumps(entry, sort_keys=True))
+        _log.info("step cache store: key=%s", key)

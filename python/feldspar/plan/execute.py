@@ -14,14 +14,16 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 from pydantic import BaseModel, ConfigDict
 from typani.result import Err, Ok, Result
 
-from feldspar.core import Interval, corner_sweep, inflate
+from feldspar.core import Interval, PortDecl, corner_sweep, inflate
 from feldspar.logging_setup import get_logger
 from feldspar.plan.route import Route
 from feldspar.solve._models import Citation
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError
+from feldspar.solve.payload import PayloadRef
 
 if TYPE_CHECKING:
+    from feldspar.plan.cache import PayloadStepCache
     from feldspar.solve.registry import SolverRegistry
 
 __all__ = [
@@ -138,10 +140,69 @@ def route_settings_digest(route: Route, registry: "SolverRegistry") -> str:
     return canonical_digest(digests)
 
 
+def _is_payload_port(port_table: Mapping[str, PortDecl], port: str) -> bool:
+    """A port is a payload port iff its DECLARED rank is `payload(kind)`
+    (WO-12, 09 sec. 4); an undeclared port is scalar by convention (the
+    F12 opt-in rule: no port table, no payload semantics)."""
+    decl = port_table.get(port)
+    return decl is not None and decl.rank.kind == "payload"
+
+
+def _declared_kind(port_table: Mapping[str, PortDecl], port: str) -> str:
+    return port_table[port].rank.payload_kind or ""
+
+
+def _split_step_inputs(
+    info: Any,
+    port_table: Mapping[str, PortDecl],
+    values: Mapping[str, Interval],
+    payload_values: Mapping[str, PayloadRef],
+) -> "Result[Tuple[List[str], Dict[str, PayloadRef]], SolveError]":
+    """Partitions a step's declared inputs into scalar ports (corner-
+    swept) and payload ports (passed through exact-by-reference, WO-12).
+    A payload-declared port with no supplied ref is
+    `SolveError.MissingPayload`; a supplied ref whose kind differs from
+    the port's declared kind is `SolveError.PayloadKindMismatch` (the
+    execution-time twin of the registration kind check, 09 sec. 4)."""
+    scalar_ports: List[str] = []
+    payload_inputs: Dict[str, PayloadRef] = {}
+    for port in info.inputs:
+        ref = payload_values.get(port)
+        if ref is not None:
+            if _is_payload_port(port_table, port):
+                expected = _declared_kind(port_table, port)
+                if ref.kind != expected:
+                    _log.warning(
+                        "payload kind mismatch at %s: declared %s, got %s",
+                        port,
+                        expected,
+                        ref.kind,
+                    )
+                    return Err(
+                        SolveError.PayloadKindMismatch(
+                            port=port, expected_kind=expected, actual_kind=ref.kind
+                        )
+                    )
+            payload_inputs[port] = ref
+            continue
+        if port in values:
+            scalar_ports.append(port)
+            continue
+        if _is_payload_port(port_table, port):
+            _log.warning("missing payload for declared payload port %s", port)
+            return Err(SolveError.MissingPayload(port=port))
+        # A missing SCALAR input is unreachable off a well-formed Route
+        # (the planner only commits steps whose inputs are achieved), so
+        # falling through to the executor's KeyError below is the
+        # programmer-bug path, deliberately not a SolveError.
+        scalar_ports.append(port)
+    return Ok((scalar_ports, payload_inputs))
+
+
 def _check_step_output(
-    info: Any, out_values: Mapping[str, float]
+    info: Any, out_values: Mapping[str, float], scalar_outputs: List[str]
 ) -> "Result[None, SolveError]":
-    for port in info.outputs:
+    for port in scalar_outputs:
         if port not in out_values:
             return Err(SolveError.MissingOutput(port=port))
     for port, value in out_values.items():
@@ -150,23 +211,65 @@ def _check_step_output(
     return Ok(None)
 
 
-def _make_corner_fn(info: Any, fn: Any, measured: List[float]) -> Any:
+def _make_corner_fn(
+    info: Any,
+    fn: Any,
+    measured: List[float],
+    payload_inputs: Mapping[str, PayloadRef],
+    scalar_outputs: List[str],
+    payload_outputs: List[str],
+    port_table: Mapping[str, PortDecl],
+    produced: Dict[str, List[PayloadRef]],
+) -> Any:
     """Builds the `corner_sweep` callback for one step: runs the real
     `SolveFn`, checks finiteness/output-completeness (audit A-4, friction
     G12), validates and collects any reported `measured_eps` (which
     replaces the declared accuracy ceiling for THIS step, 04-routing),
-    and returns the plain `Mapping[str, float]` `corner_sweep` hulls."""
+    and returns the plain `Mapping[str, float]` `corner_sweep` hulls.
+
+    WO-12 payload flow: `payload_inputs` merge into every corner mapping
+    unchanged (exact by reference -- payloads are never swept); each
+    declared payload OUTPUT must appear in `SolveOutput.payloads` with
+    the port's declared kind, and is collected into `produced` for the
+    caller's corner-invariance check (a payload output that varies
+    across corners would need hulling, which payloads by definition
+    cannot have)."""
 
     def corner_fn(
         corner: Mapping[str, float],
     ) -> "Result[Mapping[str, float], SolveError]":
-        res = fn(corner)
+        full_corner: Dict[str, Any] = dict(corner)
+        full_corner.update(payload_inputs)
+        res = fn(full_corner)
         if res.is_err:
             return res
         out = res.danger_ok  # SolveOutput
-        checked = _check_step_output(info, out.values)
+        checked = _check_step_output(info, out.values, scalar_outputs)
         if checked.is_err:
             return checked.swap_ok(dict)
+        for port in payload_outputs:
+            ref = out.payloads.get(port)
+            if ref is None:
+                _log.warning(
+                    "payload output %s missing from %s's SolveOutput.payloads",
+                    port,
+                    info.solver_id,
+                )
+                return Err(SolveError.MissingOutput(port=port))
+            expected = _declared_kind(port_table, port)
+            if ref.kind != expected:
+                _log.warning(
+                    "payload output kind mismatch at %s: declared %s, got %s",
+                    port,
+                    expected,
+                    ref.kind,
+                )
+                return Err(
+                    SolveError.PayloadKindMismatch(
+                        port=port, expected_kind=expected, actual_kind=ref.kind
+                    )
+                )
+            produced.setdefault(port, []).append(ref)
         if out.measured_eps is not None:
             if not math.isfinite(out.measured_eps) or out.measured_eps < 0:
                 return Err(
@@ -175,18 +278,25 @@ def _make_corner_fn(info: Any, fn: Any, measured: List[float]) -> Any:
                     )
                 )
             measured.append(out.measured_eps)
-        return Ok({port: out.values[port] for port in info.outputs})
+        return Ok({port: out.values[port] for port in scalar_outputs})
 
     return corner_fn
 
 
 def execute(
-    route: Route, registry: "SolverRegistry", known: Mapping[str, Interval]
+    route: Route,
+    registry: "SolverRegistry",
+    known: Mapping[str, Interval],
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
+    step_cache: "Optional[PayloadStepCache]" = None,
 ) -> "Result[Solution, SolveError]":
     """Public `execute()` (01-interfaces): thin wrapper over
     `execute_with_attribution` that drops the failing-step attribution
-    the public `SolveError`-only contract has no slot for."""
-    result = execute_with_attribution(route, registry, known)
+    the public `SolveError`-only contract has no slot for. `payloads`
+    supplies the request's known payload-port refs (WO-12); `step_cache`
+    is the per-payload/per-rung step cache (04-routing "Solve cache",
+    WO-12 extension)."""
+    result = execute_with_attribution(route, registry, known, payloads, step_cache)
     if result.is_err:
         _solver_id, err = result.danger_err
         return Err(err)
@@ -194,7 +304,11 @@ def execute(
 
 
 def execute_with_attribution(
-    route: Route, registry: "SolverRegistry", known: Mapping[str, Interval]
+    route: Route,
+    registry: "SolverRegistry",
+    known: Mapping[str, Interval],
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
+    step_cache: "Optional[PayloadStepCache]" = None,
 ) -> "Result[Solution, Tuple[Optional[str], SolveError]]":
     """Same walk as `execute()`, but on failure also reports WHICH
     step's `solver_id` raised (`None` only in the impossible zero-step
@@ -202,11 +316,15 @@ def execute_with_attribution(
     exclusion set; the public `execute()` signature (01-interfaces) has
     no slot for it, so this is the shared implementation both call
     into (house rule: no duplication)."""
-    return _execute_impl(route, registry, known)
+    return _execute_impl(route, registry, known, payloads, step_cache)
 
 
 def _execute_impl(
-    route: Route, registry: "SolverRegistry", known: Mapping[str, Interval]
+    route: Route,
+    registry: "SolverRegistry",
+    known: Mapping[str, Interval],
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
+    step_cache: "Optional[PayloadStepCache]" = None,
 ) -> "Result[Solution, Tuple[Optional[str], SolveError]]":
     """Walks `route` in order (01-interfaces `execute`): per step,
     corner-sweeps eps-INFLATED inputs through the real `SolveFn`, hulls
@@ -214,8 +332,18 @@ def _execute_impl(
     solver reports one, else the declared `Accuracy.worst_over` the
     achieved hull -- the same `worst_over` the planner's estimate uses,
     FINV-4). A zero-step route (G12: target already known) returns the
-    known interval at eps 0 directly."""
+    known interval at eps 0 directly.
+
+    WO-12: payload ports flow beside the interval channel -- payload
+    inputs merge into every corner exact-by-reference, payload outputs
+    come back on `SolveOutput.payloads` (corner-INVARIANT, checked) and
+    feed downstream steps' `payload_values`. Payload-touching
+    deterministic steps consult/populate `step_cache` (keyed on payload
+    digests + the scalar box, 09 secs. 3-4) so one mesh feeds multiple
+    solves without re-running gmsh."""
     solver_map = {info.solver_id: (info, fn) for info, fn in registry}
+    port_table = registry.port_table()
+    payload_values: Dict[str, PayloadRef] = dict(payloads or {})
     values: Dict[str, Interval] = dict(known)
     eps_map: Dict[str, float] = {port: 0.0 for port in known}
     solver_versions: Dict[str, str] = {}
@@ -246,33 +374,110 @@ def _execute_impl(
 
     for step in route.steps:
         info, fn = solver_map[step.solver_id]
-        box = {
-            port: inflate(values[port], eps_map.get(port, 0.0)) for port in info.inputs
-        }
-        measured: List[float] = []
-        swept = corner_sweep(box, _make_corner_fn(info, fn, measured))
-        if swept.is_err:
-            _log.warning("execute: step %s failed: %r", step.solver_id, swept.err)
-            return Err((step.solver_id, swept.danger_err))
-        hull = swept.danger_ok
-
-        if measured:
-            step_eps = max(measured)
-        else:
-            step_eps = max(
-                (info.accuracy[port].worst_over(hull[port]) for port in info.outputs),
-                default=0.0,
+        split = _split_step_inputs(info, port_table, values, payload_values)
+        if split.is_err:
+            _log.warning(
+                "execute: step %s input split failed: %r", step.solver_id, split.err
             )
-        _log.debug(
-            "execute: step %s realized_eps=%s (measured=%s)",
-            step.solver_id,
-            step_eps,
-            bool(measured),
-        )
+            return Err((step.solver_id, split.danger_err))
+        scalar_ports, payload_inputs = split.danger_ok
+        payload_outputs = [
+            port for port in info.outputs if _is_payload_port(port_table, port)
+        ]
+        scalar_outputs = [port for port in info.outputs if port not in payload_outputs]
+        box = {
+            port: inflate(values[port], eps_map.get(port, 0.0)) for port in scalar_ports
+        }
+
+        # WO-12 per-payload step cache: only DETERMINISTIC, payload-
+        # touching steps participate (scalar-only routes keep their
+        # exact pre-WO-12 behavior; a nondeterministic step is never
+        # cached, mirroring is_route_cacheable). A hit is only honored
+        # if the step's tools are still present (A-5's argument applied
+        # per-step: a recompute would fail ToolMissing, so a hit must
+        # too -- the miss path lets the real failure surface).
+        step_key: Optional[str] = None
+        cached_step = None
+        if (
+            step_cache is not None
+            and info.deterministic
+            and (payload_inputs or payload_outputs)
+        ):
+            step_key = step_cache.key(info, box, payload_inputs)
+            cached_step = step_cache.get(
+                step_key, probe_tools=getattr(fn, "probe_tools", None)
+            )
+
+        if cached_step is not None:
+            hull, produced_refs, step_eps = cached_step
+            _log.info(
+                "execute: step %s served from step cache (key=%s)",
+                step.solver_id,
+                step_key,
+            )
+        else:
+            measured: List[float] = []
+            produced: Dict[str, List[PayloadRef]] = {}
+            swept = corner_sweep(
+                box,
+                _make_corner_fn(
+                    info,
+                    fn,
+                    measured,
+                    payload_inputs,
+                    scalar_outputs,
+                    payload_outputs,
+                    port_table,
+                    produced,
+                ),
+            )
+            if swept.is_err:
+                _log.warning("execute: step %s failed: %r", step.solver_id, swept.err)
+                return Err((step.solver_id, swept.danger_err))
+            hull = swept.danger_ok
+
+            produced_refs: Dict[str, PayloadRef] = {}
+            for port, refs in produced.items():
+                first = refs[0]
+                if any(ref != first for ref in refs[1:]):
+                    _log.warning(
+                        "execute: payload output %s of %s varied across corners",
+                        port,
+                        step.solver_id,
+                    )
+                    return Err(
+                        (
+                            step.solver_id,
+                            SolveError.InvalidMeasurement(
+                                reason=(
+                                    f"payload output {port} of {info.solver_id} "
+                                    "varied across corners (payloads are exact "
+                                    "by reference, 09 sec. 4)"
+                                )
+                            ),
+                        )
+                    )
+                produced_refs[port] = first
+
+            if measured:
+                step_eps = max(measured)
+            else:
+                step_eps = max(
+                    (
+                        info.accuracy[port].worst_over(hull[port])
+                        for port in scalar_outputs
+                    ),
+                    default=0.0,
+                )
+            if step_cache is not None and step_key is not None:
+                step_cache.put(step_key, hull, produced_refs, step_eps)
+        _log.debug("execute: step %s realized_eps=%s", step.solver_id, step_eps)
 
         for port, iv in hull.items():
             values[port] = iv
             eps_map[port] = step_eps
+        for port, ref in produced_refs.items():
+            payload_values[port] = ref
         solver_versions[step.solver_id] = info.version
         step_eps_map[step.solver_id] = step_eps
         step_citations_map[step.solver_id] = info.citations

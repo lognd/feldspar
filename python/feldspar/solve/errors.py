@@ -11,7 +11,7 @@ needs a payload -- built on one shared `_TaggedError` base here so the
 kind/fields/eq/hash/repr machinery has exactly one home (house rule:
 no duplication)."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class _TaggedError:
@@ -201,6 +201,27 @@ class SolveError(_TaggedError):
         """WO-12 (09 sec. 4, 02-edge-cases): a payload port had no value
         at all where one was required."""
         return cls("MissingPayload", port=port)
+
+    @classmethod
+    def LadderExhausted(
+        cls, best_eps: float, budget: Optional[float], rungs_tried: int
+    ) -> "SolveError":
+        """WO-13 (09 sec. 3): a budget-seeking solver's refinement
+        ladder ran out of declared rungs without meeting the caller's
+        remaining eps budget. Honest indeterminate carrying the best
+        eps actually achieved (feeds regolith's "what would resolve it"
+        diagnostic family, regolith/07 sec. 4) -- never a silent
+        downgrade to the last rung's eps as if it had met budget.
+        `budget` is `Optional` only for the type signature's sake (a
+        real exhaustion always has a concrete `eps_budget`, since
+        `climb_richardson_ladder` never seeks past the first pair when
+        no budget is given)."""
+        return cls(
+            "LadderExhausted",
+            best_eps=best_eps,
+            budget=budget,
+            rungs_tried=rungs_tried,
+        )
 
     @classmethod
     def DanglingDigest(cls, digest: str) -> "SolveError":

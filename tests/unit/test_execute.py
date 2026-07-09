@@ -189,3 +189,71 @@ def test_execute_solver_err_propagates_unchanged() -> None:
     assert result.err == SolveError.ToolMissing(
         tool="gmsh", guidance="brew install gmsh"
     )
+
+
+# ---------------------------------------------------------------------------
+# WO-13 (09 sec. 3): `execute(..., eps_budget=...)` threads the remaining
+# eps budget to an `eps_seeking` step's `SolveFn` -- generic (non-FEA)
+# fixture; the FEA ladder itself is covered by
+# tests/unit/test_fea_solver_seeking.py.
+# ---------------------------------------------------------------------------
+
+
+def _registry_with_seeking_echo():
+    registry = SolverRegistry()
+
+    @solver(
+        namespace="ex",
+        inputs=("ex.x",),
+        outputs=("ex.y",),
+        domain=Domain(box={"ex.x": Interval(0.0, 10.0)}, tags=frozenset()),
+        cost=1.0,
+        accuracy={"ex.y": Accuracy(eps_abs=0.5, eps_rel=0.0)},
+        citations=_citation(),
+        version="1",
+        eps_seeking=True,
+    )
+    def echo_budget(x, eps_budget=None):
+        # Reports the budget it was given back as measured_eps (so the
+        # test can assert on it via Solution.eps without any FEA
+        # machinery) -- a budget of None reports 0.0 (no seeking).
+        return Ok(
+            SolveOutput(
+                values={"ex.y": x["ex.x"] * 2.0},
+                measured_eps=eps_budget if eps_budget is not None else 0.0,
+            )
+        )
+
+    assert registry.register(*echo_budget.solver_direction).is_ok
+    registry.freeze()
+    return registry
+
+
+def test_execute_threads_eps_budget_to_eps_seeking_step() -> None:
+    registry = _registry_with_seeking_echo()
+    known = {"ex.x": Interval(1.0, 2.0)}
+    route = plan(registry, known, frozenset(), "ex.y", 10.0).danger_ok
+
+    solution = execute(route, registry, known, eps_budget=3.0).danger_ok
+    assert solution.eps == 3.0
+
+
+def test_execute_with_no_eps_budget_passes_none() -> None:
+    registry = _registry_with_seeking_echo()
+    known = {"ex.x": Interval(1.0, 2.0)}
+    route = plan(registry, known, frozenset(), "ex.y", 10.0).danger_ok
+
+    solution = execute(route, registry, known).danger_ok
+    assert solution.eps == 0.0
+
+
+def test_execute_remaining_budget_never_negative() -> None:
+    """Even if `eps_budget` were somehow smaller than upstream-charged
+    eps, `execute()`'s remaining-budget computation floors at 0.0
+    (never a negative budget reaching the solver body)."""
+    registry = _registry_with_seeking_echo()
+    known = {"ex.x": Interval(1.0, 2.0)}
+    route = plan(registry, known, frozenset(), "ex.y", 10.0).danger_ok
+
+    solution = execute(route, registry, known, eps_budget=0.0).danger_ok
+    assert solution.eps == 0.0

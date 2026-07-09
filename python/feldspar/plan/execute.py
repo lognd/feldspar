@@ -17,6 +17,7 @@ from typani.result import Err, Ok, Result
 from feldspar.core import Interval, PortDecl, corner_sweep, inflate
 from feldspar.logging_setup import get_logger
 from feldspar.plan.route import Route
+from feldspar.solve._build import invoke_solve_fn
 from feldspar.solve._models import Citation
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError
@@ -220,6 +221,7 @@ def _make_corner_fn(
     payload_outputs: List[str],
     port_table: Mapping[str, PortDecl],
     produced: Dict[str, List[PayloadRef]],
+    remaining_budget: Optional[float] = None,
 ) -> Any:
     """Builds the `corner_sweep` callback for one step: runs the real
     `SolveFn`, checks finiteness/output-completeness (audit A-4, friction
@@ -233,16 +235,24 @@ def _make_corner_fn(
     the port's declared kind, and is collected into `produced` for the
     caller's corner-invariance check (a payload output that varies
     across corners would need hulling, which payloads by definition
-    cannot have)."""
+    cannot have).
+
+    WO-13 (09 sec. 3): `remaining_budget` is passed to an `eps_seeking`
+    step's `SolveFn` ONLY, via `invoke_solve_fn` (the one call-site that
+    probes `.eps_seeking`, `_build.wrap_solve_fn`'s attribute-tagging
+    convention). Every other `SolveFn` (eps_seeking=False, or a raw
+    hand-registered callable with no such attribute at all) keeps the
+    exact pre-WO-13 one-argument call -- backward compatible with every
+    solver that predates this WO."""
 
     def corner_fn(
         corner: Mapping[str, float],
     ) -> "Result[Mapping[str, float], SolveError]":
         full_corner: Dict[str, Any] = dict(corner)
         full_corner.update(payload_inputs)
-        res = fn(full_corner)
+        res = invoke_solve_fn(fn, full_corner, remaining_budget)
         if res.is_err:
-            return res
+            return res.swap_ok(dict)
         out = res.danger_ok  # SolveOutput
         checked = _check_step_output(info, out.values, scalar_outputs)
         if checked.is_err:
@@ -289,14 +299,21 @@ def execute(
     known: Mapping[str, Interval],
     payloads: Optional[Mapping[str, PayloadRef]] = None,
     step_cache: "Optional[PayloadStepCache]" = None,
+    eps_budget: Optional[float] = None,
 ) -> "Result[Solution, SolveError]":
     """Public `execute()` (01-interfaces): thin wrapper over
     `execute_with_attribution` that drops the failing-step attribution
     the public `SolveError`-only contract has no slot for. `payloads`
     supplies the request's known payload-port refs (WO-12); `step_cache`
     is the per-payload/per-rung step cache (04-routing "Solve cache",
-    WO-12 extension)."""
-    result = execute_with_attribution(route, registry, known, payloads, step_cache)
+    WO-12 extension). `eps_budget` (WO-13, 09 sec. 3) is the caller's
+    total eps budget for this route, if known -- threaded to any
+    `eps_seeking` step as its REMAINING budget (`None` here means "no
+    budget context", which an eps-seeking step's ladder treats as
+    "run the fixed first pair, do not seek")."""
+    result = execute_with_attribution(
+        route, registry, known, payloads, step_cache, eps_budget
+    )
     if result.is_err:
         _solver_id, err = result.danger_err
         return Err(err)
@@ -309,6 +326,7 @@ def execute_with_attribution(
     known: Mapping[str, Interval],
     payloads: Optional[Mapping[str, PayloadRef]] = None,
     step_cache: "Optional[PayloadStepCache]" = None,
+    eps_budget: Optional[float] = None,
 ) -> "Result[Solution, Tuple[Optional[str], SolveError]]":
     """Same walk as `execute()`, but on failure also reports WHICH
     step's `solver_id` raised (`None` only in the impossible zero-step
@@ -316,7 +334,7 @@ def execute_with_attribution(
     exclusion set; the public `execute()` signature (01-interfaces) has
     no slot for it, so this is the shared implementation both call
     into (house rule: no duplication)."""
-    return _execute_impl(route, registry, known, payloads, step_cache)
+    return _execute_impl(route, registry, known, payloads, step_cache, eps_budget)
 
 
 def _execute_impl(
@@ -325,6 +343,7 @@ def _execute_impl(
     known: Mapping[str, Interval],
     payloads: Optional[Mapping[str, PayloadRef]] = None,
     step_cache: "Optional[PayloadStepCache]" = None,
+    eps_budget: Optional[float] = None,
 ) -> "Result[Solution, Tuple[Optional[str], SolveError]]":
     """Walks `route` in order (01-interfaces `execute`): per step,
     corner-sweeps eps-INFLATED inputs through the real `SolveFn`, hulls
@@ -389,6 +408,25 @@ def _execute_impl(
             port: inflate(values[port], eps_map.get(port, 0.0)) for port in scalar_ports
         }
 
+        # WO-13 (09 sec. 3): the remaining eps budget passed to THIS
+        # step -- `eps_budget` minus the worst-case eps already charged
+        # to reach this step's own scalar inputs (the same `eps_map`
+        # value domain checks already inflate by). This is a
+        # conservative, v1-simple approximation of "remaining budget"
+        # (the true accumulation is inflate-based per port, not a
+        # simple subtraction across steps) -- adequate because the
+        # acceptance scenario (09 sec. 3, WO-13) is a single eps-seeking
+        # step at the end of a route; a multi-eps-seeking-step route's
+        # exact budget split is future work, not required here.
+        # `None` propagates as "no budget context" (a bare `execute()`
+        # call with no caller budget).
+        remaining_budget: Optional[float] = None
+        if eps_budget is not None:
+            upstream_eps = max(
+                (eps_map.get(port, 0.0) for port in scalar_ports), default=0.0
+            )
+            remaining_budget = max(eps_budget - upstream_eps, 0.0)
+
         # WO-12 per-payload step cache: only DETERMINISTIC, payload-
         # touching steps participate (scalar-only routes keep their
         # exact pre-WO-12 behavior; a nondeterministic step is never
@@ -429,6 +467,7 @@ def _execute_impl(
                     payload_outputs,
                     port_table,
                     produced,
+                    remaining_budget,
                 ),
             )
             if swept.is_err:

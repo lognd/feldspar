@@ -1,20 +1,19 @@
-//! Fluid-mechanics closed-form formula home (WO-20 Phase 2): internal
-//! flow, pipe networks, turbomachinery, water hammer, and the D141
-//! compressible tier (isentropic relations, normal shocks, the Fanno
-//! function). Same `#[no_mangle] pub extern "C" fn` discipline as
-//! `mech.rs` (AD-3): one link-visible definition per formula, callable
-//! from Rust, PyO3, and `dlopen`/`nm` alike.
+//! Incompressible internal-flow formulas: pipe friction factors,
+//! Darcy-Weisbach/minor losses, pipe-network combination, pump/system
+//! operating point, NPSH, and water hammer. Same AD-3
+//! `#[no_mangle] pub extern "C" fn` discipline as the rest of `fluids`
+//! (see `fluids/mod.rs` doc comment).
 //!
 //! Every function here evaluates its DECLARED closed-form model
 //! exactly (A-7) -- Haaland and Dittus-Boelter are themselves
 //! approximations of reality, but this module computes their formulas
 //! to floating-point precision, which is what `accuracy=EXACT`
-//! certifies (same convention `mech.rs`'s Lame equations use: the
-//! model is textbook-approximate, the evaluation is exact). Colebrook
-//! is the one implicit root in this file; it is solved by Newton
-//! iteration to a tight, fixed tolerance (`_COLEBROOK_TOL`), which is
-//! evaluating the SAME defining equation to floating-point precision,
-//! not a separate approximate model.
+//! certifies (same convention `mech`'s Lame equations use: the model
+//! is textbook-approximate, the evaluation is exact). Colebrook is the
+//! one implicit root in this file; it is solved by Newton iteration to
+//! a tight, fixed tolerance (`_COLEBROOK_TOL`), which is evaluating the
+//! SAME defining equation to floating-point precision, not a separate
+//! approximate model.
 
 #![allow(clippy::too_many_arguments)]
 
@@ -192,82 +191,6 @@ pub extern "C" fn fluids_npsh_available(
 #[no_mangle]
 pub extern "C" fn fluids_joukowsky_dp(density: f64, wave_speed: f64, delta_velocity: f64) -> f64 {
     density * wave_speed * delta_velocity
-}
-
-// ---------------------------------------------------------------------------
-// Compressible tier (D141): isentropic relations, normal shocks, Fanno
-// function. Registered under the SAME `fluids` namespace; Python side
-// distinguishes the regime via `Domain.tags` ("compressible" /
-// "incompressible") since the low-Mach/choked screening lives there
-// (09 sec. 4/lithos WO-14 regime channel).
-// ---------------------------------------------------------------------------
-
-/// Isentropic stagnation-to-static temperature ratio:
-/// `T0/T = 1 + (k-1)/2 * M^2`.
-///
-/// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
-/// (isentropic flow relations).
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn fluids_isentropic_stagnation_temp_ratio(mach: f64, gamma: f64) -> f64 {
-    1.0 + (gamma - 1.0) / 2.0 * mach * mach
-}
-
-/// Isentropic stagnation-to-static pressure ratio:
-/// `p0/p = (T0/T)^(k/(k-1))`.
-///
-/// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
-/// (isentropic flow relations).
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn fluids_isentropic_stagnation_pressure_ratio(mach: f64, gamma: f64) -> f64 {
-    let temp_ratio = fluids_isentropic_stagnation_temp_ratio(mach, gamma);
-    temp_ratio.powf(gamma / (gamma - 1.0))
-}
-
-/// Downstream Mach number squared across a normal shock (Rankine-
-/// Hugoniot): `M2^2 = (1 + (k-1)/2 M1^2) / (k M1^2 - (k-1)/2)`.
-///
-/// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
-/// (normal shock relations).
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn fluids_normal_shock_mach2(mach1: f64, gamma: f64) -> f64 {
-    let m1_sq = mach1 * mach1;
-    let numerator = 1.0 + (gamma - 1.0) / 2.0 * m1_sq;
-    let denominator = gamma * m1_sq - (gamma - 1.0) / 2.0;
-    (numerator / denominator).sqrt()
-}
-
-/// Static pressure ratio across a normal shock:
-/// `p2/p1 = 1 + 2*k/(k+1) * (M1^2 - 1)`.
-///
-/// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
-/// (normal shock relations).
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn fluids_normal_shock_pressure_ratio(mach1: f64, gamma: f64) -> f64 {
-    1.0 + 2.0 * gamma / (gamma + 1.0) * (mach1 * mach1 - 1.0)
-}
-
-/// Fanno-flow function `4 f Lmax / D` for adiabatic flow with friction
-/// in a constant-area duct, at Mach number `M`:
-/// `(1-M^2)/(k M^2) + (k+1)/(2k) * ln[ (k+1) M^2 / (2 + (k-1) M^2) ]`.
-/// The distance to choking (M=1) along a Fanno line is the difference
-/// of this function at two stations; this is the per-segment building
-/// block for gas-subnet Fanno-line network delivery (D141).
-///
-/// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
-/// (Fanno flow); Shapiro, *The Dynamics and Thermodynamics of
-/// Compressible Fluid Flow*, vol. 1, ch. 6.
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn fluids_fanno_function(mach: f64, gamma: f64) -> f64 {
-    let m_sq = mach * mach;
-    let term1 = (1.0 - m_sq) / (gamma * m_sq);
-    let term2 =
-        (gamma + 1.0) / (2.0 * gamma) * ((gamma + 1.0) * m_sq / (2.0 + (gamma - 1.0) * m_sq)).ln();
-    term1 + term2
 }
 
 #[cfg(test)]

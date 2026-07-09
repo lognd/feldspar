@@ -13,6 +13,7 @@ regolith `Prediction`. All regolith imports live here, under
 `feldspar.pack` (FINV-3/10)."""
 
 
+from regolith._schema.models import CoverageAxis, CoverageDomain1, CoverageMethod1
 from regolith.harness.errors import HarnessError
 from regolith.harness.model import DischargeRequest, Model, Prediction
 from regolith.harness.signature import ClaimSense, ModelSignature
@@ -20,10 +21,12 @@ from typani.result import Err, Ok, Result
 
 from feldspar.__about__ import __version__
 from feldspar.logging_setup import get_logger
-from feldspar.pack.converters import to_feldspar_interval
+from feldspar.pack.converters import to_feldspar_interval, to_feldspar_payload_ref
 from feldspar.pack.errors import map_engine_error
+from feldspar.pack.payload_bridge import NoStoreResolver
 from feldspar.plan.solve import solve
 from feldspar.solve._models import ClaimSenses
+from feldspar.solve.payload import PayloadResolver
 from feldspar.solve.registry import SolverRegistry
 
 _log = get_logger(__name__)
@@ -33,6 +36,7 @@ __all__ = [
     "DEFAULT_DEFLECTION_CLAIM_KIND",
     "FeaStaticStressModel",
     "FeaStaticDeflectionModel",
+    "FeaStaticDeflectionFromGeometryModel",
 ]
 
 # Vocabulary-owned default claim kinds (06 "Models", DECIDED D94/WO-30
@@ -61,24 +65,62 @@ _REDUCED_TIER_COST = 10
 _EPS_BUDGET = 1e30
 
 
-def _engine_registry() -> SolverRegistry:
-    """The full closed-form + FEA engine registry (WO-07/WO-08), built
-    fresh per call. Building a `SolverRegistry` and calling `@solver`-
-    decorated `register()` functions only adds Python-side metadata (no
-    gmsh/ccx probing happens until a route actually executes), so this
-    stays import-cheap and freeze-safe to call lazily at estimate time
-    (FINV-3/10: no tool probing at `pack.register()` time)."""
+def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistry:
+    """The full closed-form + FEA + payload-step engine registry
+    (WO-07/WO-08/WO-12), built fresh per call. Building a
+    `SolverRegistry` and calling `@solver`-decorated `register()`
+    functions only adds Python-side metadata (no gmsh/ccx probing
+    happens until a route actually executes), so this stays import-cheap
+    and freeze-safe to call lazily at estimate time (FINV-3/10: no tool
+    probing at `pack.register()` time).
+
+    F12 ordering (WO-12's close-out note, resolved here as WO-14
+    boundary work): `feldspar.fea.payload_steps.register()` calls
+    `declare_ports()`, which arms the registry's port-table guard for
+    every LATER `register()` call -- so the declaration-free WO-07/
+    WO-08 modules (`library.mech`, `fea.solver`) MUST register first,
+    while the port table is still empty, and `payload_steps` last. This
+    is the ONE combined catalog every pack model builds against, so the
+    ordering constraint has exactly one home."""
     # Function-local imports: keeps `feldspar.pack` import-cheap (no
     # `feldspar.fea`/`feldspar.library` module-load cost paid until an
     # `estimate()` actually runs).
+    from feldspar.fea import payload_steps
     from feldspar.fea.solver import register as register_fea
     from feldspar.library.mech import register as register_mech
 
     registry = SolverRegistry()
     register_mech(registry)
     register_fea(registry)
+    payload_steps.register(
+        registry, resolver if resolver is not None else NoStoreResolver()
+    )
     registry.freeze()
     return registry
+
+
+def _structured_coverage(request: DischargeRequest) -> "tuple[CoverageAxis, ...]":
+    """Structured `Coverage` axes (D95, 06 "estimate(request)") from the
+    request's real sweep shape: every non-degenerate (`lo != hi`) scalar
+    input is a corner-sampled continuous axis (the engine's corner sweep
+    IS full-corners coverage of that axis, `CoverageMethod1.corners`); a
+    pinned (`lo == hi`) input contributes no axis (nothing was swept).
+    `fraction` stays the conservative collapse (`Prediction.coverage`
+    keeps reporting `1.0` alongside this -- a full corner sweep is
+    complete coverage of every swept axis by construction), so this
+    reports axes only, never a second fraction."""
+    axes = []
+    for name, interval in sorted(request.inputs.items()):
+        if interval.lo == interval.hi:
+            continue
+        axes.append(
+            CoverageAxis(
+                axis=name,
+                domain=CoverageDomain1(interval=f"[{interval.lo:g}, {interval.hi:g}]"),
+                method=CoverageMethod1.corners,
+            )
+        )
+    return tuple(axes)
 
 
 class _FeaModel(Model):
@@ -95,14 +137,26 @@ class _FeaModel(Model):
         claim_kind: str,
         target: str,
         inputs: "tuple[str, ...]",
+        required_regimes: "tuple[str, ...]" = (),
     ) -> None:
         """Bind this model instance to `claim_kind` (OPEN-6 interim
         override), the engine port it solves for, and the signature
         input ports it declares (== the engine's port names, 06
-        "signature.inputs are the scalar ports")."""
+        "signature.inputs are the scalar ports").
+
+        `required_regimes` (A-10/D97) defaults to `()`, the v1 degenerate
+        case 06 "Regime tags" keeps valid: these two claim kinds ARE
+        linear-elastic small-deflection statics by construction (the WO-
+        27 obligations guarantee the tag set), so gating on it would be
+        redundant, not honest -- an empty tuple always matches regardless
+        of `DischargeRequest.regimes`, so passing no override never
+        changes behavior. Pass a non-empty override to demand a specific
+        regime tag be present (tested in `test_pack_regime_channel.py`,
+        proving the channel dispatches both ways)."""
         self._claim_kind = claim_kind
         self._target = target
         self._inputs = inputs
+        self._required_regimes = required_regimes
 
     @property
     def version(self) -> str:
@@ -171,6 +225,7 @@ class _FeaModel(Model):
                 value=value,
                 eps=solution.eps,
                 coverage=1.0,
+                coverage_axes=_structured_coverage(request),
                 in_domain=True,
                 solver_version=solver_version,
                 settings_digest=solution.settings_digest,
@@ -184,9 +239,16 @@ class FeaStaticStressModel(_FeaModel):
     Wraps `fea.static_stress.cylinder_bore` (WO-08): the engine's
     discretized thick-wall-cylinder direction."""
 
-    def __init__(self, *, claim_kind: str = DEFAULT_STRESS_CLAIM_KIND) -> None:
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_STRESS_CLAIM_KIND,
+        required_regimes: "tuple[str, ...]" = (),
+    ) -> None:
         """`claim_kind` defaults to the vocabulary-owned kind; pass an
-        override to compete under a closed-form kind (OPEN-6 interim)."""
+        override to compete under a closed-form kind (OPEN-6 interim).
+        `required_regimes` defaults to `()` (06 "Regime tags" v1
+        degenerate case, see `_FeaModel.__init__`)."""
         super().__init__(
             claim_kind=claim_kind,
             target="mech.stress.von_mises",
@@ -197,6 +259,7 @@ class FeaStaticStressModel(_FeaModel):
                 "mech.material.youngs_modulus",
                 "mech.material.poisson",
             ),
+            required_regimes=required_regimes,
         )
 
     @property
@@ -208,6 +271,7 @@ class FeaStaticStressModel(_FeaModel):
             sense=ClaimSense.upper_bound(),
             inputs=self._inputs,
             domain=("linear_elastic", "small_deflection", "discretized"),
+            required_regimes=self._required_regimes,
         )
 
 
@@ -217,9 +281,16 @@ class FeaStaticDeflectionModel(_FeaModel):
     Wraps `fea.static_deflection.cantilever` (WO-08): the engine's
     discretized cantilever direction."""
 
-    def __init__(self, *, claim_kind: str = DEFAULT_DEFLECTION_CLAIM_KIND) -> None:
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_DEFLECTION_CLAIM_KIND,
+        required_regimes: "tuple[str, ...]" = (),
+    ) -> None:
         """`claim_kind` defaults to the vocabulary-owned kind; pass an
-        override to compete under a closed-form kind (OPEN-6 interim)."""
+        override to compete under a closed-form kind (OPEN-6 interim).
+        `required_regimes` defaults to `()` (06 "Regime tags" v1
+        degenerate case, see `_FeaModel.__init__`)."""
         super().__init__(
             claim_kind=claim_kind,
             target="mech.deflection.tip",
@@ -231,6 +302,7 @@ class FeaStaticDeflectionModel(_FeaModel):
                 "mech.material.poisson",
                 "mech.load.tip_force",
             ),
+            required_regimes=required_regimes,
         )
 
     @property
@@ -242,4 +314,124 @@ class FeaStaticDeflectionModel(_FeaModel):
             sense=ClaimSense.upper_bound(),
             inputs=self._inputs,
             domain=("linear_elastic", "small_deflection", "discretized"),
+            required_regimes=self._required_regimes,
+        )
+
+
+# Costlier than the scalar FEA tier above: the geometry-payload route
+# pays a mesh generation step ahead of the ccx solve (06 "cost declares
+# the honest relative expense" extends to intra-tier ordering, not just
+# closed-form vs. FEA).
+_PAYLOAD_TIER_COST = 20
+
+#: The engine's cantilever parametric-geometry payload port (mirrors
+#: `feldspar.fea.payload_steps.GEOMETRY_PORT` verbatim: 06 "signature
+#: inputs and engine ports are the same strings" extends to payload
+#: ports too, so the regolith signature's `payload_kinds` key and the
+#: engine `PayloadResolver` call both name this same port).
+_GEOMETRY_PAYLOAD_PORT = "mech.geom.cantilever.parametric"
+
+
+class FeaStaticDeflectionFromGeometryModel(Model):
+    """The D96 payload-channel deflection model (06 "Planned (09 M4)",
+    WO-14 boundary v2): consumes a `geometry.parametric` payload ref on
+    `DischargeRequest.payloads` instead of scalar geometry ports, routing
+    through `feldspar.fea.payload_steps`'s mesh -> ccx pipeline.
+
+    Payload-kind matching in signature selection (06 "DischargeRequest.
+    payloads consumed"): a request missing the geometry payload is an
+    honest `no_model`/non-match (`ModelSignature.accepts_payloads`) --
+    this class never assumes a default geometry.
+
+    Resolution itself is a NAMED, escalated residual (see `pack.
+    payload_bridge`): `Model.estimate` has no orchestrator payload-store
+    handle to resolve the ref's digest through yet (regolith has not
+    threaded one down its discharge path), so every MATCHED request
+    still honestly indeterminates via `NoStoreResolver` -- never a
+    silent success, never an exception, and never feldspar doing its
+    own storage IO (06 "digests resolved through the orchestrator store
+    handle only")."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_DEFLECTION_CLAIM_KIND) -> None:
+        """`claim_kind` defaults to the same vocabulary-owned kind the
+        scalar deflection model uses (D94: one model MAY register under
+        multiple kinds, and multiple models MAY compete under one kind;
+        cost ordering, not exclusivity, decides)."""
+        self._claim_kind = claim_kind
+
+    @property
+    def signature(self) -> ModelSignature:
+        """Upper-bound tip-deflection claim over a geometry PAYLOAD plus
+        the same material/load scalars the mesh-consuming direction
+        needs (`feldspar.fea.payload_steps._make_static_from_mesh_direction`)."""
+        return ModelSignature(
+            name="fea_static_deflection_from_geometry",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=(
+                "mech.material.youngs_modulus",
+                "mech.material.poisson",
+                "mech.load.tip_force",
+            ),
+            domain=("linear_elastic", "small_deflection", "discretized"),
+            payload_kinds={_GEOMETRY_PAYLOAD_PORT: "geometry.parametric"},
+        )
+
+    @property
+    def version(self) -> str:
+        """The model's own version id (bump on any physics/eps change)."""
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Costlier than the scalar FEA tier (mesh generation ahead of
+        the ccx solve, 06 "cost declares the honest relative expense")."""
+        return _PAYLOAD_TIER_COST
+
+    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
+        """Convert the geometry `PayloadRef` and scalar inputs, then run
+        the engine's payload-step pipeline through `solve()`. Honestly
+        indeterminate today (see class docstring) via `NoStoreResolver`
+        until regolith threads a real store handle to `Model.estimate`."""
+        known = {
+            name: to_feldspar_interval(interval)
+            for name, interval in request.inputs.items()
+        }
+        geometry_ref = request.payloads[_GEOMETRY_PAYLOAD_PORT]
+        payloads = {_GEOMETRY_PAYLOAD_PORT: to_feldspar_payload_ref(geometry_ref)}
+        sense = ClaimSenses.UPPER if self.signature.sense.upper else ClaimSenses.LOWER
+        registry = _engine_registry(NoStoreResolver())
+        result = solve(
+            registry,
+            known,
+            frozenset({"linear_elastic", "small_deflection"}),
+            "mech.deflection.tip",
+            _EPS_BUDGET,
+            sense=sense,
+            payloads=payloads,
+        )
+        if result.is_err:
+            _log.info(
+                "%s: engine solve deferred for claim_kind=%s: %r (see "
+                "pack.payload_bridge for the escalated resolver-threading "
+                "residual)",
+                self.model_id,
+                self._claim_kind,
+                result.danger_err,
+            )
+            return Err(map_engine_error(self.model_id, result.danger_err))
+
+        solution = result.danger_ok
+        value = solution.value.hi if self.signature.sense.upper else solution.value.lo
+        solver_version = f"feldspar {__version__} / ccx unknown / gmsh unknown"
+        return Ok(
+            Prediction(
+                value=value,
+                eps=solution.eps,
+                coverage=1.0,
+                coverage_axes=_structured_coverage(request),
+                in_domain=True,
+                solver_version=solver_version,
+                settings_digest=solution.settings_digest,
+            )
         )

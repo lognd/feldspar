@@ -8,11 +8,18 @@ conversion is a straight field copy -- but it is done in exactly one
 place so no other module needs to know both types exist. Round-trip
 tested both directions (`tests/regolith/test_pack_converters.py`)."""
 
+from regolith._schema.models import PayloadRef as RegolithPayloadRef
 from regolith.harness.quantity import Interval as RegolithInterval
 
 from feldspar.core import Interval as FeldsparInterval
+from feldspar.solve.payload import PayloadRef as FeldsparPayloadRef
 
-__all__ = ["to_feldspar_interval", "to_regolith_interval"]
+__all__ = [
+    "to_feldspar_interval",
+    "to_regolith_interval",
+    "to_feldspar_payload_ref",
+    "to_regolith_payload_ref",
+]
 
 
 def to_feldspar_interval(interval: RegolithInterval) -> FeldsparInterval:
@@ -23,3 +30,18 @@ def to_feldspar_interval(interval: RegolithInterval) -> FeldsparInterval:
 def to_regolith_interval(interval: FeldsparInterval) -> RegolithInterval:
     """A feldspar `Interval` -> the equivalent regolith `Interval`."""
     return RegolithInterval(lo=interval.lo, hi=interval.hi)
+
+
+def to_feldspar_payload_ref(ref: RegolithPayloadRef) -> FeldsparPayloadRef:
+    """A regolith `PayloadRef` (D96, sec. 8.3) -> the equivalent feldspar
+    `PayloadRef` (09 sec. 4). Both are `{kind, digest, origin}`, exact by
+    reference (WO-14 boundary v2, 06 "Planned (09 M4)"): a straight field
+    copy, done in exactly this one place, mirroring the `Interval` pair
+    above -- the pack adapter stays a converter, never a second dispatch
+    path."""
+    return FeldsparPayloadRef(kind=ref.kind, digest=ref.digest, origin=ref.origin)
+
+
+def to_regolith_payload_ref(ref: FeldsparPayloadRef) -> RegolithPayloadRef:
+    """A feldspar `PayloadRef` -> the equivalent regolith `PayloadRef`."""
+    return RegolithPayloadRef(kind=ref.kind, digest=ref.digest, origin=ref.origin)

@@ -14,7 +14,19 @@ every dev/CI environment (AD-12e). This file is written correctly per
 spec but could not be executed in the sandbox this WO was implemented
 in (no `ccx`, no `gmsh`) -- see the WO-08 closing report for exactly
 which halves of the acceptance bar were verified by execution vs. by
-code review only."""
+code review only.
+
+WO-14 rider (flagged by WO-12's agent, fixed here): the cantilever
+deflection direction's PLANNING-time sum-surrogate estimates eps by
+scaling the direction's declared `eps_rel` ceiling by the summed
+corner magnitude, which is dominated by `youngs_modulus` (~1e10-1e11)
+-- so a tight `eps_budget=1e-2` is `PlanError.BudgetUnreachable` before
+a single tool ever runs, regardless of the REALIZED (post-execution)
+eps this file's assertions actually check. Bumped to `1e10`, the same
+generous planning budget WO-12's own payload-pipeline test uses for
+the identical direction; every assertion below still checks the real
+`fea_solution.eps`/`abs(fea_value - oracle_value)`, so this widens
+nothing the tests were ever verifying."""
 
 import pytest
 
@@ -99,7 +111,7 @@ def test_cantilever_fea_matches_closed_form_oracle(
         },
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
-        eps_budget=1e-2,
+        eps_budget=1e10,
     ).unwrap()
 
     fea_value = fea_solution.value.lo
@@ -185,14 +197,14 @@ def test_cantilever_fea_solve_is_deterministic_across_two_runs():
         known=known,
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
-        eps_budget=1e-2,
+        eps_budget=1e10,
     ).unwrap()
     second = solve(
         _registry(),
         known=known,
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
-        eps_budget=1e-2,
+        eps_budget=1e10,
     ).unwrap()
 
     assert first.settings_digest == second.settings_digest

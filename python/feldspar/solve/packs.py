@@ -424,6 +424,15 @@ def load_solver_packs(
             owner_of[info.solver_id] = pack_name
             registered_this_pack.append(info.solver_id)
         if replay_failed:
+            # L1 (cycle-29 audit): a mid-replay failure must not leave
+            # this pack's earlier-registered solvers or newly declared
+            # ports committed on the real registry -- roll both back so
+            # a "skipped" pack really never partially lands.
+            for solver_id in registered_this_pack:
+                registry._rollback_registration(solver_id)
+                owner_of.pop(solver_id, None)
+            for decl in new_ports:
+                registry._rollback_port_decl(decl.name)
             continue
 
         version = _pack_version(ep)

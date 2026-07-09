@@ -151,6 +151,22 @@ class SolverRegistry:
         )
         return Ok(None)
 
+    def _rollback_registration(self, solver_id: str) -> None:
+        """Removes a previously-`register()`ed solver id (packs.py L1,
+        cycle-29 audit): a pack-loading replay that fails partway must
+        be able to undo the solvers it already landed on a real
+        (non-staging) registry, so a "skipped" pack never partially
+        lands. Package-private: only the pack-loading replay rolls back
+        a registry this way -- ordinary callers never unregister."""
+        self._solvers.pop(solver_id, None)
+        _log.info("rolled back registration of %s", solver_id)
+
+    def _rollback_port_decl(self, port_name: str) -> None:
+        """Removes a previously-`declare_ports()`ed port (packs.py L1
+        counterpart to `_rollback_registration`)."""
+        self._ports.pop(port_name, None)
+        _log.info("rolled back port declaration of %s", port_name)
+
     def get(self, solver_id: str) -> "Tuple[SolverInfo, SolveFn] | None":
         """Look up one registered `(SolverInfo, SolveFn)` pair by id
         (WO-18, 09 sec. 4b): `CoupledGroup`'s closure resolves its

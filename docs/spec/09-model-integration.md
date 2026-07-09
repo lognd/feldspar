@@ -106,6 +106,12 @@ flownet               fluid-circuit topology (fluorite lowering,
                       lithos:docs/spec/fluorite/03-lowering.md)
 plan                  manufacturing plan artifact (planner solvers,
                       10 sec. 5)
+frame                 civil structural model: joints, members with
+                      section/material refs and releases, supports,
+                      per-case loads, combination-set ref (calcite
+                      lowering, lithos:docs/spec/calcite/03-lowering.md
+                      sec. 4; added by lithos D139/D145, cycle 27 --
+                      the mech.struct/frame-analysis consumer input)
 ```
 
 - Payload ports type-check by KIND exactly as scalar ports check by
@@ -252,8 +258,13 @@ and the 07 catalog grows with its defensibility built in.
 
 ## 8. Milestones
 
-Each becomes a WO in `implementation/` when scheduled; only M1 is
-committed scope now (WO-27 / Phase 1).
+SCHEDULED 2026-07-08 (owner closure directive, lithos cycle 27
+D146): every milestone below now has its WO in
+`docs/workflow/work-orders/` (M2=WO-12, M3=WO-13, M4=WO-14,
+M5=WO-15, M6=WO-16, M7=WO-17, M8=WO-18, M9=WO-19; M10 phase 1
+landed as WO-11, its R4/R5 follow-ups are WO-22). The library
+phases ride WO-20 (Phase 2 thermal-fluids) and WO-21 (Phase 6
+civil/structural); dispatch order lives in TODO.md.
 
 - **M1 (v1)**: scalar ports; two FEA directions with declared
   ceilings + measured Richardson eps; tier metadata present and

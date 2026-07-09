@@ -9,35 +9,54 @@ detailed done-ledger this file used to carry is in git history
 (deleted per lithos D137: git history is the archive). The FINV
 audit checklist is `docs/workflow/FINV-audit.md`.
 
+FORWARD PLAN SCHEDULED 2026-07-08 (owner closure directive; lithos
+cycle 27, D146): every remaining milestone and library phase is now
+a zero-shot WO (WO-12..WO-22, dependency graph in
+`docs/workflow/README.md`); the open-questions ledger (spec 08) has
+NOTHING open -- every residual is decided or named-gate deferred.
+
 ## Queue
 
-- [ ] **Entry-point migration (lithos WO-44 follow-up, same
-      release):** move `pyproject.toml`'s
-      `[project.entry-points."regolith.model_packs"]` to the
-      unified `regolith.plugins` group (`kind=model_pack`) when
-      lithos WO-44 lands (AD-26/D134). One-line change + conformance
-      re-run against the lithos `tests/packs/` suite.
-- [ ] **Lithos WO-27 conformance run:** the lithos-side reference
-      conformance for this pack is dispatchable now (lithos queue,
-      wave 1); expect asks to land here as small fixes, not new
-      milestones.
-- [ ] **Frame IR consumption (lithos WO-48 follow-up):** when the
-      calcite civil track's realized frame IR lands (lithos
-      D133/WO-48, kind string per `docs/spec/09-model-integration.md`
-      sec. 4's table), add the frame/FEA consumer solvers here --
-      the pack side of `std.civil`'s structural claims. Not
-      scheduled until lithos WO-48 exists in the wild.
-- [ ] **M-milestones beyond M1** (`docs/spec/09-model-integration.md`
-      sec. 8): M2 calibration ceilings at scale, M4/M6 payload-port
-      milestones (unblocked by lithos WO-30, done), the phased
-      capability roadmap in `docs/spec/07-capability-map.md`
-      (thermal/fluids -> vibration -> electrical -> controls).
-      Schedule by demand from real lithos claims, not speculatively.
-- [ ] **FEA-marked tests in a tooled environment:** `fea`-marked
+Wave 1 -- dispatchable NOW:
+
+- [ ] **WO-12** payload ports (M2) -- the root of the forward graph.
+- [ ] **WO-22** symbolic follow-ups (R4/R5, decided 2026-07-08) --
+      independent of the M2 chain.
+- [ ] **Lithos WO-27 conformance run** (lithos-side; expect asks to
+      land here as small fixes, not new milestones).
+
+Wave 2 -- after WO-12:
+
+- [ ] **WO-14** regolith boundary v2 (M4) -- lithos WO-30 is DONE;
+      this un-gates the contract's target state (kind re-key flip,
+      structured coverage, payload channel, givens/regimes).
+- [ ] **WO-13** budget-seeking + cost curves (M3).
+
+Wave 3 -- after their named gates:
+
+- [ ] **WO-16** structured ports + vibration tier (M6) -- after
+      WO-12/14.
+- [ ] **WO-20** Phase 2 thermal-fluids wave (incl. the lithos-D141
+      compressible tier) -- after WO-12/14; lithos's gn2_purge
+      fixture is the demand case.
+- [ ] **WO-15** parallel execution (M5) -- after WO-13.
+- [ ] **WO-17** ngspice elec tier (M7) -- after WO-13/14.
+- [ ] **WO-18** CoupledGroup (M8) -- after WO-12/13; example 06 is
+      the acceptance fixture.
+- [ ] **WO-19** solver-pack kit (M9) -- kit half after WO-14; the
+      AD-26 entry-point migration half is GATED on lithos WO-44.
+- [ ] **WO-21** Phase 6 civil/structural wave (`frame` consumer,
+      `mech.struct`) -- HARD-gated on lithos WO-48 producing frame
+      payloads in the wild.
+
+Standing:
+
+- [ ] **FEA-marked tests in a tooled environment**: `fea`-marked
       tests were written per spec but never executed where gmsh/ccx
       exist (WO-08/09/10 close-out note); run and green them the
       first time the environment has the tools (check with
-      `find_ccx()` before assuming).
+      `find_ccx()` before assuming). WO-17 adds the same posture
+      for `spice`-marked tests.
 
 ## Conventions (unchanged)
 

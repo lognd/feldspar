@@ -224,9 +224,32 @@ when the implementing WO lands; only their RESIDUAL is still open.
   Full resolution detail, including the digest-equality-vs-folds-
   into-digest reconciliation and the predicate-to-box scope decision
   found during implementation: `docs/workflow/work-orders/
-  WO-11-symbolic-core.md` closing report. R4 symbolic delta-method
-  propagation and R5 calibration policy for derived directions
-  remain FUTURE, unchanged, tracked here.
+  WO-11-symbolic-core.md` closing report. R4 and R5: DECIDED
+  (owner closure directive, 2026-07-08; normative text 11 sec. 4;
+  scheduled WO-22) -- symbolic-derivative mode inside the one
+  Propagation protocol with CANON_VERSION digest folding (R4);
+  derived directions inherit citations but re-sweep calibration
+  over the mapped domain, Accuracy(0,0) exempt (R5). NOTHING in
+  OPEN-15 remains open.
+
+## Closure re-review (2026-07-08, owner directive; lithos cycle 27)
+
+Every residual above was re-checked under the owner's
+close-everything directive
+(`lithos:docs/workflow/design-log/2026-07-08-cycle-27.md` D146).
+Dispositions that STAND with their recorded gates (no new evidence
+exists; each is a named-gate deferral, not an open design): OPEN-3's
+`feldspar-solve` process binary (gate: regolith's Phase E process
+split), OPEN-12's zone-indexing residual and OPEN-14's per-station
+routable ports (gate: Phase 2 distributed-thermal demand; design
+shape already pinned -- `field` payloads + projection edges,
+extremal ports until then). Everything else in this file is DECIDED
+with implementation scheduled: the full forward queue is
+`docs/workflow/work-orders/` WO-12..WO-22 (see workflow README),
+covering M2-M9, the Phase 2 library wave (compressible entries
+included -- lithos D141 makes gas-network delivery a demanded
+tier), the civil/structural wave (lithos D133/D139: the `frame`
+payload consumer, 07 Phase 6), and the R4/R5 symbolic follow-ups.
 
 ## Audit ledger (2026-07-07 full-spec audit, A-nn)
 

@@ -45,14 +45,32 @@ WO-01 scaffolding
 ```
 
 WO-03 and WO-04 are parallel after WO-02. WO-10 closes M1 against
-regolith WO-27's acceptance list.
+regolith WO-27's acceptance list. WO-11 (symbolic core, M10 phase 1)
+landed 2026-07-08 after the R1 owner decision.
 
-Later milestones (M2 payload ports, M3 budget-seeking, M4
-regolith-gated boundary, M5 parallelism, M6 structured ports, M7
-ngspice) get WO-12+ appended here when scheduled; their designs are
-already normative in `../feldspar/09-model-integration.md`.
+The forward queue (SCHEDULED 2026-07-08, owner closure directive --
+lithos cycle 27 D146; designs normative in the cited spec homes):
 
-WO-11 (symbolic core, M10) was scheduled out of order by owner
-decision (2026-07-08, `../feldspar/11-symbolic.md` / OPEN-15). It
-depends on WO-03/WO-06 and is OWNER-GATED: do not dispatch until the
-engine-home residual (11 sec. 4 R1) carries an owner decision.
+```
+WO-03/06 (done)
+  -> WO-12 payload ports (M2; 09 sec. 4)
+       -> WO-13 budget-seeking + cost curves (M3; 09 sec. 3)
+            -> WO-15 parallel execution (M5; 09 sec. 6)
+            -> WO-17 ngspice elec tier (M7; 05 pattern, 07 elec)
+            -> WO-18 CoupledGroup (M8; 09 sec. 4b, example 06)
+       -> WO-14 regolith boundary v2 (M4; 06 + lithos sec. 8 -- lithos
+          WO-30 is DONE, so WO-14 is live the moment WO-12 lands)
+            -> WO-16 structured ports + vibration (M6; 02, 07 Phase 3)
+            -> WO-20 Phase 2 thermal-fluids wave (07; incl. the D141
+               compressible tier over flownet payloads)
+            -> WO-21 Phase 6 civil/structural wave (07; the `frame`
+               consumer -- HARD-gated on lithos WO-48)
+WO-03 (done), WO-14
+  -> WO-19 solver-pack kit (M9) + the AD-26 entry-point migration
+     (migration half gated on lithos WO-44)
+WO-11 (done), WO-04/07
+  -> WO-22 symbolic follow-ups (R4/R5; 11 sec. 4 -- DECIDED)
+```
+
+Dispatch order and gates live in `../../TODO.md` (the one live
+queue).

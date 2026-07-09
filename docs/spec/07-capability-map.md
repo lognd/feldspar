@@ -419,14 +419,27 @@ is committed scope now (WO-05).
   illustrative -- ask recorded regolith-side,
   `lithos:docs/spec/toolchain/20-solver-abstraction.md` sec. 7).
 - **Phase 5 -- controls and signals**: `control` + `signal`;
-  deliberately last, lithos-side demand speculative until cuprite's
-  behavioral layer stabilizes.
-- **Unphased catalog** (`materials`, `mech.struct`, `mfg`, `aero`,
-  `chem`, `vehicle`): committed scope, scheduled when a lithos
-  consumer or an owner decision pulls them forward. The dune-buggy
-  fixture (examples/lithos/dune_buggy/) is the standing demand
-  signal for `mech.struct` (frame stiffness/collapse) and `vehicle`
-  (its SOLVER-TRACE names every blocked claim).
+  deliberately last among the original phases, lithos-side demand
+  speculative until cuprite's behavioral layer stabilizes.
+- **Phase 6 -- civil/structural (ADDED 2026-07-08, pulled forward
+  by lithos calcite, D133/D139/D146 -- exactly this map's rule:
+  phases follow lithos demand)**: `mech.struct` (direct stiffness
+  frame tier, member design checks, connections) consuming the
+  `frame` payload (09 sec. 4), the `civil.utilization` /
+  `mech.deflection` / drift / modal claim kinds calcite lowers, and
+  the geotech-record consumers its retaining-wall corpus names.
+  Gated on lithos WO-48 producing frames in the wild; WO-21 here.
+- **Unphased catalog** (`materials`, `mfg`, `aero`, `chem`,
+  `vehicle`; `mech.struct` graduated to Phase 6): committed scope,
+  scheduled when a lithos consumer or an owner decision pulls them
+  forward. The dune-buggy fixture (examples/lithos/dune_buggy/)
+  remains the standing demand signal for `vehicle` (its
+  SOLVER-TRACE names every blocked claim). STANDING DEMAND (lithos
+  D144, cycle 27): the pattern/mechanism libraries
+  (`std.mech.mechanisms` etc.) consume `dynamics` (four-bar/cam
+  kinematics) and `mech.design` (screws, belts, gears) entries as
+  their model halves -- schedule those catalog areas with or right
+  after the phase that first needs them.
 
 ## Ordering rationale
 

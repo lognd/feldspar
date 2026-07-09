@@ -109,14 +109,25 @@ carry amendment notes pointing here. Ledger entry: OPEN-15 (08).
   0.5*k*x^2` solved for `x` is `MultiBranch` without a declared
   branch, succeeds with one. Detail: `../implementation/
   WO-11-symbolic-core.md` closing report.
-- **R4 -- symbolic propagation.** The delta-method `Propagation`
-  implementation (02) can take its derivatives symbolically instead
-  of numerically -- a natural consumer, deliberately not bundled
-  into the first cut.
-- **R5 -- calibration interplay.** Whether a derived direction may
-  share the declared law's calibration evidence or needs its own
-  sweep (the transform is exact, but domain corners map
-  nonlinearly) -- harness policy to decide with R1.
+- **R4 -- symbolic propagation. DECIDED (owner closure directive,
+  2026-07-08, `lithos:docs/workflow/design-log/2026-07-08-cycle-27.md`
+  D146):** the delta-method `Propagation` implementation (02) gains
+  a symbolic-derivative mode: where a step's law is a symbolic
+  `Relation`, derivatives come from the kernel's differentiation
+  over the canonical AST; otherwise numeric differencing (the
+  existing path) -- one Propagation protocol, mode chosen per step,
+  never per solve. `CANON_VERSION` folds into every digest the
+  symbolic mode touches (a canonicalization change re-keys exactly
+  the affected results). Scheduled: WO-22.
+- **R5 -- calibration interplay. DECIDED (owner closure directive,
+  2026-07-08, same ledger):** a DERIVED direction inherits the
+  declared law's CITATIONS but never its calibration EVIDENCE; the
+  calibration harness re-sweeps derived directions over the mapped
+  domain automatically (the inversion is exact, but domain corners
+  map nonlinearly, so the sweep is the honest floor -- and it is
+  cheap: the law is closed-form by construction). `Accuracy(0,0)`
+  exact laws are exempt (nothing to measure; the A-7 rule).
+  Scheduled: WO-22.
 
 ## 5. Implementation
 
@@ -126,4 +137,5 @@ above are now backed by a real `feldspar-core::symbolic` kernel,
 `feldspar.solve.sugar.Relation.law(...)`, and
 `Solution.explain()`/`to_dict()` rendering of the algebraic form and
 admission predicate per step. R4 (symbolic propagation) and R5
-(calibration interplay) remain future, tracked in OPEN-15 (08).
+(calibration interplay) are DECIDED (sec. 4, 2026-07-08) and
+scheduled as WO-22; OPEN-15 (08) records the closure.

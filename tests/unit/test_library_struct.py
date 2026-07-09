@@ -123,7 +123,11 @@ def test_propped_cantilever_udl_matches_closed_form():
     # Fixture's member release list is empty (unresolved) -> the
     # documented rigid default applies and is recorded, never silent
     # (see test_empty_member_release_defaults_to_rigid_and_is_recorded).
-    assert len(solved["assumptions"]) == 1
+    # The load-value ".hi" corner choice is likewise recorded (M3,
+    # cycle-28 audit).
+    assert len(solved["assumptions"]) == 2
+    assert any("rigid" in a for a in solved["assumptions"])
+    assert any(".hi" in a for a in solved["assumptions"])
 
 
 def test_empty_member_release_defaults_to_rigid_and_is_recorded():
@@ -135,8 +139,7 @@ def test_empty_member_release_defaults_to_rigid_and_is_recorded():
     section_material = {"G1": {"ea": 1e12, "ei": 6.0e7}}
     result = solve_frame_payload(payload, section_material, "dead")
     assert result.is_ok
-    assert len(result.danger_ok["assumptions"]) == 1
-    assert "rigid" in result.danger_ok["assumptions"][0]
+    assert any("rigid" in a for a in result.danger_ok["assumptions"])
 
 
 def test_unresolved_support_fixity_is_honest_indeterminate():
@@ -173,6 +176,55 @@ def test_missing_section_material_is_honest_indeterminate():
     assert result.is_err
     assert result.err.kind == "OutOfDomain"
     assert "no resolved section/material" in result.err.violation
+
+
+def test_unmatched_distributed_load_target_is_honest_indeterminate():
+    """M2 (cycle-28 audit): `regolith-lower::frame_lower::on_target`
+    extracts a level/region/deck name for civil designs, not a member
+    id -- a distributed load whose target matches no member must be an
+    honest `Err`, never silently dropped (contributing zero demand)."""
+    payload = _propped_cantilever_payload(10e3, 6.0)
+    payload["loads"][0]["target"] = "Deck"  # not a member id
+    section_material = {"G1": {"ea": 1e12, "ei": 6.0e7}}
+    result = solve_frame_payload(payload, section_material, "dead")
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+    assert "Deck" in result.err.violation
+
+
+def test_member_length_in_millimeters_is_normalized_to_si():
+    """M4 (cycle-28 audit): `frame_lower::member_length` only
+    *defaults* the length unit to `"m"` -- it propagates whatever unit
+    the source grid/level datums carry. A `mm`-unit length must be
+    normalized to SI meters (not treated as if it were already
+    meters), so a `[lo=6000, hi=6000, unit="mm"]` length reproduces the
+    same closed-form result as `length=6.0` meters."""
+    w = 10e3
+    payload = _propped_cantilever_payload(w, 6.0)
+    payload["members"][0]["length"] = {"lo": 6000.0, "hi": 6000.0, "unit": "mm"}
+    section_material = {"G1": {"ea": 1e12, "ei": 6.0e7}}
+
+    result = solve_frame_payload(payload, section_material, "dead")
+    assert result.is_ok, result.err
+    solved = result.danger_ok
+    length = 6.0
+    assert _close(solved["reactions"]["A"][1], 5.0 * w * length / 8.0)
+    assert _close(solved["reactions"]["B"][1], 3.0 * w * length / 8.0)
+    assert _close(abs(solved["reactions"]["A"][2]), w * length * length / 8.0)
+
+
+def test_member_length_nondegenerate_interval_is_honest_indeterminate():
+    """M4 (cycle-28 audit): a resolved member length is expected to be
+    a degenerate (`lo == hi`) interval (`frame_lower::member_length`
+    always emits one) -- a genuine `lo != hi` range here means the
+    producer-side invariant broke; that must be an honest `Err`, never
+    a silent pick of one bound."""
+    payload = _propped_cantilever_payload(10e3, 6.0)
+    payload["members"][0]["length"] = {"lo": 5.0, "hi": 7.0, "unit": "m"}
+    section_material = {"G1": {"ea": 1e12, "ei": 6.0e7}}
+    result = solve_frame_payload(payload, section_material, "dead")
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
 
 
 def test_registry_direction_honestly_indeterminates_on_unresolved_refs():

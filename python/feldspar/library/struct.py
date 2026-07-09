@@ -58,7 +58,7 @@ from typing import Sequence
 from typani import Err, Ok
 
 from feldspar import _feldspar
-from feldspar.core import Domain, PortDecl, Rank
+from feldspar.core import Domain, PortDecl, Rank, UnitSystem
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, make_direction
 from feldspar.solve.errors import SolveError
@@ -100,6 +100,72 @@ _ORIENTATION_TO_DXY = {
 #: code in a payload's `Releases`/`Support.fixity` is an honest
 #: unsupported-vocabulary error, never silently ignored.
 _DOF_CODES = ("x", "y", "rz")
+
+#: The built-in SI unit table (`feldspar.core.UnitSystem`, 02-quantities
+#: "Unit algebra"). `frame_lower::member_length` only *defaults* the
+#: length unit to `"m"` -- it propagates whatever unit the source
+#: grid/level datums carry (M4, cycle-28 audit) -- so every scalar this
+#: module pulls off the payload is normalized through this table rather
+#: than assumed SI.
+_UNITS = UnitSystem.builtin()
+
+#: Floating tolerance for the "length/geometry scalars carry a
+#: degenerate (`lo == hi`) interval" payload-contract expectation
+#: (`frame_lower::member_length` always emits `lo == hi`; M3/M4,
+#: cycle-28 audit).
+_DEGENERATE_TOL = 1e-9
+
+
+def _scalar_to_si(interval: dict, corner: str, context: str):
+    """Normalizes one payload `ScalarInterval`'s `corner` (`"lo"` or
+    `"hi"`) value to SI through `_UNITS`, honestly `Err`ing rather than
+    silently mixing units when the label isn't in the built-in table
+    (M4, cycle-28 audit: a non-meter member length or an unregistered
+    load-value unit must not be assumed SI)."""
+    value = interval[corner]
+    unit = interval["unit"]
+    si_result = _UNITS.to_si(value, unit)
+    if si_result.is_err:
+        _log.warning(
+            "struct.frame: %s: unit %r could not be normalized to SI (%s)",
+            context,
+            unit,
+            si_result.err,
+        )
+        return Err(
+            SolveError.OutOfDomain(
+                violation=(
+                    f"{context}: unit {unit!r} has no SI conversion "
+                    f"entry ({si_result.err}) -- cannot solve without "
+                    "mixing units"
+                )
+            )
+        )
+    return Ok(si_result.danger_ok)
+
+
+def _length_to_si_m(interval: dict, context: str):
+    """Normalizes a `length`-shaped `ScalarInterval` to SI meters.
+
+    `frame_lower::member_length` always emits a degenerate (`lo == hi`)
+    interval -- a resolved length is a single scalar, not a genuine
+    uncertainty range -- so a nondegenerate interval here means the
+    producer-side invariant this module relies on has broken; that is
+    an honest `OutOfDomain`, not a silent pick of one bound (M3/M4,
+    cycle-28 audit)."""
+    lo, hi = interval["lo"], interval["hi"]
+    if abs(hi - lo) > _DEGENERATE_TOL * max(1.0, abs(lo), abs(hi)):
+        return Err(
+            SolveError.OutOfDomain(
+                violation=(
+                    f"{context}: length interval [{lo}, {hi}] is not "
+                    "degenerate (lo != hi) -- a resolved geometric length "
+                    "is expected to be a single scalar, not a genuine "
+                    "uncertainty range, this slice"
+                )
+            )
+        )
+    return _scalar_to_si(interval, "lo", context)
 
 
 def _member_geometry(orientation: str, length_m: float, member_id: str):
@@ -227,6 +293,36 @@ def solve_frame_payload(
     joint_index = {j["id"]: idx for idx, j in enumerate(joints)}
     n_nodes = len(joints)
 
+    # M2 (cycle-28 audit): `regolith-lower::frame_lower::on_target`
+    # extracts the FIRST name in the source `on [<target>]` bracket,
+    # which for civil designs is typically a level/region/deck name,
+    # not a member declaration id. A distributed load whose target
+    # matches no member honestly cannot be resolved (tributary/`on
+    # [...]` target resolution is unbuilt this slice) -- refuse rather
+    # than silently contribute zero to the assembled demand.
+    member_ids = {m["id"] for m in payload["members"]}
+    for load in loads:
+        if load["case"] != load_case:
+            continue
+        if load["kind"] == "distributed" and load["target"] not in member_ids:
+            _log.warning(
+                "struct.frame: distributed load target %r (case %r) "
+                "matches no member id",
+                load["target"],
+                load_case,
+            )
+            return Err(
+                SolveError.OutOfDomain(
+                    violation=(
+                        f"distributed load target {load['target']!r} "
+                        f"(case {load_case!r}) matches no member id -- "
+                        "load-target-to-member resolution (tributary/"
+                        "`on [...]`) is a named cut this slice; refusing "
+                        "to silently drop this load"
+                    )
+                )
+            )
+
     member_i: list[int] = []
     member_j: list[int] = []
     member_dx: list[float] = []
@@ -237,6 +333,7 @@ def solve_frame_payload(
     member_release_b: list[bool] = []
     member_fef: list[list[float]] = []
     assumptions: list[str] = []
+    hi_corner_recorded = False
 
     for m in members:
         mid = m["id"]
@@ -251,7 +348,11 @@ def solve_frame_payload(
                 )
             )
         props = section_material[mid]
-        geom = _member_geometry(m["orientation"], m["length"]["lo"], mid)
+        length_si = _length_to_si_m(m["length"], f"member {mid!r} length")
+        if length_si.is_err:
+            return length_si
+        length_m = length_si.danger_ok
+        geom = _member_geometry(m["orientation"], length_m, mid)
         if geom.is_err:
             return geom
         dx, dy = geom.danger_ok
@@ -295,8 +396,22 @@ def solve_frame_payload(
                         )
                     )
                 )
-            w = load["value"]["lo"]
-            case_fef = _udl_fef_local(w, m["length"]["lo"])
+            w_si = _scalar_to_si(
+                load["value"],
+                "hi",
+                f"member {mid!r} distributed load (case {load_case!r})",
+            )
+            if w_si.is_err:
+                return w_si
+            w = w_si.danger_ok
+            if not hi_corner_recorded:
+                assumptions.append(
+                    "loads solved at the conservative .hi (upper-bound) "
+                    "magnitude corner; lengths/geometry solved at their "
+                    "(degenerate) nominal value"
+                )
+                hi_corner_recorded = True
+            case_fef = _udl_fef_local(w, length_m)
             fef = [a + b for a, b in zip(fef, case_fef, strict=True)]
 
         member_i.append(joint_index[m["a"]])
@@ -336,7 +451,21 @@ def solve_frame_payload(
                 )
             )
         node = joint_index[load["target"]]
-        joint_loads[node * 3 + 1] -= load["value"]["lo"]
+        w_si = _scalar_to_si(
+            load["value"],
+            "hi",
+            f"joint {load['target']!r} point load (case {load_case!r})",
+        )
+        if w_si.is_err:
+            return w_si
+        if not hi_corner_recorded:
+            assumptions.append(
+                "loads solved at the conservative .hi (upper-bound) "
+                "magnitude corner; lengths/geometry solved at their "
+                "(degenerate) nominal value"
+            )
+            hi_corner_recorded = True
+        joint_loads[node * 3 + 1] -= w_si.danger_ok
 
     try:
         displacements, reactions, member_end_forces = _feldspar.mech_frame2d_solve(

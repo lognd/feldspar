@@ -151,6 +151,16 @@ class SolverRegistry:
         )
         return Ok(None)
 
+    def get(self, solver_id: str) -> "Tuple[SolverInfo, SolveFn] | None":
+        """Look up one registered `(SolverInfo, SolveFn)` pair by id
+        (WO-18, 09 sec. 4b): `CoupledGroup`'s closure resolves its
+        MEMBER solvers through this at solve-call time (never at
+        `register()` time -- AD-4 registration order is arbitrary, so a
+        composite may register before its members exist in the same
+        registry). `None`, not an exception, for "not (yet) registered"
+        -- the closure itself decides what that means for its caller."""
+        return self._solvers.get(solver_id)
+
     def freeze(self) -> None:
         self._frozen = True
         _log.info(

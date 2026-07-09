@@ -15,7 +15,7 @@ build:
 	uv run maturin develop
 
 test:
-	uv run pytest tests/ -n auto -m "not regolith and not fea"
+	uv run pytest tests/ -n auto -m "not regolith and not fea and not spice"
 
 regolith-test:
 	uv run pytest tests/regolith/ -m regolith
@@ -39,7 +39,7 @@ typecheck:
 
 coverage:
 	uv run pytest tests/ --cov=python --cov-report=term-missing --cov-report=html \
-		-m "not regolith and not fea"
+		-m "not regolith and not fea and not spice"
 
 check: fmt-check lint import-lint typecheck test
 	cargo clippy --workspace --all-targets -- -D warnings

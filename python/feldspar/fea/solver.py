@@ -16,6 +16,8 @@ Mirrors `python/feldspar/library/mech.py`'s `register()` pattern exactly:
 for each, checks `.danger_ok`, and logs a count (AD-4: no global registry
 access outside `register()`)."""
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
 from typani import Err, Ok
 
@@ -24,6 +26,7 @@ from feldspar.core import Accuracy, Domain, Interval
 from feldspar.fea import ccx
 from feldspar.fea.deck import build_cantilever_deck, build_cylinder_deck
 from feldspar.fea.geometry import CantileverGeometry, CylinderGeometry, Material
+from feldspar.fea.ladder import RungCache, climb_richardson_ladder
 from feldspar.fea.mesh import MeshSettings, build_cantilever_mesh, build_cylinder_mesh
 from feldspar.fea.results import (
     max_displacement_magnitude,
@@ -33,7 +36,14 @@ from feldspar.fea.results import (
 )
 from feldspar.fea.richardson import richardson_extrapolate
 from feldspar.logging_setup import get_logger
-from feldspar.solve import Citation, SolveOutput, SolverRegistry, solver
+from feldspar.solve import (
+    Citation,
+    CostCurve,
+    CostPoint,
+    SolveOutput,
+    SolverRegistry,
+    solver,
+)
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError
 
@@ -98,9 +108,19 @@ _DEFAULT_SOLVE_SETTINGS = SolveSettings()
 # coarse char_length chosen to keep both the coarse and fine run cheap in
 # CI/testing while still giving gmsh's transfinite meshing at least a
 # handful of elements per axis on the geometries this solver's Domain
-# boxes admit; h/2 is the standard Richardson refinement step.
+# boxes admit; h/2 is the standard Richardson refinement step. Retained
+# as the `cylinder_bore` direction's fixed pair (unchanged by WO-13:
+# only `cantilever` below grows a full budget-seeking ladder).
 _MESH_H = 0.02  # m
 _MESH_H2 = 0.01  # m
+
+# WO-13 (09 sec. 3): `cantilever`'s full deterministic refinement ladder
+# -- the h/h2 pair above extended with two finer rungs, each halving
+# char_length again (same "cheap enough for CI, still resolves gmsh's
+# transfinite meshing" rationale as the original pair). Coarsest first;
+# `feldspar.fea.ladder.climb_richardson_ladder` climbs in this order.
+_MESH_H3 = 0.005  # m
+_MESH_H4 = 0.0025  # m
 
 # Axial length of the cylinder family's r-z rectangle: NOT a port (only
 # inner_radius/outer_radius are exposed per the 05 port-naming contract),
@@ -133,6 +153,26 @@ def _fold_settings_digest(
         {
             "mesh_h": mesh_h,
             "mesh_h2": mesh_h2,
+            "solve_settings": solve_settings,
+            "tool_versions": tool_versions,
+        }
+    )
+
+
+def _fold_ladder_settings_digest(
+    rungs: "tuple[MeshSettings, ...]",
+    solve_settings: SolveSettings,
+    tool_versions: ToolVersions,
+) -> str:
+    """WO-13 (09 sec. 3): the ladder-policy twin of `_fold_settings_digest`
+    -- folds the FULL ordered rung sequence (not just an h/h2 pair) so
+    the settings_digest changes if any rung's char_length changes OR if
+    a rung is added/removed (the ladder policy IS part of the settings
+    digest per the WO-13 deliverable). `cantilever` uses this; `cylinder
+    _bore` keeps the original fixed-pair fold unchanged."""
+    return canonical_digest(
+        {
+            "rungs": rungs,
             "solve_settings": solve_settings,
             "tool_versions": tool_versions,
         }
@@ -197,13 +237,52 @@ _CANTILEVER_MESH_H = MeshSettings(
 _CANTILEVER_MESH_H2 = MeshSettings(
     family="cantilever", element_type="C3D20", char_length=_MESH_H2
 )
+_CANTILEVER_MESH_H3 = MeshSettings(
+    family="cantilever", element_type="C3D20", char_length=_MESH_H3
+)
+_CANTILEVER_MESH_H4 = MeshSettings(
+    family="cantilever", element_type="C3D20", char_length=_MESH_H4
+)
 
-_CANTILEVER_SETTINGS_DIGEST = _fold_settings_digest(
+# WO-13 (09 sec. 3): the full deterministic ladder, coarsest first --
+# `climb_richardson_ladder` walks this in order, Richardson-pairing each
+# new rung against the previous one, stopping the first pair whose eps
+# fits the caller's remaining budget.
+_CANTILEVER_LADDER = (
     _CANTILEVER_MESH_H,
     _CANTILEVER_MESH_H2,
+    _CANTILEVER_MESH_H3,
+    _CANTILEVER_MESH_H4,
+)
+
+_CANTILEVER_SETTINGS_DIGEST = _fold_ladder_settings_digest(
+    _CANTILEVER_LADDER,
     _DEFAULT_SOLVE_SETTINGS,
     _NOMINAL_TOOL_VERSIONS,
 )
+
+# WO-13 cost curve (09 sec. 3, additive schema -- the planner still
+# reads only the scalar `cost=5.0` below, unchanged): nominal, relative
+# nominal-order-of-magnitude declared points, one per achievable rung
+# pair, in the same placeholder spirit as `_CANTILEVER_ACCURACY`'s fixed
+# ceiling -- cost climbs as the required eps tightens, mirroring the
+# ladder's actual (mesh_h, mesh_h2), (mesh_h2, mesh_h3), (mesh_h3,
+# mesh_h4) Richardson pairs.
+_CANTILEVER_COST_CURVE = CostCurve(
+    points=(
+        CostPoint(eps=1e-5, cost=20.0),
+        CostPoint(eps=1e-4, cost=10.0),
+        CostPoint(eps=1e-3, cost=5.0),
+    )
+)
+
+# WO-13: per-rung result cache shared across calls in this process (09
+# sec. 3 "a later request with a looser budget reuses the h solve and
+# skips h/2" -- the dev-loop-pays-each-mesh-once-ever property). Module-
+# level and mutable by design (mirrors `PayloadStepCache`'s own
+# process-lifetime, injectable-elsewhere shape; tests construct their
+# own `RungCache()` to observe hit/miss counts in isolation).
+_CANTILEVER_RUNG_CACHE = RungCache()
 
 
 @solver(
@@ -235,8 +314,10 @@ _CANTILEVER_SETTINGS_DIGEST = _fold_settings_digest(
     tier="discretized",
     settings=_CANTILEVER_SETTINGS_DIGEST,
     deterministic=True,
+    eps_seeking=True,
+    cost_curve=_CANTILEVER_COST_CURVE,
 )
-def cantilever(x):
+def cantilever(x, eps_budget: Optional[float] = None):
     geometry = CantileverGeometry(
         length=x["mech.geom.cantilever.length"],
         width=x["mech.geom.cantilever.width"],
@@ -249,8 +330,7 @@ def cantilever(x):
     )
     tip_force = x["mech.load.tip_force"]
 
-    values = []
-    for settings in (_CANTILEVER_MESH_H, _CANTILEVER_MESH_H2):
+    def _run_rung(settings: MeshSettings):
         mesh_result = build_cantilever_mesh(geometry, settings)
         if mesh_result.is_err:
             _log.warning(
@@ -297,19 +377,31 @@ def cantilever(x):
             settings.char_length,
             value,
         )
-        values.append(value)
+        return Ok(value)
 
-    result = richardson_extrapolate(values[0], values[1])
+    climb = climb_richardson_ladder(
+        _CANTILEVER_LADDER,
+        _run_rung,
+        eps_budget,
+        solver_id="fea.static_deflection.cantilever",
+        version="1",
+        box={k: x[k] for k in sorted(x)},
+        rung_cache=_CANTILEVER_RUNG_CACHE,
+    )
+    if climb.is_err:
+        return Err(climb.danger_err)
+    extrapolated, eps, rungs_used = climb.danger_ok
     _log.info(
-        "cantilever: richardson extrapolated=%s eps=%s fallback_used=%s",
-        result.extrapolated,
-        result.eps,
-        result.fallback_used,
+        "cantilever: ladder climb extrapolated=%s eps=%s rungs_used=%d budget=%s",
+        extrapolated,
+        eps,
+        rungs_used,
+        eps_budget,
     )
     return Ok(
         SolveOutput(
-            values={"mech.deflection.tip": result.extrapolated},
-            measured_eps=result.eps,
+            values={"mech.deflection.tip": extrapolated},
+            measured_eps=eps,
         )
     )
 

@@ -201,3 +201,10 @@ same data as a JSON-safe dict for machine consumers.
 
 Docs are the contract: a code/spec disagreement is a bug in one of them,
 and the fix updates both in the same change.
+
+## License
+
+GPL-2.0-only (the Linux kernel's license; owner-decided 2026-07-08),
+matching the lithos repo: free to use, study, modify, and
+redistribute -- derivatives play by the same rules. Full text in
+`LICENSE`.

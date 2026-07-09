@@ -7,7 +7,7 @@ name = "feldspar"
 dynamic = ["version"]
 description = "Solution-path/FEA solver engine for the lithos toolchain"
 readme = "README.md"
-license = { text = "GPL-3.0-only" }
+license = { text = "GPL-2.0-only" }
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",

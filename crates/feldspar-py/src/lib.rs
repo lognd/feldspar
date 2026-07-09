@@ -8,6 +8,12 @@
 //! 01-interfaces are exposed here as raising "raw/checked" primitives
 //! (see `errors.rs`); `python/feldspar/core.py` wraps them into the
 //! typani `Result` values the public Python surface promises.
+// PyO3 0.22's macros emit a `gil-refs` cfg newer rustc doesn't know; the
+// warning is upstream boilerplate, not our code (removed when pyo3 bumps).
+#![allow(unexpected_cfgs)]
+// PyO3's generated wrappers call `.into()` on already-`PyErr` results;
+// the useless-conversion is in generated glue, not our bodies.
+#![allow(clippy::useless_conversion)]
 
 use pyo3::prelude::*;
 

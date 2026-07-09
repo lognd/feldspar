@@ -1,5 +1,15 @@
 name: ci
 
+# Toolchain is pinned by rust-toolchain.toml (dtolnay/rust-toolchain
+# installs a baseline; rustup then honors the repo pin for every cargo
+# invocation -- never pass `override: true` style overrides, they beat
+# the pin and float CI onto whatever stable is this week).
+#
+# The `regolith` extra resolves an editable path dependency on a
+# sibling lithos checkout (pyproject [tool.uv.sources]), so every job
+# that does not need it syncs with `--no-extra regolith`; the regolith
+# job checks out both repos side by side instead.
+
 on:
   push:
     branches: [main, master]
@@ -14,13 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --no-extra regolith
       - run: uv run maturin develop
       - run: make check
 
@@ -29,10 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -43,46 +49,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --no-extra regolith
       - run: uv run maturin develop
       - name: run twice serial (threads=1), compare digests
         run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
       - name: run twice serial (threads=1), compare digests (rerun)
         run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
 
-  # AD-12d: regolith extra job; can't pass until WO-09 lands
+  # AD-12d: the regolith conformance job -- needs a sibling lithos
+  # checkout for the editable path source. If lithos is private, give
+  # the checkout a read token (secrets.LITHOS_READ_TOKEN) or the job
+  # fails at checkout, not resolution.
   regolith:
     runs-on: ubuntu-latest
     continue-on-error: true
+    defaults:
+      run:
+        working-directory: feldspar
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          override: true
+          path: feldspar
+      - uses: actions/checkout@v4
+        with:
+          repository: lognd/lithos
+          path: lithos
+      - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync --all-extras --extra regolith
+      - run: uv sync --all-extras
       - run: uv run maturin develop
       - run: uv run pytest tests/ -m regolith
 
-  # AD-12e: fea job with ccx+gmsh; can't pass until WO-08 lands
+  # AD-12e: fea job with ccx+gmsh; can't pass until the env has them
   fea:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync --all-extras --extra mesh
+      - run: uv sync --all-extras --no-extra regolith
       - run: uv run maturin develop
-      - name: install ccx (best-effort; job is continue-on-error until WO-08)
+      - name: install ccx (best-effort; job is continue-on-error)
         run: sudo apt-get update && sudo apt-get install -y calculix-ccx || true
       - run: uv run pytest tests/ -m fea

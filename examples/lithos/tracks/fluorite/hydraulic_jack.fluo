@@ -18,7 +18,7 @@ flownet JackCircuit(medium=HydOil):
                                                  (ambient -> pump_out)
         cv:     CheckValve(crack_dp=50kPa)      (pump_out -> cv_out)
         ram:    Pipe(from=ram_tube.run)         (cv_out -> ram_in)
-        release: Valve(cv=8.5, states={open, closed} | position in [0,1])
+        release: Valve(cv=8.5, states={open, closed} | position in [0, 1])
                                                  (ram_in -> ambient)
     states:
         release.position in {closed, open}

@@ -20,9 +20,9 @@ flownet BrakeCircuit(medium=BrakeFluid):
                                                  (ambient -> mc_out)
         fsplit: Pipe(from=front_line.run)        (mc_out -> front_split)
         rsplit: Pipe(from=rear_line.run)         (mc_out -> rear_split)
-        fcal:   Valve(cv=6.0, states={open, closed} | position in [0,1])
+        fcal:   Valve(cv=6.0, states={open, closed} | position in [0, 1])
                                                  (front_split -> front_cal)
-        rcal:   Valve(cv=6.0, states={open, closed} | position in [0,1])
+        rcal:   Valve(cv=6.0, states={open, closed} | position in [0, 1])
                                                  (rear_split -> rear_cal)
     states:
         state front_circuit in {intact, failed}

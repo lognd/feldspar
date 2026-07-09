@@ -5,7 +5,7 @@
 # material record -> property ports (G2), mm/MPa/degC ingest (G3),
 # E(T) over an environment range (G5).
 
-import std.mech.turned (Bore, Face)
+import std.mech.turned (Bore)
 
 part ManifoldBody:
     material: AISI_4140            # G2: a NAME -- the property

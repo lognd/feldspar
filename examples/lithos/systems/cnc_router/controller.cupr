@@ -8,7 +8,7 @@
 
 import "contracts.cupr" (StepDirOut, LimitBank, SpindleCmd, EStopNode,
                          RailTap)
-import std.elec.families (cmos_3v3, cmos_5v0)
+import std.elec.families (cmos_5v0)
 import std.elec.buffers (LineDriver, OptoIn)
 
 board CtrlPcb<fw: image>:

@@ -5,7 +5,7 @@
 # precedents at automotive severity).
 
 import std.elec.power (LowSideDriver, IgnitionIgbt, Buck)
-import std.elec.sense (VrAmp, NtcInput, LambdaInput)
+import std.elec.sense (VrAmp)
 
 block EfiEcu:
     ports:

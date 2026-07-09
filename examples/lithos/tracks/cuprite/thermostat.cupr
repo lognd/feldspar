@@ -5,7 +5,6 @@
 
 import std.intents
 import std.debug
-import std.elec.families (cmos_3v3)
 
 system Thermostat:
     boundary:

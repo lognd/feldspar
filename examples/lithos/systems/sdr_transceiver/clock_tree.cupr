@@ -9,7 +9,6 @@
 # is a declared domain, so an undeclared crossing anywhere downstream
 # is E0420-family at L3, not a timing-report surprise.
 
-import std.elec.families (cmos_3v3, lvcmos18)
 
 block ClockTree:
     ports:

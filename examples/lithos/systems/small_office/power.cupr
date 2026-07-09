@@ -4,7 +4,6 @@
 # fluorite side's electrical demand promises through one chain.
 
 import std.intents
-import "program.calx" (MechRoom)
 import "hydronics.fluo" (HeatingLoop)
 
 system BuildingPower:

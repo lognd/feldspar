@@ -6,8 +6,7 @@
 # Every wiring run between two of these contracts is a WO-34
 # `harness:` candidate -- see the prose notes at each mating.
 
-import std.elec.families (cmos_3v3, cmos_5v0)
-import std.elec.protocols (uart, rs485)
+import std.elec.families (cmos_5v0)
 
 # ---- Motion signals: one channel per axis, differential-friendly.
 

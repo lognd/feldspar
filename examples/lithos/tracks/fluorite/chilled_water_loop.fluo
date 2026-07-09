@@ -15,7 +15,7 @@ flownet ChillLoop(medium=Coolant60):
         supply: Pipe(from=supply_line.run)       (pump_out -> zone_in)
         hx:     HxSegment(zone=enclosure.zones.electronics)
                                                   (zone_in -> zone_out)
-        bypass: Valve(cv=2.0, states={open, closed} | position in [0,1])
+        bypass: Valve(cv=2.0, states={open, closed} | position in [0, 1])
                                                   (zone_in -> bypass_out)
         merge:  Pipe(from=return_line.run)       (zone_out -> ret)
         byret:  Pipe(from=bypass_line.run)       (bypass_out -> ret)

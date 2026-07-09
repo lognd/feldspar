@@ -5,8 +5,6 @@
 # workload seam (EOPEN-15: `realizes`).
 
 import std.intents
-import std.elec.families (cmos_3v3)
-import std.compute (executor)
 
 system MotorDrive:
     exposing op: {sleep, run, fault}      # operating-mode config variable

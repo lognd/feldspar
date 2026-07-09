@@ -9,7 +9,6 @@
 # The deliberate NEGATIVE fixture (dBm + dBm, E0104) lives in
 # negative/db_illegal.cupr and is EXCLUDED from the golden corpus.
 
-import "contracts.cupr" (RfDeck, AntennaFeed)
 import std.intents
 import std.debug
 

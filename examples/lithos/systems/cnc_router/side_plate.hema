@@ -6,7 +6,7 @@
 # molded_clip, a profile-driven contour, and the corpus's deliberate
 # rung-7 waiver (mech 04 sec. I4: waive + basis + by evidence).
 
-import "contracts.hema" (ShoulderSeat, BeamEnd, AxisFoot)
+import "contracts.hema" (BeamEnd, AxisFoot)
 import std.mech.cnc (saw_stock, cnc_mill, cnc_drill, tap_rigid)
 
 profile ShoulderOutline:

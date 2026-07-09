@@ -4,8 +4,6 @@
 # owned by the top system, and per-mode power refinement.
 
 import "contracts.cupr" (StackCard)
-import std.elec.families (cmos_3v3)
-import std.elec.buses (BusAttach)
 
 board AdcsPcb:
     stage bare:      process=pcb_fab(jlc_4l)

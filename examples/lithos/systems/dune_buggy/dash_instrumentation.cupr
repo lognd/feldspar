@@ -4,7 +4,7 @@
 # sunlight-readable display thermals, G33 shared-event identity
 # outside propulsion.
 
-import std.elec.sense (BridgeAmp, NtcInput)
+import std.elec.sense (BridgeAmp)
 import std.elec.digital (Mcu, CanNode)
 
 block DashUnit:

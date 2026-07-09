@@ -5,7 +5,6 @@
 # the AntennaPort contract's discrete release role.
 
 import "contracts.cupr" (StackCard, AntennaPort)
-import std.elec.families (cmos_3v3)
 
 board CommsPcb:
     stage bare:      process=pcb_fab(jlc_4l_ctrl_imp)   # 50ohm classes

@@ -7,7 +7,7 @@
 # claim needing structured ports (G8/OPEN-11), realized-geometry refs
 # (OPEN-2 residual).
 
-import std.mech.sheet (Blank, Pierce, Bend)
+import std.mech.sheet (Blank, Bend)
 
 profile BoomFlat:
     walk:

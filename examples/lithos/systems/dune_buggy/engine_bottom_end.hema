@@ -3,7 +3,7 @@
 # films (Raimondi-Boyd charts (t)), rod buckling, single-cylinder
 # balance (dynamics), case stiffness.
 
-import std.mech.turned (Shaft, Journal)
+import std.mech.turned (Journal)
 import std.mech.forged (ForgedBlank)
 
 part Crankshaft:

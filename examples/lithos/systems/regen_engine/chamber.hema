@@ -7,7 +7,6 @@
 # (extreme-range properties).
 
 import std.mech.cnc (cnc_lathe, cnc_mill)
-import std.mech.joining (Braze, ElectroDeposit)
 
 profile LinerContour:
     walk:

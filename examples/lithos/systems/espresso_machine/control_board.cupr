@@ -6,7 +6,6 @@
 # windows on (one event ledger), and one written-out analog block
 # (the escape hatch, thermostat precedent).
 
-import std.elec.families (cmos_3v3)
 
 board ControlPcb:
     stage bare:      process=pcb_fab(jlc_2l)

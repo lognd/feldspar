@@ -3,8 +3,6 @@
 # (harness anchors), G37 occupant metrics, trust floors on
 # safety-of-life claims (regolith trust: >= tier machinery).
 
-import std.mech.sheet (Blank, Bend)
-import std.mech.tube (TubeProfile)
 
 part SeatFrame:
     material: AISI_4130_N

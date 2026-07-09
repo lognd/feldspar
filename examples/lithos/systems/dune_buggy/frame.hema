@@ -4,7 +4,7 @@
 # fatigue under the terrain spectrum, matrix-stiffness reduced tier
 # (mech.struct) before any FEA.
 
-import std.mech.tube (TubeProfile, Notch, Bend)
+import std.mech.tube (Notch)
 import std.mech.joining (Weld)
 
 part SpaceFrame:

@@ -3,7 +3,6 @@
 # representative interior frame line (row 2) is modeled member-by-
 # member; the drift claim exercises the lateral system end to end.
 
-import "site.calx" (ElmStreet)
 import "hydronics.fluo" (HeatingLoop)           # cross-track promise
 import std.civil (Pinned, Moment, Bearing, BasePlate)
 

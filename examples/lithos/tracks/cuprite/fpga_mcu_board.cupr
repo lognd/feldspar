@@ -11,7 +11,6 @@
 import std.intents
 import std.elec.families (cmos_3v3, lvcmos18)
 import std.elec.buses (BusAttach, LevelShift, async_fifo)
-import std.compute (executor, mover)
 
 system FrameGrabber:
     boundary:

@@ -5,11 +5,8 @@
 # `commanded by` -- fluorite 02 sec. 5), a mains power ceiling
 # forall op, a sensing error budget, and the intent -> workload seam.
 
-import "contracts.cupr" (ThermoWell, LevelWell)
 import "control_board.cupr" (ControlPcb)
 import std.intents
-import std.elec.families (cmos_3v3)
-import std.compute (executor)
 
 system EspressoController:
     exposing op: {standby, warmup, ready, brew, hot_water}

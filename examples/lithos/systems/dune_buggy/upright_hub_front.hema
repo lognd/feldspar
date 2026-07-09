@@ -4,7 +4,7 @@
 # bent-plate weldment a cantilever family cannot idealize -- the G7
 # escape hatch, non-propulsion edition).
 
-import std.mech.turned (Shaft, Bore)
+import std.mech.turned (Shaft)
 import std.mech.joining (Weld)
 
 part FrontUpright:

@@ -7,8 +7,8 @@
 
 import "contracts.cupr" (CardBay)
 import std.mech.cnc (saw_stock, cnc_mill)
-import std.mech.sheet (Blank, Pierce, Bend)
-import std.mech.matings (BoltedPattern, ScrewedLap)
+import std.mech.sheet (Blank, Pierce)
+import std.mech.matings (ScrewedLap)
 import std.mech.mounts (BoltPattern)
 
 interface PanelSeat<screw: thread, n: int>:

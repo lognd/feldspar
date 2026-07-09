@@ -3,9 +3,7 @@
 # toe(travel), motion_ratio(travel)), G40 (statistical build
 # tolerance), four-bar solvers (07 dynamics: mechanisms).
 
-import std.mech.tube (TubeProfile)
 import std.mech.joining (Weld)
-import std.mech.turned (Bushing)
 
 part LowerWishbone:
     material: AISI_4130_N

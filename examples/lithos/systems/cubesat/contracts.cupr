@@ -12,8 +12,7 @@
 # T2 measurement semantics both realizers can evaluate. This pack now
 # conforms to the kit.
 
-import std.elec.families (cmos_3v3, lvds_25)
-import std.elec.protocols (i2c, spi, uart, rs485)
+import std.elec.protocols (i2c, uart)
 
 # ---- The stack: one card contract, one harness contract, one mating.
 

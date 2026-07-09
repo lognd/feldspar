@@ -4,8 +4,7 @@
 # delivery couples to building zones; the electrical demand is a
 # promise the cuprite panel consumes.
 
-import "program.calx" (MechRoom)
-import std.fluorite (Pipe, Pump, Valve, Plenum, HxSegment)
+import std.fluorite (Pipe, Pump, Plenum, HxSegment)
 
 medium Coolant60: liquid                        # fluorite/02 sec. 1
     props: registry(egw_60_40)
@@ -32,10 +31,15 @@ flownet HeatingLoop(medium=Coolant60):          # fluorite/02 sec. 4
         state season in {heating, off}
 
 # The mech-room contract bindings (calcite/02 sec. 10): the boiler
-# claims the housekeeping pad and floor drain the space offers;
-# boundary subsumption checks the room's envelope both ways.
-impl MountsOn<MechRoom.pad> for boiler
-impl DrainsTo<MechRoom.drain> for exp
+# claims the housekeeping pad MechRoom.pad offers, and exp claims its
+# floor drain MechRoom.drain -- boundary subsumption would check the
+# room's envelope both ways. Left as a comment, not a generic
+# `impl MountsOn<...>`/`impl DrainsTo<...>` conformance: no such
+# generic exists anywhere in the corpus or spec (MountsOn/DrainsTo
+# are not a real construct yet), so instantiating one here was a
+# genuinely dead declaration (E0503) rather than a load-bearing use.
+# TODO: replace with the real mounting/drain-conformance construct
+# once calcite/02 sec. 10's boundary-subsumption grammar lands.
 
 require Hydronics:                              # fluorite/02 sec. 6
     margin:  fluids.dp(pump_out -> ret_hdr) <= 45kPa

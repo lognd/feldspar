@@ -8,8 +8,6 @@
 # into the enclosure's thermal load set (the xdomain chain:
 # dissipation -> enclosure rise -> derating).
 
-import std.elec.families (cmos_3v3, lvcmos18, sstl135)
-import std.elec.protocols (usb2_hs, spi, uart)
 
 # ---- The radio deck: one card contract, thermal-facing promises.
 

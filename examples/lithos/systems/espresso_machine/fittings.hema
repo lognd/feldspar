@@ -6,7 +6,6 @@
 # geometry hook (fluorite 02 sec. 2), so the wetted side is declared
 # exactly once, here and in the implementing stages.
 
-import std.mech.seals (SealFace)
 
 # A threaded fluid fitting seat: internal thread plus the annular
 # sealing land the dowty/fiber washer crushes against. Espresso

@@ -2,7 +2,6 @@
 # secs. 2, 3, 8, 9, 10). Two stories, one exit stair + one exterior
 # exit; a mech room offering contracts the MEP files bind.
 
-import "site.calx" (ElmStreet)
 import std.civil (Door, Exit, Stair, FloorDrain, Feeder, HousekeepingPad)
 
 # -- Spaces (02 sec. 2) ------------------------------------------------

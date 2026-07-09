@@ -3,7 +3,7 @@
 # tributary partition over a loaded roof, frost-depth footings.
 # std.civil names are WO-48 content (phantom until the pack lands).
 
-import std.civil (Pinned, Moment, Bearing, EmbeddedPost)
+import std.civil (Pinned, Bearing, EmbeddedPost)
 
 site Township:                                  # 02 sec. 1
     boundary:

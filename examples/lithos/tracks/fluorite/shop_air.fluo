@@ -18,9 +18,9 @@ flownet AirDrop(medium=ShopAir):
         plenum: Plenum(v=8L)                    (reg_out -> tee)
         tool:   Pipe(from=tool_hose.run)        (tee -> tool_in)
         gun:    Pipe(from=gun_hose.run)         (tee -> blowgun_in)
-        toolv:  Valve(cv=1.2, states={open, closed} | position in [0,1])
+        toolv:  Valve(cv=1.2, states={open, closed} | position in [0, 1])
                                                  (tool_in -> ambient)
-        gunv:   Valve(cv=0.8, states={open, closed} | position in [0,1])
+        gunv:   Valve(cv=0.8, states={open, closed} | position in [0, 1])
                                                  (blowgun_in -> ambient)
     states:
         toolv.position in {closed, open}

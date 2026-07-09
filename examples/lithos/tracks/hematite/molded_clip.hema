@@ -4,7 +4,7 @@
 # literal `within [lo, hi]`, fatigue claims (OPEN-4 spelling), and a
 # `when <variant>=<value>` construction guard.
 
-import std.mech.molding (Wall, Rib, Boss, SnapArm, Draft, Mirror)
+import std.mech.molding (Wall, Boss, SnapArm, Draft, Mirror)
 import std.mech.mounts (ScrewBoss, PanelHole, BossMount)
 
 profile ClipBase:

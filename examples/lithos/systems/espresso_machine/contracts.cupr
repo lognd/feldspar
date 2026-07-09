@@ -6,7 +6,6 @@
 # substrate 10 sec. 3: home language cuprite, mech-facing roles in
 # the geom role kit vocabulary (substrate 10 sec. 3a).
 
-import std.elec.families (cmos_3v3)
 
 # ---- Heater: the vessel machines a SEAT; the flange element
 #      (vendor) plugs it; the mating pushes the element's dissipation

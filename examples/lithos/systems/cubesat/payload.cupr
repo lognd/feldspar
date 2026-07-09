@@ -7,7 +7,6 @@
 # nothing new -> EOPEN-17 is settled by this file (D47).
 
 import "contracts.cupr" (StackCard)
-import std.elec.families (cmos_3v3, lvds_25)
 import std.elec.buses (BusAttach)
 
 block TileCompressor<w: int = 2048, h: int = 1536>:

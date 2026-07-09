@@ -12,7 +12,7 @@ import "contracts.cupr" (RfDeck)
 import "clock_tree.cupr" (ClockTree, LoSynth)
 import "adc_chain.cupr" (IfDigitizer, IfReconstructor)
 import "firmware.cupr" (ctl_fw, sdr_bits)
-import std.elec.families (cmos_3v3, lvcmos18, sstl135)
+import std.elec.families (cmos_3v3, lvcmos18)
 import std.elec.buses (BusAttach, LevelShift)
 import std.elec.power (Capacitor)
 

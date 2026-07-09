@@ -8,7 +8,7 @@
 import "contracts.cupr" (StackMate, CardMount, AntennaMate, Umbilical)
 import "structure.hema" (Frame)
 import "antenna.hema" (Antenna)
-import "eps.cupr" (Eps, EpsPcb)
+import "eps.cupr" (EpsPcb)
 import "obc.cupr" (ObcPcb)
 import "adcs.cupr" (AdcsPcb)
 import "comms.cupr" (CommsPcb)

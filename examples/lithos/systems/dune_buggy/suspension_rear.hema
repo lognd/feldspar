@@ -3,7 +3,6 @@
 # transform), G5-family records (bushing stiffness f(T, amplitude)),
 # G14 (closed-form damage from payloads).
 
-import std.mech.tube (TubeProfile)
 import std.mech.joining (Weld)
 
 part TrailingArm:

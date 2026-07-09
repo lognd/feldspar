@@ -4,7 +4,7 @@
 # expansion mismatch, hanger vibration fatigue, dust filtration
 # records.
 
-import std.mech.tube (TubeProfile, Bend)
+import std.mech.tube (Bend)
 import std.mech.joining (Weld)
 
 part Exhaust:

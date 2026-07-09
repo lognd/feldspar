@@ -2,8 +2,7 @@
 # as envelopes (the honest v1 form), strap fatigue, and the
 # fuel_system.fluo interface (tank outlet is a fluorite FluidPort).
 
-import std.mech.formed (Welded_Tank)
-import std.mech.sheet (Blank, Bend)
+import std.mech.sheet (Bend)
 
 part FuelTank:
     material: AL_5052_H32

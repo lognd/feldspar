@@ -7,7 +7,6 @@
 # per-stage catalog parts with datasheet-interval promises.
 
 import "contracts.cupr" (AntennaFeed)
-import std.elec.families (cmos_3v3)
 
 block RxFrontend:
     ports:

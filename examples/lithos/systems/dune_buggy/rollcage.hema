@@ -3,7 +3,7 @@
 # (mech.struct plastic analysis), G41 proof-claim duplication, G37
 # occupant metrics on the assume!/test ladder.
 
-import std.mech.tube (TubeProfile, Bend)
+import std.mech.tube (Bend)
 import std.mech.joining (Weld)
 import SpaceFrame (from frame.hema)
 

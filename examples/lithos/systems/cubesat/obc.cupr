@@ -8,7 +8,6 @@
 # but the reference story deserved a rule; see design log cycle 6.
 
 import "contracts.cupr" (StackCard)
-import std.elec.families (cmos_3v3)
 
 # FINDING F83: the firmware image is declared at intent altitude
 # (kestrel.cupr, `realizes: schedule(FlightCore)`) but loading it is a

@@ -3,7 +3,7 @@
 # was missing from the catalog), G27 (empirical stability rating +
 # waiver ladder).
 
-import std.mech.cnc (cnc_lathe, cnc_mill)
+import std.mech.cnc (cnc_mill)
 
 part InjectorHead:
     material: AISI_316

@@ -446,8 +446,7 @@ def solve_frame_payload(
             # joint id must be an honest OutOfDomain, never a silently
             # zero-contributing load.
             _log.warning(
-                "struct.frame: point load target %r (case %r) matches "
-                "no joint id",
+                "struct.frame: point load target %r (case %r) matches no joint id",
                 load["target"],
                 load_case,
             )

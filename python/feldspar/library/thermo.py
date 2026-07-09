@@ -164,8 +164,7 @@ def _make_property_direction(fluid_key: str, prop_code: str, prop_name: str, acc
             return Err(SolveError.OutOfDomain(violation=str(exc)))
         if not math.isfinite(value):
             _log.warning(
-                "thermo.%s.%s: PropsSI returned non-finite value %s for "
-                "T=%s P=%s",
+                "thermo.%s.%s: PropsSI returned non-finite value %s for T=%s P=%s",
                 fluid_key,
                 prop_name,
                 value,

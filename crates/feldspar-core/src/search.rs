@@ -429,7 +429,33 @@ pub fn plan(
             .map(|(p, l)| (p.clone(), l.inflated()))
             .collect();
 
-        if let Err(violation) = s.domain.admits(&inflated_inputs, tags) {
+        // Plan-time admission checks ONLY the solver's declared INPUT
+        // ports against the box (04-routing point 2: "in-domain for the
+        // interval hull actually reaching it" -- the hull of ports that
+        // have REACHED the step, which by construction excludes its own
+        // not-yet-produced outputs). A `Domain.box` entry for one of the
+        // solver's OUTPUT ports (the documented multi-direction `Relation`
+        // shape, e.g. `mech.cantilever`'s single box spanning inputs and
+        // outputs) is a VALIDITY constraint on the result, not a
+        // precondition to admit the step -- it is checked against the
+        // realized output hull at execution time instead (`execute.py`'s
+        // output-domain check). Filtering here is what makes a
+        // `Relation`-declared solver plannable in either direction at all;
+        // without it, any box entry on an output port makes the step
+        // permanently inadmissible (that port is never "known" before the
+        // step runs), which silently made every multi-direction Relation
+        // unroutable.
+        let input_ports: BTreeSet<&str> = s.inputs.iter().map(String::as_str).collect();
+        let input_box: BTreeMap<String, Interval> = s
+            .domain
+            .port_box
+            .iter()
+            .filter(|(port, _)| input_ports.contains(port.as_str()))
+            .map(|(p, iv)| (p.clone(), *iv))
+            .collect();
+        let input_domain = Domain::new(input_box, s.domain.tags.clone());
+
+        if let Err(violation) = input_domain.admits(&inflated_inputs, tags) {
             tracing::info!(
                 target: "feldspar_core::search",
                 solver_id = %s.solver_id,
@@ -708,6 +734,52 @@ mod tests {
             &["x"],
             &["y"],
             simple_domain(&[("x", 0.0, 10.0)]),
+            1.0,
+            0.1,
+        );
+        let solvers = vec![s];
+        let err = plan(&solvers, &known, &BTreeSet::new(), "y", 1.0, Sense::Both).unwrap_err();
+        assert_eq!(err, PlanError::NoApplicableSolver);
+    }
+
+    /// Regression for the coordinator-verified bug: a `Domain.box` entry
+    /// on the solver's OWN OUTPUT port (the `Relation` shape -- one box
+    /// spanning every port, inputs and outputs alike) must not make the
+    /// step inadmissible just because the output isn't known yet. Only
+    /// the INPUT-side box entry should gate admission; an out-of-box
+    /// INPUT must still reject.
+    #[test]
+    fn output_port_box_entry_does_not_block_admission() {
+        let mut known = BTreeMap::new();
+        known.insert("x".to_string(), iv(1.0, 2.0));
+        // domain.box covers BOTH the input "x" and the output "y" --
+        // exactly the Relation pattern (e.g. mech.cantilever's single
+        // domain over all five ports).
+        let s = solver(
+            "s",
+            &["x"],
+            &["y"],
+            simple_domain(&[("x", 0.0, 10.0), ("y", -1000.0, 1000.0)]),
+            1.0,
+            0.1,
+        );
+        let solvers = vec![s];
+        let route = plan(&solvers, &known, &BTreeSet::new(), "y", 1.0, Sense::Both).unwrap();
+        assert_eq!(route.steps[0].solver_id, "s");
+    }
+
+    /// Companion to the above: an out-of-box INPUT must still be
+    /// rejected even when the domain also carries an output-port entry
+    /// -- the fix only exempts OUTPUT ports from the plan-time check.
+    #[test]
+    fn out_of_box_input_still_rejected_alongside_output_box_entry() {
+        let mut known = BTreeMap::new();
+        known.insert("x".to_string(), iv(100.0, 100.0));
+        let s = solver(
+            "s",
+            &["x"],
+            &["y"],
+            simple_domain(&[("x", 0.0, 10.0), ("y", -1000.0, 1000.0)]),
             1.0,
             0.1,
         );

@@ -166,6 +166,21 @@ class SolveError(_TaggedError):
         return cls("NonFinite", port=port)
 
     @classmethod
+    def OutputOutOfDomain(
+        cls, port: str, lo: float, hi: float, box_lo: float, box_hi: float
+    ) -> "SolveError":
+        """A step's realized OUTPUT hull escaped its own declared
+        `Domain.box` entry for that port (04-routing: an output-port box
+        entry is a validity constraint on the RESULT, checked here at
+        execution time, not a plan-time precondition -- see
+        `feldspar_core::search`'s input-only admission filter). The
+        fallback reroute (04-routing "Fallback rerouting") treats this
+        like any other `SolveError`: exclude the step, replan."""
+        return cls(
+            "OutputOutOfDomain", port=port, lo=lo, hi=hi, box_lo=box_lo, box_hi=box_hi
+        )
+
+    @classmethod
     def MissingOutput(cls, port: str) -> "SolveError":
         return cls("MissingOutput", port=port)
 

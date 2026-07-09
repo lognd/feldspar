@@ -212,6 +212,41 @@ def _check_step_output(
     return Ok(None)
 
 
+def _check_step_output_domain(
+    info: Any, hull: Mapping[str, Interval]
+) -> "Result[None, SolveError]":
+    """The execution-time twin of the planner's INPUT-only admission
+    filter (`feldspar_core::search`, 04-routing point 2): a solver's
+    declared `Domain.box` entry for one of its own OUTPUT ports is a
+    validity constraint on the REALIZED result, not a plan-time
+    precondition (the output isn't known before the step runs, so
+    checking it at plan time would make every `Relation`-declared
+    multi-direction solver permanently unroutable -- the bug this
+    function's addition closes). Checked here, once, against the
+    realized (already eps-inflated-consistent) output hull, so an
+    out-of-box output is an honest `SolveError` the fallback reroute
+    (04-routing "Fallback rerouting") handles like any other step
+    failure -- never a silent pass."""
+    for port, allowed in info.domain.box.items():
+        value = hull.get(port)
+        if value is None:
+            # Not one of this step's outputs (could be an input-side box
+            # entry, or a port this step doesn't touch at all) -- nothing
+            # to check here.
+            continue
+        if not value.is_subset(allowed):
+            return Err(
+                SolveError.OutputOutOfDomain(
+                    port=port,
+                    lo=value.lo,
+                    hi=value.hi,
+                    box_lo=allowed.lo,
+                    box_hi=allowed.hi,
+                )
+            )
+    return Ok(None)
+
+
 def _make_corner_fn(
     info: Any,
     fn: Any,
@@ -511,6 +546,15 @@ def _execute_impl(
             if step_cache is not None and step_key is not None:
                 step_cache.put(step_key, hull, produced_refs, step_eps)
         _log.debug("execute: step %s realized_eps=%s", step.solver_id, step_eps)
+
+        domain_check = _check_step_output_domain(info, hull)
+        if domain_check.is_err:
+            _log.warning(
+                "execute: step %s realized output out of declared domain: %r",
+                step.solver_id,
+                domain_check.err,
+            )
+            return Err((step.solver_id, domain_check.danger_err))
 
         for port, iv in hull.items():
             values[port] = iv

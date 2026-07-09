@@ -47,8 +47,8 @@ use library::{
     mech_rect_second_moment_py, mech_sdof_first_mode_py, mech_von_mises_principal_py,
 };
 use propagation::{
-    corner_sweep_py, delta_propagate_numeric_py, delta_propagate_symbolic_py, inflate_py,
-    total_error_py, PyNormal,
+    corner_sweep_py, delta_propagate_numeric_py, delta_propagate_symbolic_py, enumerate_corners_py,
+    hull_from_results_py, inflate_py, total_error_py, PyNormal,
 };
 use rank::{PyPortDecl, PyRank};
 use search::{plan_py, PyRoute, PyRouteStep, PySolverInput};
@@ -75,6 +75,8 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(format_f64, m)?)?;
     m.add_function(wrap_pyfunction!(exact_accuracy, m)?)?;
     m.add_function(wrap_pyfunction!(corner_sweep_py, m)?)?;
+    m.add_function(wrap_pyfunction!(enumerate_corners_py, m)?)?;
+    m.add_function(wrap_pyfunction!(hull_from_results_py, m)?)?;
     m.add_function(wrap_pyfunction!(inflate_py, m)?)?;
     m.add_function(wrap_pyfunction!(total_error_py, m)?)?;
     m.add_function(wrap_pyfunction!(plan_py, m)?)?;

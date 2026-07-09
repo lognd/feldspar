@@ -1,6 +1,12 @@
 //! PyO3 wrapper for `feldspar_core::{corner_sweep, inflate, total_error}`
 //! (01-interfaces WO-04 section): the executor (WO-06) and planner
 //! estimator (WO-05) call these SAME symbols (FINV-4).
+//!
+//! `enumerate_corners`/`hull_from_results` (WO-15, 09 sec. 6) split
+//! `corner_sweep` into its enumerate and fold halves so
+//! `feldspar.plan.parallel` can dispatch the (GIL-bound, so only
+//! Python-side, not Rust-thread) per-corner `SolveFn` callback
+//! concurrently and still fold through the ONE core hull routine.
 
 use std::collections::BTreeMap;
 
@@ -45,6 +51,33 @@ pub fn corner_sweep_py(
     })?;
 
     Ok(hull.into_iter().map(|(k, v)| (k, PyInterval(v))).collect())
+}
+
+/// The enumerate half of `corner_sweep`, exposed standalone (WO-15) so
+/// a Python caller can evaluate corners itself (e.g. concurrently) and
+/// fold with `hull_from_results` below, instead of going through the
+/// GIL-serialized single-threaded `corner_sweep` callback path.
+#[pyfunction]
+#[pyo3(name = "enumerate_corners")]
+pub fn enumerate_corners_py(box_: BTreeMap<String, PyInterval>) -> Vec<BTreeMap<String, f64>> {
+    let core_box: BTreeMap<String, feldspar_core::Interval> =
+        box_.into_iter().map(|(k, v)| (k, v.0)).collect();
+    feldspar_core::enumerate_corners(&core_box)
+}
+
+/// The fold half of `corner_sweep` (WO-15): hulls a list of per-corner
+/// output maps that MUST be in the same order `enumerate_corners`
+/// produced (the caller's contract -- see `feldspar_core::propagation::
+/// hull_from_results`). Determinism (FINV-9) holds regardless of what
+/// order the caller computed `results` in (any thread count), because
+/// the fold is the ONE core routine.
+#[pyfunction]
+#[pyo3(name = "hull_from_results")]
+pub fn hull_from_results_py(results: Vec<BTreeMap<String, f64>>) -> BTreeMap<String, PyInterval> {
+    feldspar_core::hull_from_results(&results)
+        .into_iter()
+        .map(|(k, v)| (k, PyInterval(v)))
+        .collect()
 }
 
 /// `[lo - eps, hi + eps]`; the accumulation primitive (audit A-1).

@@ -7,12 +7,18 @@ entry point target (06 "Boundary rules", `[project.entry-points]` in
 
 from typing import Any  # noqa: E402 -- after module docstring, ruff false-positive
 
+from regolith.harness.signature import ClaimSense  # noqa: E402
+
 from feldspar.__about__ import __version__  # noqa: E402
 from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
+    DEFAULT_RAIL_HI_CLAIM_KIND,
+    DEFAULT_RAIL_LO_CLAIM_KIND,
+    ElecRailModel,
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
+    MechStiffnessModel,
 )
 
 _log = get_logger(__name__)
@@ -21,8 +27,8 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's three reduced-tier FEA models on `registry`
-    (a regolith `ModelRegistry`) and nothing else (06 "register(registry)
+    """Registers feldspar's five regolith models on `registry` (a
+    regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 
     Import-cheap and probe-free (FINV-3/10): constructing `Model`
@@ -35,11 +41,27 @@ def register(registry: Any) -> None:
     carries the geometry payload ref, and honestly indeterminates on
     match today (see `pack.payload_bridge`'s escalated resolver-
     threading residual) -- registering it is safe and probe-free by the
-    same rule."""
+    same rule. `MechStiffnessModel`/`ElecRailModel` (two instances, one
+    per rail half) are the closed-form models a freshly scaffolded
+    regolith project's `mech.stiffness`/`elec.rail` claims need to have
+    ANYTHING to discharge against -- without them no scaffolded project
+    can ship (the project's north star: declarative file in, working
+    artifact out)."""
     registry.register(FeaStaticStressModel())
     registry.register(FeaStaticDeflectionModel())
     registry.register(FeaStaticDeflectionFromGeometryModel())
-    _log.info("feldspar.pack: registered 3 regolith model(s)")
+    registry.register(MechStiffnessModel())
+    registry.register(
+        ElecRailModel(
+            claim_kind=DEFAULT_RAIL_LO_CLAIM_KIND, sense=ClaimSense.lower_bound()
+        )
+    )
+    registry.register(
+        ElecRailModel(
+            claim_kind=DEFAULT_RAIL_HI_CLAIM_KIND, sense=ClaimSense.upper_bound()
+        )
+    )
+    _log.info("feldspar.pack: registered 6 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

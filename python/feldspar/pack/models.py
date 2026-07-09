@@ -13,14 +13,16 @@ regolith `Prediction`. All regolith imports live here, under
 `feldspar.pack` (FINV-3/10)."""
 
 
+import math
 from collections.abc import Callable
 
 from regolith._schema.models import CoverageAxis, CoverageDomain1, CoverageMethod1
-from regolith.harness.errors import HarnessError
+from regolith.harness.errors import DomainError, HarnessError
 from regolith.harness.model import DischargeRequest, Model, Prediction
 from regolith.harness.signature import ClaimSense, ModelSignature
 from typani.result import Err, Ok, Result
 
+from feldspar import _feldspar
 from feldspar.__about__ import __version__
 from feldspar.logging_setup import get_logger
 from feldspar.pack.converters import to_feldspar_interval, to_feldspar_payload_ref
@@ -36,9 +38,14 @@ _log = get_logger(__name__)
 __all__ = [
     "DEFAULT_STRESS_CLAIM_KIND",
     "DEFAULT_DEFLECTION_CLAIM_KIND",
+    "DEFAULT_STIFFNESS_CLAIM_KIND",
+    "DEFAULT_RAIL_LO_CLAIM_KIND",
+    "DEFAULT_RAIL_HI_CLAIM_KIND",
     "FeaStaticStressModel",
     "FeaStaticDeflectionModel",
     "FeaStaticDeflectionFromGeometryModel",
+    "MechStiffnessModel",
+    "ElecRailModel",
 ]
 
 # Vocabulary-owned default claim kinds (06 "Models", DECIDED D94/WO-30
@@ -589,3 +596,232 @@ class FeaStaticDeflectionFromGeometryModel(Model):
                 settings_digest=solution.settings_digest,
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# MechStiffnessModel / ElecRailModel -- the two closed-form regolith
+# models a freshly scaffolded project's `mech.stiffness`/`elec.rail`
+# claims need to have ANYTHING to discharge against (the north-star
+# gap: a scaffolded project with no matching model can never ship).
+# Both go straight to the `_feldspar` Rust formula the sibling
+# `library` module already registered for the engine's own routing
+# (NO DUPLICATION) -- they skip `_engine_registry()`/`solve()`
+# entirely because a two/four-scalar closed form corner-sweeps in a
+# handful of Python-level calls, the same shape regolith's own
+# built-in closed-form models use (e.g. `lame_cylinder.py`), not the
+# FEA-tier plan/execute machinery above.
+# ---------------------------------------------------------------------------
+
+DEFAULT_STIFFNESS_CLAIM_KIND = "mech.stiffness"
+DEFAULT_RAIL_LO_CLAIM_KIND = "elec.rail.lo"
+DEFAULT_RAIL_HI_CLAIM_KIND = "elec.rail.hi"
+
+#: Required scalar inputs (SI base units): Pa, m^4, m.
+_STIFFNESS_INPUTS = ("e_modulus", "i_area", "length")
+
+#: Required scalar inputs (SI base units): V, ohm, ohm, ohm.
+_RAIL_INPUTS = ("vin", "r1", "r2", "rload")
+
+
+class MechStiffnessModel(Model):
+    """Closed-form cantilever tip stiffness `k = 3*E*I/L**3`, a floor
+    claim (`mech.stiffness`, `value >= limit`).
+
+    Reuses `library.mech.cantilever_tip_deflection`'s Rust formula
+    (`_feldspar.mech_cantilever_tip_deflection`) at unit force instead
+    of reimplementing the algebra (NO DUPLICATION): at `force=1.0`,
+    `deflection = 1.0 / (3*E*I/L**3) = 1.0 / k`, so `k = 1.0 /
+    deflection` is the exact algebraic inverse of the one physics
+    formula the sibling library module already owns, not a second
+    copy of it."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_STIFFNESS_CLAIM_KIND) -> None:
+        """`claim_kind` defaults to the vocabulary-owned kind; pass an
+        override to compete under a different kind (OPEN-6 interim,
+        mirrors `_FeaModel.__init__`)."""
+        self._claim_kind = claim_kind
+
+    @property
+    def signature(self) -> ModelSignature:
+        """Floor (lower-bound) stiffness claim over the three beam
+        inputs."""
+        return ModelSignature(
+            name="mech_stiffness",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=_STIFFNESS_INPUTS,
+            domain=("linear_elastic", "small_deflection", "closed_form"),
+        )
+
+    @property
+    def version(self) -> str:
+        """The model's own version id (bump on any physics/eps change)."""
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Closed-form: the cheapest tier (mirrors the library's own
+        `cost=1e-7` intent at the pack's integer cost granularity)."""
+        return 1
+
+    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
+        """Worst-corner (minimum, INV-9: a floor claim's honest
+        prediction is conservative-low) stiffness over the interval
+        box, evaluated by an exhaustive 2**3 corner sweep of the exact
+        Rust formula."""
+        e_modulus = request.inputs["e_modulus"]
+        i_area = request.inputs["i_area"]
+        length = request.inputs["length"]
+
+        if e_modulus.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=(
+                        f"e_modulus must be strictly positive: "
+                        f"e_modulus.lo={e_modulus.lo}"
+                    ),
+                )
+            )
+        if i_area.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"i_area must be strictly positive: i_area.lo={i_area.lo}",
+                )
+            )
+        if length.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"length must be strictly positive: length.lo={length.lo}",
+                )
+            )
+
+        worst = math.inf
+        for e in sorted({e_modulus.lo, e_modulus.hi}):
+            for i in sorted({i_area.lo, i_area.hi}):
+                for length_corner in sorted({length.lo, length.hi}):
+                    deflection = _feldspar.mech_cantilever_tip_deflection(
+                        1.0, length_corner, e, i
+                    )
+                    stiffness = 1.0 / deflection
+                    worst = min(worst, stiffness)
+
+        _log.info(
+            "%s: worst-corner stiffness=%s over e_modulus=%s i_area=%s "
+            "length=%s",
+            self.model_id,
+            worst,
+            e_modulus,
+            i_area,
+            length,
+        )
+        return Ok(Prediction(value=worst, eps=0.0, coverage=1.0, in_domain=True))
+
+
+class ElecRailModel(Model):
+    """Closed-form loaded resistor-divider rail voltage, one instance
+    per obligation half (`elec.rail: within [lo, hi]` lowers to TWO
+    obligations, D94: one model MAY register under multiple kinds).
+
+    Reuses `library.elec.divider_loaded`'s Rust formula
+    (`_feldspar.elec_divider_loaded_vout`) verbatim (NO DUPLICATION);
+    `claim_kind`/`sense` are bound at construction, mirroring
+    `_FeaModel`'s `claim_kind` override -- `pack.register()`
+    instantiates this class twice, once per rail half, rather than
+    duplicating the divider math."""
+
+    def __init__(self, *, claim_kind: str, sense: ClaimSense) -> None:
+        """Binds this instance to one rail half: `claim_kind` selects
+        the obligation kind (`elec.rail.lo`/`elec.rail.hi`), `sense`
+        selects which corner is conservative (`lower_bound()` for the
+        `.lo` floor half, `upper_bound()` for the `.hi` ceiling
+        half)."""
+        self._claim_kind = claim_kind
+        self._sense = sense
+
+    @property
+    def signature(self) -> ModelSignature:
+        """A lo-floor or hi-ceiling rail claim (per `self._sense`) over
+        the four divider inputs."""
+        return ModelSignature(
+            name=f"elec_rail_{'hi' if self._sense.upper else 'lo'}",
+            claim_kind=self._claim_kind,
+            sense=self._sense,
+            inputs=_RAIL_INPUTS,
+            domain=("linear", "small_signal", "closed_form"),
+        )
+
+    @property
+    def version(self) -> str:
+        """The model's own version id (bump on any physics/eps change)."""
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Closed-form: the cheapest tier."""
+        return 1
+
+    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
+        """Worst-corner rail voltage over the interval box (max for the
+        `.hi` ceiling half, min for the `.lo` floor half, INV-9),
+        evaluated by an exhaustive 2**4 corner sweep of the exact Rust
+        divider formula."""
+        vin = request.inputs["vin"]
+        r1 = request.inputs["r1"]
+        r2 = request.inputs["r2"]
+        rload = request.inputs["rload"]
+
+        if vin.lo < 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"vin must be non-negative: vin.lo={vin.lo}",
+                )
+            )
+        if r1.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"r1 must be strictly positive: r1.lo={r1.lo}",
+                )
+            )
+        if r2.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"r2 must be strictly positive: r2.lo={r2.lo}",
+                )
+            )
+        if rload.lo <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=f"rload must be strictly positive: rload.lo={rload.lo}",
+                )
+            )
+
+        lo_hull = math.inf
+        hi_hull = -math.inf
+        for v in sorted({vin.lo, vin.hi}):
+            for a in sorted({r1.lo, r1.hi}):
+                for b in sorted({r2.lo, r2.hi}):
+                    for c in sorted({rload.lo, rload.hi}):
+                        vout = _feldspar.elec_divider_loaded_vout(v, a, b, c)
+                        lo_hull = min(lo_hull, vout)
+                        hi_hull = max(hi_hull, vout)
+
+        value = hi_hull if self._sense.upper else lo_hull
+        _log.info(
+            "%s: worst-corner vout=%s (sense.upper=%s) over vin=%s r1=%s "
+            "r2=%s rload=%s",
+            self.model_id,
+            value,
+            self._sense.upper,
+            vin,
+            r1,
+            r2,
+            rload,
+        )
+        return Ok(Prediction(value=value, eps=0.0, coverage=1.0, in_domain=True))

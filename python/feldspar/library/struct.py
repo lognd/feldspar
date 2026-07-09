@@ -414,6 +414,23 @@ def solve_frame_payload(
             case_fef = _udl_fef_local(w, length_m)
             fef = [a + b for a, b in zip(fef, case_fef, strict=True)]
 
+        for end_key in ("a", "b"):
+            if m[end_key] not in joint_index:
+                _log.warning(
+                    "struct.frame: member %r endpoint %r=%r matches no joint id",
+                    mid,
+                    end_key,
+                    m[end_key],
+                )
+                return Err(
+                    SolveError.OutOfDomain(
+                        violation=(
+                            f"member {mid!r} endpoint {end_key!r}="
+                            f"{m[end_key]!r} matches no joint id"
+                        )
+                    )
+                )
+
         member_i.append(joint_index[m["a"]])
         member_j.append(joint_index[m["b"]])
         member_dx.append(dx)
@@ -426,6 +443,18 @@ def solve_frame_payload(
 
     fixed = [False] * (n_nodes * 3)
     for s in supports:
+        if s["joint"] not in joint_index:
+            _log.warning(
+                "struct.frame: support joint %r matches no joint id",
+                s["joint"],
+            )
+            return Err(
+                SolveError.OutOfDomain(
+                    violation=(
+                        f"support joint {s['joint']!r} matches no joint id"
+                    )
+                )
+            )
         node = joint_index[s["joint"]]
         fixed_result = _support_fixed_dofs(s["fixity"], s["joint"])
         if fixed_result.is_err:

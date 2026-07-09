@@ -51,6 +51,7 @@ pub struct FrameMemberInput {
 pub enum FrameError {
     DegenerateMember(usize),
     SingularSystem,
+    InvalidShape(String),
 }
 
 impl std::fmt::Display for FrameError {
@@ -62,6 +63,7 @@ impl std::fmt::Display for FrameError {
             Self::SingularSystem => {
                 write!(f, "global free-DOF stiffness partition is singular")
             }
+            Self::InvalidShape(msg) => write!(f, "invalid input shape: {msg}"),
         }
     }
 }
@@ -155,14 +157,15 @@ fn local_stiffness_full(ea: f64, ei: f64, length: f64) -> Vec<Vec<f64>> {
 /// the retained index list itself. Condensed DOFs are assumed to carry
 /// zero applied moment (the release condition), i.e. `k_cc * d_c +
 /// k_cr * d_r + fef_c = 0`.
+#[allow(clippy::type_complexity)] // internal helper: plain (matrix, vec, index-list) tuple, no natural named type
 fn condense(
     k: &[Vec<f64>],
     fef: &[f64; 6],
     condensed: &[usize],
-) -> (Vec<Vec<f64>>, Vec<f64>, Vec<usize>) {
+) -> Result<(Vec<Vec<f64>>, Vec<f64>, Vec<usize>), FrameError> {
     let retained: Vec<usize> = (0..6).filter(|i| !condensed.contains(i)).collect();
     if condensed.is_empty() {
-        return (k.to_vec(), fef.to_vec(), retained);
+        return Ok((k.to_vec(), fef.to_vec(), retained));
     }
     let nc = condensed.len();
     let kcc: Vec<Vec<f64>> = condensed
@@ -171,16 +174,19 @@ fn condense(
         .collect();
     // Kcc^-1 * Kcr and Kcc^-1 * fef_c, one solve per retained column
     // plus one for the load vector (Kcc is 1x1 or 2x2 in practice).
+    // Kcc IS reachable-singular (a released end whose `ei == 0`);
+    // propagate as `FrameError::SingularSystem` rather than panicking
+    // across the PyO3 boundary.
     let mut kcc_inv_kcr = vec![vec![0.0; retained.len()]; nc];
     for (col_idx, &rcol) in retained.iter().enumerate() {
         let rhs: Vec<f64> = condensed.iter().map(|&r| k[r][rcol]).collect();
-        let sol = solve_dense(kcc.clone(), rhs).expect("Kcc singular: two moment releases at the same node pair should never coincide with zero rigidity");
+        let sol = solve_dense(kcc.clone(), rhs)?;
         for row in 0..nc {
             kcc_inv_kcr[row][col_idx] = sol[row];
         }
     }
     let fef_c: Vec<f64> = condensed.iter().map(|&r| fef[r]).collect();
-    let kcc_inv_fefc = solve_dense(kcc, fef_c).expect("Kcc singular");
+    let kcc_inv_fefc = solve_dense(kcc, fef_c)?;
 
     let mut k_red = vec![vec![0.0; retained.len()]; retained.len()];
     let mut fef_red = vec![0.0; retained.len()];
@@ -198,7 +204,7 @@ fn condense(
         }
         fef_red[pi] = fef[rp] - krc_kccinv_fefc;
     }
-    (k_red, fef_red, retained)
+    Ok((k_red, fef_red, retained))
 }
 
 /// The rotation-matrix ROW for local DOF `local_idx` (0-based into the
@@ -250,8 +256,28 @@ pub fn frame2d_solve(
     loads: &[f64],
 ) -> Result<FrameSolution, FrameError> {
     let ndof = n_nodes * DOF_PER_NODE;
-    assert_eq!(fixed.len(), ndof, "fixed mask must be 3*n_nodes long");
-    assert_eq!(loads.len(), ndof, "load vector must be 3*n_nodes long");
+    if fixed.len() != ndof {
+        return Err(FrameError::InvalidShape(format!(
+            "fixed mask length {} != 3*n_nodes ({})",
+            fixed.len(),
+            ndof
+        )));
+    }
+    if loads.len() != ndof {
+        return Err(FrameError::InvalidShape(format!(
+            "load vector length {} != 3*n_nodes ({})",
+            loads.len(),
+            ndof
+        )));
+    }
+    for (idx, m) in members.iter().enumerate() {
+        if m.i >= n_nodes || m.j >= n_nodes {
+            return Err(FrameError::InvalidShape(format!(
+                "member {idx} node index i={} j={} out of range (n_nodes={n_nodes})",
+                m.i, m.j
+            )));
+        }
+    }
 
     let mut k_global = vec![vec![0.0; ndof]; ndof];
     let mut f_global = loads.to_vec();
@@ -292,7 +318,7 @@ pub fn frame2d_solve(
         if m.release_b_rz {
             condensed.push(5);
         }
-        let (k_red, fef_red, retained) = condense(&k_full, &m.fef_local, &condensed);
+        let (k_red, fef_red, retained) = condense(&k_full, &m.fef_local, &condensed)?;
 
         // Build the retained-DOF transform rows and assemble, for
         // every pair of FULL local-axis positions (full_a, full_b):
@@ -417,7 +443,7 @@ pub fn frame2d_solve(
                 rhs[ci] += kcr_dr;
             }
             let neg_rhs: Vec<f64> = rhs.iter().map(|v| -v).collect();
-            let d_c = solve_dense(kcc, neg_rhs).expect("Kcc singular");
+            let d_c = solve_dense(kcc, neg_rhs)?;
             for (ci, &r) in rm.condensed.iter().enumerate() {
                 d_local_full[r] = d_c[ci];
             }

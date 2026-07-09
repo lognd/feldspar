@@ -17,7 +17,10 @@ dependencies = [
 [project.optional-dependencies]
 mesh = ["gmsh"]
 regolith = ["regolith"]
-props = []
+# thermo property tables (WO-20 residual): wraps CoolProp's PropsSI for
+# the `thermo` catalog. Pinned >=8.0 -- the verified-existing
+# cp312-abi3-manylinux2014_aarch64 wheel line (WO-20 close-out note).
+props = ["CoolProp>=8.0"]
 
 # lithos WO-44/AD-26: the one plugin seam; the target is a
 # PluginManifest attribute, not the register callable.

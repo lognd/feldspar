@@ -122,3 +122,94 @@ pub fn mech_beam_cantilever_first_mode_py(
 pub fn mech_miles_grms_py(fn_hz: f64, q: f64, asd: f64) -> f64 {
     feldspar_library::mech::miles_grms(fn_hz, q, asd)
 }
+
+/// PyO3 marshalling for `feldspar_library::mech::frame2d_solve` (WO-21
+/// `mech.struct`): flattens the Rust struct-of-arrays into plain
+/// Python-friendly Vecs (no numpy dependency, matching the rest of
+/// this crate's zero-extra-dependency posture) and maps `FrameError`
+/// to a `ValueError` (this is a marshalling boundary, not a `Result`-
+/// returning solve-time API -- `python/feldspar/library/struct.py`
+/// wraps this raw call in the typani `Result` the solver directions
+/// promise, same pattern as every other `_feldspar.*` primitive).
+///
+/// Every `member_*` Vec must be the same length (one entry per
+/// member); `member_fef` rows are `[n1, v1, m1, n2, v2, m2]` in the
+/// member's LOCAL axes. `fixed`/`loads` are length `3 * n_nodes`
+/// (`[ux, uy, rz]` per node, global axes).
+///
+/// Returns `(displacements, reactions, member_end_forces_local)`:
+/// `displacements`/`reactions` are flattened `3 * n_nodes` Vecs (same
+/// DOF order as `fixed`); `member_end_forces_local` is one 6-Vec per
+/// member.
+#[allow(clippy::too_many_arguments)] // marshalling boundary: one struct-of-arrays field per parameter
+#[allow(clippy::type_complexity)] // marshalling boundary: plain (Vec, Vec, Vec<Vec>) tuple, no natural named type
+#[pyfunction]
+#[pyo3(name = "mech_frame2d_solve")]
+pub fn mech_frame2d_solve_py(
+    n_nodes: usize,
+    member_i: Vec<usize>,
+    member_j: Vec<usize>,
+    member_dx: Vec<f64>,
+    member_dy: Vec<f64>,
+    member_ea: Vec<f64>,
+    member_ei: Vec<f64>,
+    member_release_a: Vec<bool>,
+    member_release_b: Vec<bool>,
+    member_fef: Vec<Vec<f64>>,
+    fixed: Vec<bool>,
+    loads: Vec<f64>,
+) -> PyResult<(Vec<f64>, Vec<f64>, Vec<Vec<f64>>)> {
+    let n_members = member_i.len();
+    if [
+        member_j.len(),
+        member_dx.len(),
+        member_dy.len(),
+        member_ea.len(),
+        member_ei.len(),
+        member_release_a.len(),
+        member_release_b.len(),
+        member_fef.len(),
+    ]
+    .iter()
+    .any(|&len| len != n_members)
+    {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "mech_frame2d_solve: all member_* arguments must have equal length",
+        ));
+    }
+    let members: Vec<feldspar_library::mech::FrameMemberInput> = (0..n_members)
+        .map(|idx| {
+            let fef = &member_fef[idx];
+            if fef.len() != 6 {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "mech_frame2d_solve: member_fef[{idx}] must have exactly 6 entries"
+                )));
+            }
+            Ok(feldspar_library::mech::FrameMemberInput {
+                i: member_i[idx],
+                j: member_j[idx],
+                dx: member_dx[idx],
+                dy: member_dy[idx],
+                ea: member_ea[idx],
+                ei: member_ei[idx],
+                release_a_rz: member_release_a[idx],
+                release_b_rz: member_release_b[idx],
+                fef_local: [fef[0], fef[1], fef[2], fef[3], fef[4], fef[5]],
+            })
+        })
+        .collect::<PyResult<_>>()?;
+
+    let solution = feldspar_library::mech::frame2d_solve(n_nodes, &members, &fixed, &loads)
+        .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))?;
+
+    let flatten3 =
+        |rows: &[[f64; 3]]| -> Vec<f64> { rows.iter().flat_map(|r| r.to_vec()).collect() };
+    let displacements = flatten3(&solution.displacements);
+    let reactions = flatten3(&solution.reactions);
+    let member_end_forces_local: Vec<Vec<f64>> = solution
+        .member_end_forces_local
+        .iter()
+        .map(|r| r.to_vec())
+        .collect();
+    Ok((displacements, reactions, member_end_forces_local))
+}

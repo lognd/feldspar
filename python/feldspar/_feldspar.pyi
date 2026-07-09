@@ -114,6 +114,20 @@ def mech_beam_cantilever_first_mode(
     length: float,
 ) -> float: ...
 def mech_miles_grms(fn_hz: float, q: float, asd: float) -> float: ...
+def mech_frame2d_solve(
+    n_nodes: int,
+    member_i: list[int],
+    member_j: list[int],
+    member_dx: list[float],
+    member_dy: list[float],
+    member_ea: list[float],
+    member_ei: list[float],
+    member_release_a: list[bool],
+    member_release_b: list[bool],
+    member_fef: list[list[float]],
+    fixed: list[bool],
+    loads: list[float],
+) -> tuple[list[float], list[float], list[list[float]]]: ...
 def elec_divider_loaded_vout(vin: float, r1: float, r2: float, rl: float) -> float: ...
 def elec_rc_step_response(vf: float, r: float, c: float, t: float) -> float: ...
 def elec_rlc_resonant_frequency(inductance: float, capacitance: float) -> float: ...

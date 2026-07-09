@@ -436,10 +436,30 @@ def solve_frame_payload(
 
     joint_loads = [0.0] * (n_nodes * 3)
     for load in loads:
-        if load["case"] != load_case or load["target"] not in joint_index:
+        if load["case"] != load_case:
             continue
         if load["kind"] != "point":
             continue
+        if load["target"] not in joint_index:
+            # M7 (cycle-28 audit): same silent-drop pattern as M2, but
+            # for point loads -- a point load's target that matches no
+            # joint id must be an honest OutOfDomain, never a silently
+            # zero-contributing load.
+            _log.warning(
+                "struct.frame: point load target %r (case %r) matches "
+                "no joint id",
+                load["target"],
+                load_case,
+            )
+            return Err(
+                SolveError.OutOfDomain(
+                    violation=(
+                        f"point load target {load['target']!r} (case "
+                        f"{load_case!r}) matches no joint id -- refusing "
+                        "to silently drop this load"
+                    )
+                )
+            )
         if load["direction"] != "gravity":
             return Err(
                 SolveError.OutOfDomain(

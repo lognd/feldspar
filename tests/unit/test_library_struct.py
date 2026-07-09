@@ -192,6 +192,28 @@ def test_unmatched_distributed_load_target_is_honest_indeterminate():
     assert "Deck" in result.err.violation
 
 
+def test_unmatched_point_load_target_is_honest_indeterminate():
+    """M7 (cycle-28 audit): the joint point-load loop had the same
+    silent-drop pattern as M2 -- a `"point"`-kind load whose target
+    matches no joint id must be an honest `Err`, never silently
+    dropped (contributing zero demand)."""
+    payload = _propped_cantilever_payload(10e3, 6.0)
+    payload["loads"].append(
+        {
+            "case": "dead",
+            "target": "NoSuchJoint",
+            "kind": "point",
+            "value": _interval(5e3),
+            "direction": "gravity",
+        }
+    )
+    section_material = {"G1": {"ea": 1e12, "ei": 6.0e7}}
+    result = solve_frame_payload(payload, section_material, "dead")
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+    assert "NoSuchJoint" in result.err.violation
+
+
 def test_member_length_in_millimeters_is_normalized_to_si():
     """M4 (cycle-28 audit): `frame_lower::member_length` only
     *defaults* the length unit to `"m"` -- it propagates whatever unit

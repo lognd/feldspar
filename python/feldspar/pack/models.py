@@ -22,7 +22,7 @@ from typani.result import Err, Ok, Result
 from feldspar.__about__ import __version__
 from feldspar.logging_setup import get_logger
 from feldspar.pack.converters import to_feldspar_interval, to_feldspar_payload_ref
-from feldspar.pack.errors import map_engine_error
+from feldspar.pack.errors import map_engine_error, margin_exhausted_error
 from feldspar.pack.payload_bridge import NoStoreResolver
 from feldspar.plan.solve import solve
 from feldspar.solve._models import ClaimSenses
@@ -54,15 +54,24 @@ DEFAULT_DEFLECTION_CLAIM_KIND = "mech.static_deflection"
 # under one claim kind (06 "cost declares the honest relative expense").
 _REDUCED_TIER_COST = 10
 
-# `Solution.eps` budget the pack solve() call is given: v1 has no
-# margin-driven refinement yet (06 "Planned (09 M3)"), so the pack asks
-# for the loosest FINITE budget the planner accepts (`plan()`/the Rust
-# search core reject a non-finite budget as `PlanError.InvalidBudget`)
-# that still lets `solve()`'s post-execution budget re-check pass on any
-# realized FEA eps -- the model's honest `eps` is whatever the engine
-# actually measured (`Prediction.eps`), never silently tightened or
-# widened here.
+# The FIRST-attempt eps budget of the WO-13 margin-driven refinement
+# loop (09 sec. 5, 06 "margin-driven adaptive refinement"): the loosest
+# FINITE budget the planner accepts (`plan()`/the Rust search core
+# reject a non-finite budget as `PlanError.InvalidBudget`), so the
+# cheapest honest answer comes back before any margin translation --
+# an eps-seeking direction stops at its first Richardson pair under
+# this budget (09 sec. 3). Only if that answer's eps is too fat for
+# the claim's margin does `_FeaModel.estimate` translate margin ->
+# budget and re-drive the seeker (see `_MAX_MARGIN_ATTEMPTS`).
 _EPS_BUDGET = 1e30
+
+# Bound on the WO-13 margin-seeking loop (09 sec. 5): each re-solve
+# passes a STRICTLY tighter budget (checked), so this bound is a
+# belt-and-suspenders guard against a pathological value that keeps
+# drifting toward the limit as the mesh refines -- never the normal
+# exit (the normal exits are: claim closes, no positive margin exists,
+# or the engine reports the ladder topped out).
+_MAX_MARGIN_ATTEMPTS = 4
 
 
 def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistry:
@@ -170,18 +179,42 @@ class _FeaModel(Model):
         relative expense")."""
         return _REDUCED_TIER_COST
 
-    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
-        """Convert -> `feldspar.plan.solve.solve()` -> convert back.
+    def _margin_needed(self, value: float, limit: float) -> float:
+        """Sense-aware eps the claim can still absorb at `value` (09
+        sec. 5): for an upper claim `value + eps <= limit` needs
+        `eps <= limit - value`; for a lower claim `value - eps >= limit`
+        needs `eps <= value - limit`. Non-positive means the value alone
+        already busts the limit -- no eps budget can close the claim."""
+        if self.signature.sense.upper:
+            return limit - value
+        return value - limit
 
-        Worst-corner value per claim sense (`solve()`'s `sense=` is fed
-        the signature's own sense, 06 "Sense mapping"), realized
-        Richardson eps, coverage 1.0 (full corner sweep), `solver_version`
-        as the `feldspar <version>` triple slot (ccx/gmsh versions are
-        the fixed nominal placeholders `fea/solver.py` folds into its own
-        settings_digest -- there is no live tool-version probe to append
-        here without duplicating that fold), and `settings_digest` riding
-        the request's route settings digest as the sanctioned INV-10
-        channel (06 "estimate(request)")."""
+    def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
+        """Convert -> `feldspar.plan.solve.solve()` -> convert back,
+        with WO-13 margin-driven adaptive refinement (09 sec. 5, 06
+        "margin-driven adaptive refinement").
+
+        The loop: solve at the loose `_EPS_BUDGET` first (cheapest
+        honest answer -- an eps-seeking direction stops at its first
+        Richardson pair, 09 sec. 3). If `value + eps` (sense-aware)
+        already closes the claim against `request.limit`, done. If the
+        value ALONE busts the limit, refinement cannot help -- return
+        the honest prediction as-is (the harness judges it). Otherwise
+        the eps is too fat for the margin: translate margin -> eps
+        budget (`_margin_needed`) and re-drive the engine's
+        budget-seeking refinement with it, deterministically (same
+        request -> same budget sequence -> same rungs). A refinement
+        attempt the engine cannot meet (ladder top-out, budget
+        exceeded, no route remaining) returns the honest indeterminate
+        STATING eps achieved vs needed (`margin_exhausted_error`,
+        regolith's what-would-resolve-it family).
+
+        Prediction mapping (06 "estimate(request)"): worst-corner value
+        per claim sense, realized Richardson eps, coverage 1.0 + D95
+        structured axes, `solver_version` as the `feldspar <version>`
+        triple slot (ccx/gmsh are the fixed nominal placeholders
+        `fea/solver.py` folds into its own settings_digest), and
+        `settings_digest` riding the sanctioned INV-10 channel."""
         known = {
             name: to_feldspar_interval(interval)
             for name, interval in request.inputs.items()
@@ -195,29 +228,111 @@ class _FeaModel(Model):
         # `plan()` route to whichever direction's declared tags subset it
         # (a direction with a narrower tag requirement, e.g. the cylinder
         # family's `linear_elastic`-only box, still matches).
-        result = solve(
-            registry,
-            known,
-            frozenset({"linear_elastic", "small_deflection"}),
-            self._target,
-            _EPS_BUDGET,
-            sense=sense,
-        )
-        if result.is_err:
-            _log.warning(
-                "%s: engine solve failed for claim_kind=%s: %r",
-                self.model_id,
-                self._claim_kind,
-                result.danger_err,
-            )
-            return Err(map_engine_error(self.model_id, result.danger_err))
+        tags = frozenset({"linear_elastic", "small_deflection"})
 
-        solution = result.danger_ok
-        # Worst-corner value per sense: upper claims are conservative on
-        # the interval's high end, lower claims on the low end (06
-        # "Sense mapping" mirrors the engine's `plan(sense=...)` one-to-
-        # one onto `ClaimSense.upper/lower`).
-        value = solution.value.hi if self.signature.sense.upper else solution.value.lo
+        budget = _EPS_BUDGET
+        solution = None
+        value = 0.0
+        for attempt in range(_MAX_MARGIN_ATTEMPTS):
+            result = solve(registry, known, tags, self._target, budget, sense=sense)
+            if result.is_err:
+                if solution is None:
+                    # First attempt: a plain engine failure, no margin
+                    # story to tell yet.
+                    _log.warning(
+                        "%s: engine solve failed for claim_kind=%s: %r",
+                        self.model_id,
+                        self._claim_kind,
+                        result.danger_err,
+                    )
+                    return Err(map_engine_error(self.model_id, result.danger_err))
+                # A margin-driven re-solve the engine could not meet:
+                # honest indeterminate stating eps achieved vs needed
+                # (09 sec. 5; the achieved eps is the best successful
+                # attempt's, the needed eps is the margin at its value).
+                needed = self._margin_needed(value, request.limit)
+                _log.warning(
+                    "%s: margin refinement exhausted for claim_kind=%s: "
+                    "eps achieved %s vs needed %s (limit=%s): %r",
+                    self.model_id,
+                    self._claim_kind,
+                    solution.eps,
+                    needed,
+                    request.limit,
+                    result.danger_err,
+                )
+                return Err(
+                    margin_exhausted_error(
+                        self.model_id,
+                        solution.eps,
+                        needed,
+                        request.limit,
+                        result.danger_err,
+                    )
+                )
+
+            solution = result.danger_ok
+            # Worst-corner value per sense: upper claims are conservative
+            # on the interval's high end, lower claims on the low end (06
+            # "Sense mapping" mirrors the engine's `plan(sense=...)`
+            # one-to-one onto `ClaimSense.upper/lower`).
+            value = (
+                solution.value.hi if self.signature.sense.upper else solution.value.lo
+            )
+            needed = self._margin_needed(value, request.limit)
+            if needed <= 0.0:
+                # The value alone busts the limit: no eps budget closes
+                # this claim; refinement is pointless. Honest as-is.
+                _log.info(
+                    "%s: value %s alone busts limit %s (claim_kind=%s); "
+                    "refinement cannot close, returning honest prediction",
+                    self.model_id,
+                    value,
+                    request.limit,
+                    self._claim_kind,
+                )
+                break
+            if solution.eps <= needed:
+                _log.info(
+                    "%s: claim closes at eps=%s (needed=%s, attempt %d)",
+                    self.model_id,
+                    solution.eps,
+                    needed,
+                    attempt,
+                )
+                break
+            if needed >= budget:
+                # Already asked the engine for at least this tightness;
+                # a re-solve with the same-or-looser budget cannot
+                # improve. Honest as-is (unreachable off the loose first
+                # budget; guards the loop's strict-decrease invariant).
+                _log.info(
+                    "%s: needed budget %s is not tighter than the last "
+                    "request %s; stopping margin seeking",
+                    self.model_id,
+                    needed,
+                    budget,
+                )
+                break
+            _log.info(
+                "%s: margin translation (09 sec. 5): eps=%s too fat for "
+                "margin %s at limit %s; re-solving with eps_budget=%s "
+                "(attempt %d)",
+                self.model_id,
+                solution.eps,
+                needed,
+                request.limit,
+                needed,
+                attempt + 1,
+            )
+            budget = needed
+        else:
+            _log.warning(
+                "%s: margin seeking hit the attempt bound (%d); returning "
+                "the best achieved prediction",
+                self.model_id,
+                _MAX_MARGIN_ATTEMPTS,
+            )
 
         solver_version = f"feldspar {__version__} / ccx unknown / gmsh unknown"
         return Ok(

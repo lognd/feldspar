@@ -65,7 +65,7 @@ field for AUTHOR-DECLARED predicates only (boxes derived where
 single-port-affine-boundable); inversion's own admission predicates
 (e.g. a `sqrt`'s range) ride as `SolverInfo` provenance rendered by
 `explain()`, not as box-narrowing input -- the anatomy is otherwise
-untouched: the nine fields stand. Details: `docs/implementation/
+untouched: the nine fields stand. Details: `docs/workflow/work-orders/
 WO-11-symbolic-core.md`.
 
 ## 3. Plug-and-play: solver packs (DECIDED 2026-07-07)

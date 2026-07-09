@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """WO-03 tests: SolverInfo/Citation/@solver/SolverRegistry/sugar layer.
 
-Covers the WO-03 rows of docs/implementation/02-edge-cases.md, the
+Covers the WO-03 rows of docs/spec/toolchain/02-edge-cases.md, the
 acceptance criterion (a toy thermo.ideal_gas solver registers, freezes,
 iterates sorted), and the AD-4/FINV-5/FINV-6/FINV-7 guarantees."""
 

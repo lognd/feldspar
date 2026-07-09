@@ -9,7 +9,7 @@ heavyweight node of that graph, a deterministic gmsh + CalculiX static FEA
 pipeline, as the reference external model pack for the lithos toolchain
 (regolith, WO-27).
 
-The name follows the geology theme (hematite, cuprite, quarry, regolith,
+The name follows the geology theme (hematite, cuprite, magnetite, regolith,
 lithos): feldspar is the most abundant mineral in the crust -- the
 workhorse material regolith is mostly made of.
 
@@ -56,7 +56,7 @@ uncertainty through every step.
   inherited, still the one solver protocol); validity domains are tracked
   as symbolic predicates that dispatch boxes are derived from; rules that
   are equations stay symbolic all the way into the justification report.
-  Spec: `docs/feldspar/11-symbolic.md`.
+  Spec: `docs/spec/11-symbolic.md`.
 
 ## Two personas, one codebase
 
@@ -191,12 +191,13 @@ same data as a JSON-safe dict for machine consumers.
 
 ## Documentation
 
-- `docs/feldspar/` -- the spec, numbered in reading order (overview,
+- `docs/spec/` -- the spec, numbered in reading order (overview,
   quantities and uncertainty, solvers, routing, FEA pipeline, regolith
   pack, capability map, model integration, solver metamodel, symbolic
   core).
-- `docs/implementation/` -- normative architecture, interfaces, edge-case
-  matrix, and the agent-executable work orders (WO-nn).
+- `docs/spec/` -- the concept docs + `toolchain/` (normative
+  architecture, interfaces, edge-case matrix); `docs/workflow/` --
+  ground rules + the agent-executable work orders (WO-nn).
 
 Docs are the contract: a code/spec disagreement is a bug in one of them,
 and the fix updates both in the same change.

@@ -6,7 +6,7 @@ from what I know to what I need, cheaply enough and accurately enough")
 with a native FEA workhorse (gmsh + CalculiX), exposed to regolith as a
 `regolith.model_packs` plugin per WO-27.
 
-The name joins the geology theme (hematite, cuprite, quarry, regolith,
+The name joins the geology theme (hematite, cuprite, magnetite, regolith,
 lithos): feldspar is the most abundant mineral in the crust -- the
 workhorse material regolith is mostly made of.
 
@@ -26,15 +26,19 @@ The dependency arrow is one-way: feldspar depends on regolith
 
 ## Reading order
 
-1. `feldspar/` -- the spec: engine concepts, FEA pipeline, pack contract.
-2. `implementation/` -- architecture decisions and agent-executable work
-   orders (WO-nn).
+1. `spec/` -- the technical truth: engine concepts, FEA pipeline, pack
+   contract, plus `spec/toolchain/` (normative architecture,
+   interfaces, edge-case matrix).
+2. `workflow/` -- process: ground rules + agent-executable work orders
+   (`work-orders/WO-nn`) + the FINV audit ledger.
+(Taxonomy per lithos D138, cycle 26: spec / workflow / guide; the
+guide role is served by the top-level README quickstart.)
 
 ## Directory map
 
 ```
 docs/
-  feldspar/    the spec (concept docs, numbered in reading order)
+  spec/        the spec (concept docs, numbered in reading order)
     01-overview.md                vision, personas, non-goals
     02-quantities-and-uncertainty.md  ports, unit algebra, uncertainty
                                   models (interval/normal/quantile), the
@@ -71,19 +75,21 @@ docs/
                                   directions, symbolic domain
                                   predicates, residual list
 
-  implementation/  architecture + work orders (M1; WO-11+ appended
-                   per 09 sec. 8 milestones when scheduled)
-    00-architecture.md            NORMATIVE: repo layout, AD-1..12,
-                                  the FINV-1..12 invariant ledger,
+    toolchain/   NORMATIVE technical docs:
+      00-architecture.md          repo layout, AD-1..12, the
+                                  FINV-1..12 invariant ledger,
                                   language assignment, CI jobs
-    01-interfaces.md              NORMATIVE: exact M1 public surface
+      01-interfaces.md            exact M1 public surface
                                   (signatures + error variants)
-    02-edge-cases.md              NORMATIVE: required-test matrix,
-                                  rows keyed by WO
-    WO-01..WO-11                  agent-executable work orders;
-                                  conventions + dependency graph in
-                                  the README (WO-11 symbolic core is
-                                  owner-gated on 11 R1)
+      02-edge-cases.md            required-test matrix, rows keyed
+                                  by WO
+
+  workflow/    process
+    README.md                     ground rules, conventions, the WO
+                                  dependency graph
+    work-orders/WO-01..WO-11      agent-executable work orders (all
+                                  DONE as of 2026-07-08)
+    FINV-audit.md                 the invariant audit checklist
 
 examples/          target-API pressure tests (written before code;
                    friction log -> spec changes in its README)

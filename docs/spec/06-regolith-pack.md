@@ -5,7 +5,7 @@ harness Model contract behind the `regolith.model_packs` entry point,
 producing deterministic, attributable, signable evidence -- the WO-27
 deliverable.
 
-Contract home: `../lithos/docs/implementation/20-solver-abstraction.md`
+Contract home: `../lithos/docs/spec/toolchain/20-solver-abstraction.md`
 (D-A..D-G) and `WO-27-reference-fea-pack.md`. This doc records only
 the feldspar side; the regolith side is cited, not copied.
 

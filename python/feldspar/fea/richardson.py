@@ -53,7 +53,7 @@ def richardson_extrapolate(
     """Extrapolate a coarse/fine mesh pair (h, h/2) to a refined value
     with a conservative error estimate.
 
-    Design rationale (see docs/feldspar/05-fea-pipeline.md, "richardson.py"):
+    Design rationale (see docs/spec/05-fea-pipeline.md, "richardson.py"):
     with exactly two mesh levels the convergence order cannot be
     empirically measured (three points are required for that); `order`
     is therefore always the FIXED THEORETICAL order for the element

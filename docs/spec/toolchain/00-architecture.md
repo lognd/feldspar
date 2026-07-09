@@ -2,7 +2,7 @@
 
 Where a WO body conflicts with this document, this document wins; WO
 acceptance criteria stand. Mirrors the regolith architecture doc's
-role (`../lithos/docs/implementation/00-architecture.md`); conventions
+role (`../lithos/docs/spec/toolchain/00-architecture.md`); conventions
 shared with regolith are cited, not re-argued.
 
 ## Repository layout (fixed by WO-01)

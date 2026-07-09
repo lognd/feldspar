@@ -122,7 +122,7 @@ second registration path.
   NonInvertible)` naming them (hand-write those directions beside
   the derived ones via `.direction()`), and multi-branch inversions
   an `Err(RegistryError.MultiBranch)` until the author passes
-  `branches={var: "+"|"-"}`. Details: `docs/implementation/
+  `branches={var: "+"|"-"}`. Details: `docs/workflow/work-orders/
   WO-11-symbolic-core.md` closing report.
 - `table_solver_1d/2d`: domain box auto = data extent; interpolation
   eps EXPLICIT and cited, never auto-derived.

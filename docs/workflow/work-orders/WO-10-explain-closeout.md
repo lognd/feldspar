@@ -66,7 +66,7 @@ promised, verified and documented.
   binaries available, the same situation `test_fea_pipeline.py`
   (WO-08/WO-09) documented. This is written-but-unverified-by-
   execution, not a fabricated pass.
-- FINV audit: `docs/implementation/FINV-audit.md`. FINV-1..8/10/11
+- FINV audit: `docs/workflow/FINV-audit.md`. FINV-1..8/10/11
   each have an inline test citation (two missing citations were added
   in this change: `test_plan.py::test_plan_twice_yields_identical_
   route_digest` for FINV-1, `test_solve_cache.py::test_solve_twice_

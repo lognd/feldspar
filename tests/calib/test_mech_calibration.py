@@ -3,7 +3,7 @@ from __future__ import annotations
 """WO-07 tests: (1) the committed self-calibration demonstration record
 (`tests/calib/records/`, see `tests/calib/generate_records.py` for the
 full rationale -- EXACT-ceiling mech solvers are calibration-exempt per
-docs/feldspar/03-solvers.md/A-7; this record only demonstrates the
+docs/spec/03-solvers.md/A-7; this record only demonstrates the
 harness end-to-end ahead of WO-08) reproduces byte-for-byte from the
 same deterministic seed, and (2) `check_ceilings` passes against the
 fully populated, frozen mech registry -- wiring the ceiling-vs-record

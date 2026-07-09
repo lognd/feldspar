@@ -3,7 +3,7 @@ from __future__ import annotations
 """WO-07: generates the demonstration `CalibRecord` committed under
 `tests/calib/records/`.
 
-NORMATIVE note (docs/feldspar/03-solvers.md "Citations and
+NORMATIVE note (docs/spec/03-solvers.md "Citations and
 calibration", audit A-7): a solver declaring `accuracy=EXACT` needs
 method citations like any solver but NO calibration citation -- there
 is nothing to measure. All four `mech` Phase 1 solver directions

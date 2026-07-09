@@ -93,4 +93,4 @@ in this same change; open items carry their blocker)
   ZERO-STEP Route (value = known interval, eps 0, cost 0), not an
   error; `eps_budget <= 0` and negative `cost` are request/
   registration errors. Full matrix with WO assignments in
-  `docs/implementation/02-edge-cases.md`.
+  `docs/spec/toolchain/02-edge-cases.md`.

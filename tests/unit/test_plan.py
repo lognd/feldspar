@@ -3,7 +3,7 @@ from __future__ import annotations
 """WO-05 tests: `feldspar.plan.plan()` (01-interfaces `feldspar.plan`,
 04-routing).
 
-Covers the WO-05 rows of docs/implementation/02-edge-cases.md and the
+Covers the WO-05 rows of docs/spec/toolchain/02-edge-cases.md and the
 WO-05 acceptance criteria: a 5-solver toy registry with two routes to
 target (budget selects between them), lexicographic tie-break, every
 `PlanError` variant reachable, twice-run determinism, and the FINV-8

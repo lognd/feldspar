@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """WO-02 Python-side type smoke tests: feldspar.core (01-interfaces).
 
-Covers the WO-02 rows of docs/implementation/02-edge-cases.md at the
+Covers the WO-02 rows of docs/spec/toolchain/02-edge-cases.md at the
 Python surface (the Rust-side equivalents live in
 crates/feldspar-core/src/units.rs and tests/property.rs)."""
 

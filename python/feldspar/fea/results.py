@@ -30,8 +30,10 @@ _log = get_logger(__name__)
 __all__ = [
     "parse_dat_displacements",
     "parse_dat_principal_stresses",
+    "parse_dat_frequencies",
     "max_displacement_magnitude",
     "max_von_mises",
+    "first_mode_frequency",
 ]
 
 
@@ -101,6 +103,31 @@ def parse_dat_principal_stresses(
     fields) -- any malformed/truncated row fails the whole parse
     (SolveError.ParseFailed), never a partial map."""
     return _parse_three_column_table(text, "principal stresses")
+
+
+def parse_dat_frequencies(
+    text: str,
+) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
+    """Parses a ccx `*FREQUENCY` step's mode table (WO-16, 07 vibration
+    Phase 3): ccx prints one row per requested mode,
+    `<mode_no> <eigenvalue> <freq_rad_per_time> <freq_cycles_per_time>`,
+    the same shape as the displacement/stress tables (an id column plus
+    3 numeric columns), so this reuses `_parse_three_column_table`
+    (NO DUPLICATION) rather than a bespoke scanner. Returns
+    `{mode_no: (eigenvalue, freq_rad_per_time, freq_cycles_per_time)}`;
+    any malformed/truncated row fails the whole parse, same fail-closed
+    rule as the other two tables."""
+    return _parse_three_column_table(text, "frequencies")
+
+
+def first_mode_frequency(
+    frequencies: Mapping[int, Tuple[float, float, float]],
+) -> float:
+    """The lowest-mode-number row's cycles/time (Hz) column -- ccx lists
+    modes in ascending eigenvalue order starting at mode 1, so `min` over
+    the row keys picks the first (fundamental) mode."""
+    first_mode = min(frequencies)
+    return frequencies[first_mode][2]
 
 
 def max_displacement_magnitude(

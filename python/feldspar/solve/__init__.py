@@ -7,6 +7,13 @@ here; `_build.py`/`_models.py` are private implementation details."""
 from typani import Err, Ok, Result
 
 from feldspar.solve.errors import RegistryError, SolveError
+from feldspar.solve.packs import (
+    SOLVER_PACK_ENTRY_POINT_GROUP,
+    PackInfo,
+    SolverPackLoadOutcome,
+    load_solver_packs,
+    pack_composition_digest,
+)
 from feldspar.solve.payload import (
     PAYLOAD_KINDS,
     PayloadRef,
@@ -43,16 +50,21 @@ __all__ = [
     "Err",
     "Ok",
     "PAYLOAD_KINDS",
+    "PackInfo",
     "PayloadRef",
     "PayloadResolver",
     "Relation",
     "RegistryError",
     "Result",
+    "SOLVER_PACK_ENTRY_POINT_GROUP",
     "SolveError",
     "SolveOutput",
     "SolverInfo",
+    "SolverPackLoadOutcome",
     "SolverRegistry",
+    "load_solver_packs",
     "make_direction",
+    "pack_composition_digest",
     "payload_feature_violation",
     "solver",
     "table_solver_1d",

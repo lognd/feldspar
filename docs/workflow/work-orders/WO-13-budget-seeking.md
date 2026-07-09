@@ -1,6 +1,13 @@
 # WO-13: budget-seeking refinement + cost curves (M3)
 
-Status: todo
+Status: done (2026-07-08) -- engine-side (eps_seeking ladder, cost
+curves, per-rung caching, edge cases, cantilever acceptance fixture).
+Pack-side margin translation (09 sec. 5) is DEFERRED: it requires
+editing `python/feldspar/pack/models.py`, which was WO-14's live
+worktree at dispatch time (regolith boundary v2, running in parallel)
+-- out of this WO's strict scope per the dispatch protocol's
+collision rule. Escalated to the coordinator for a follow-up WO or a
+WO-14 merge-time addendum; see WO-13's dispatch report.
 Depends: WO-12 (payload ports -- the ladder refines meshes), WO-06
 (executor)
 Language: Python (`feldspar/solve/`, `feldspar/fea/`)

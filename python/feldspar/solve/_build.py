@@ -135,6 +135,8 @@ def build_solver_info_and_fn(
     branch: Optional[str] = None,
     admission_predicate: Optional[str] = None,
     derivation_digest: Optional[str] = None,
+    law_lhs: Optional[Any] = None,
+    law_rhs: Optional[Any] = None,
 ) -> Tuple[SolverInfo, SolveFn]:
     """The one lowering path from author-facing (sugared or raw)
     arguments to a registered `(SolverInfo, SolveFn)` pair."""
@@ -167,5 +169,7 @@ def build_solver_info_and_fn(
         branch=branch,
         admission_predicate=admission_predicate,
         derivation_digest=derivation_digest,
+        law_lhs=law_lhs,
+        law_rhs=law_rhs,
     )
     return info, wrap_solve_fn(raw_fn, outputs_tuple)

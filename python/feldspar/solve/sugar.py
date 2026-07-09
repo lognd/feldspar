@@ -251,11 +251,28 @@ class Relation:
             algebraic_form = form
             derivation_digest = canonical_digest(
                 {
-                    "canon_version": 1,
+                    "canon_version": _feldspar.CANON_VERSION,
                     "form": algebraic_form,
                     "solved_for": target,
                     "branch": branch_label,
                 }
+            )
+
+            # R5 (11 sec. 4, WO-22): a derived direction inherits the
+            # declared law's citations but NEVER its calibration
+            # evidence -- the parent's calibration citation was measured
+            # against the PARENT's direction, not this algebraically
+            # transformed one; domain corners map nonlinearly under
+            # inversion, so that evidence does not carry over even
+            # though the transform itself is exact. Every other
+            # citation kind (paper/handbook/standard) is inherited
+            # verbatim. `Accuracy(0,0)` (EXACT) laws are exempt from
+            # calibration entirely (A-7 "nothing to measure"), so
+            # dropping calibration citations is a no-op for them.
+            derived_citations = tuple(
+                c
+                for c in _build.coerce_citations(self._citations)
+                if c.kind != "calibration"
             )
 
             def _make_raw_fn(
@@ -284,7 +301,7 @@ class Relation:
                 domain=domain_obj,
                 cost=self._cost,
                 accuracy=self._default_accuracy,
-                citations=self._citations,
+                citations=derived_citations,
                 version=self._version,
                 tier=self._tier,
                 settings=self._settings,
@@ -294,6 +311,8 @@ class Relation:
                 branch=branch_label,
                 admission_predicate=admission_predicate,
                 derivation_digest=derivation_digest,
+                law_lhs=lhs,
+                law_rhs=rhs,
             )
             self._directions.append((info, wrapped))
 

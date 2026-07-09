@@ -4,6 +4,18 @@ from __future__ import annotations
 
 from feldspar.calib._models import CalibRecord
 from feldspar.calib.errors import CalibError
-from feldspar.calib.harness import calibrate, check_ceilings
+from feldspar.calib.harness import (
+    calibrate,
+    check_ceilings,
+    resweep_all_derived,
+    resweep_derived,
+)
 
-__all__ = ["CalibError", "CalibRecord", "calibrate", "check_ceilings"]
+__all__ = [
+    "CalibError",
+    "CalibRecord",
+    "calibrate",
+    "check_ceilings",
+    "resweep_all_derived",
+    "resweep_derived",
+]

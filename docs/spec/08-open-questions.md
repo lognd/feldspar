@@ -224,13 +224,25 @@ when the implementing WO lands; only their RESIDUAL is still open.
   Full resolution detail, including the digest-equality-vs-folds-
   into-digest reconciliation and the predicate-to-box scope decision
   found during implementation: `docs/workflow/work-orders/
-  WO-11-symbolic-core.md` closing report. R4 and R5: DECIDED
-  (owner closure directive, 2026-07-08; normative text 11 sec. 4;
-  scheduled WO-22) -- symbolic-derivative mode inside the one
-  Propagation protocol with CANON_VERSION digest folding (R4);
-  derived directions inherit citations but re-sweep calibration
-  over the mapped domain, Accuracy(0,0) exempt (R5). NOTHING in
-  OPEN-15 remains open.
+  WO-11-symbolic-core.md` closing report. R4 and R5: RESOLVED
+  (WO-22, landed 2026-07-08; normative text 11 sec. 4) -- kernel
+  differentiation over `Expr` plus a `Normal` delta-method
+  `Propagation` strategy with a per-input symbolic/numeric
+  `DerivativeMode` (R4; CANON_VERSION now exposed to Python and
+  folded into `Relation.law()`'s derivation digest, fixing a
+  hardcoded-literal gap); `Relation.law()` drops calibration
+  citations on derived directions while keeping others, and
+  `feldspar.calib.harness.resweep_derived`/`resweep_all_derived`
+  supply the automatic mapped-domain re-sweep evidence, with
+  `check_ceilings` reporting an un-swept derived direction as
+  UNCALIBRATED (non-blocking) rather than a hard error (R5).
+  Wiring `Normal` propagation into the executor/planner
+  (`execute()`/`plan()` route-level representation choice) is an
+  explicitly OUT-OF-SCOPE residual for a future milestone WO (doc 02
+  already marks `Normal` "Planned, not v1"; no milestone schedules
+  that integration yet) -- full detail:
+  `docs/workflow/work-orders/WO-22-symbolic-followups.md` closing
+  report. NOTHING in OPEN-15 remains open.
 
 ## Closure re-review (2026-07-08, owner directive; lithos cycle 27)
 

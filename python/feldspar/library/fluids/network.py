@@ -465,7 +465,31 @@ def _hardy_cross_solve(
                 numerator += dp
                 denominator += k
             if denominator == 0.0:
-                continue
+                # L3 (cycle-28 audit): a cycle-basis loop of ONLY
+                # fixed-flow imposer edges has no pipe unknown to
+                # correct with (denominator stays 0 every iteration)
+                # AND no head-loss model for imposer edges (module
+                # docstring's named cut) to verify its head balance
+                # against. Silently `continue`-ing here let such a
+                # loop's imbalance go forever unverified while
+                # `max_dq` (driven only by OTHER loops) still reached
+                # `_HC_TOL`, so the overall solve reported "converged"
+                # for a loop this method structurally cannot certify.
+                # Honest: refuse rather than fabricate a convergence
+                # claim for a loop this algorithm has no information
+                # about.
+                loop_edge_ids = [edges[edge_idx].id for edge_idx, _sign in loop]
+                _log.warning(
+                    "hardy_cross: all-imposer cycle-basis loop %s has no "
+                    "pipe unknown and no head-loss model to verify its "
+                    "balance -- cannot certify convergence",
+                    loop_edge_ids,
+                )
+                return Err(
+                    SolveError.OutOfDomain(
+                        payload_feature_violation(FLOWNET_PORT, "all_imposer_loop")
+                    )
+                )
             dq = -numerator / denominator
             max_dq = max(max_dq, abs(dq))
             for edge_idx, sign in loop:

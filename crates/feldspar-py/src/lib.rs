@@ -29,9 +29,10 @@ use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
 use library::{
-    mech_bore_von_mises_py, mech_cantilever_required_youngs_modulus_py,
-    mech_cantilever_tip_deflection_py, mech_lame_hoop_stress_bore_py,
-    mech_lame_radial_stress_bore_py, mech_rect_second_moment_py, mech_von_mises_principal_py,
+    mech_beam_cantilever_first_mode_py, mech_bore_von_mises_py,
+    mech_cantilever_required_youngs_modulus_py, mech_cantilever_tip_deflection_py,
+    mech_lame_hoop_stress_bore_py, mech_lame_radial_stress_bore_py, mech_miles_grms_py,
+    mech_rect_second_moment_py, mech_sdof_first_mode_py, mech_von_mises_principal_py,
 };
 use propagation::{
     corner_sweep_py, delta_propagate_numeric_py, delta_propagate_symbolic_py, inflate_py,
@@ -75,6 +76,9 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mech_lame_radial_stress_bore_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_von_mises_principal_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_bore_von_mises_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_sdof_first_mode_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_beam_cantilever_first_mode_py, m)?)?;
+    m.add_function(wrap_pyfunction!(mech_miles_grms_py, m)?)?;
     m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
     m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
     m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;

@@ -1,15 +1,13 @@
 # BREAKS: mixing two media on one connected subnet (fluorite/02 sec. 1:
-#   "One medium per connected subnet in v1; mixing is a compile error
-#   (FOPEN-1)").
-# EXPECT-TODO: WO-32
-# Self-calibration (WO-31 D3): NOT front-end decidable. Mixing is a
-# property of a connected subnet whose edges resolve to components
-# bound to different media; that resolution is lowering-time geometry/
-# component binding (WO-32). The self-contained surface here has one
-# `flownet(medium=Water)` with one plain `Pipe` edge -- the second
-# medium never enters the net at parse time. Candidate finding: the
-# FOPEN-1 mixed-medium compile error belongs to WO-32 (fluorite lowering
-# medium consistency), not the WO-31 front end.
+#   "One medium per connected subnet in v1; a mismatch is a compile
+#   error (FOPEN-1)").
+# EXPECT: E0210
+# Self-calibration (WO-49): resolved via the `impl FluidPort<medium=...>`
+# binding (fluorite/02 sec. 2): `AirLine` declares its wetted side bound
+# to `ShopAir` (gas); the `bad` edge's `from=AirLine.vent` ref resolves
+# `bad -> AirLine -> ShopAir`, which disagrees with `Mixed`'s own
+# `medium=Water` header -- a mixed-medium subnet, caught here BEFORE the
+# WO-32 flownet payload is ever constructed.
 import std.fluorite (Pipe)
 
 medium Water: liquid
@@ -18,10 +16,15 @@ medium Water: liquid
 medium ShopAir: gas
     props: registry(air_nist)
 
+part AirLine:
+    impl FluidPort<medium=ShopAir, dia=12mm> for self as vent:
+        bore = turned.inlet
+
 flownet Mixed(medium=Water):
     reference: ambient(101kPa, 293K)
     nodes: a, b
     edges:
-        bad: Pipe(from=line.run) (a -> b)
-        # `bad` is declared under a gas medium record while the net
-        # header fixes Water -- a mixed-medium subnet.
+        bad: Pipe(from=AirLine.vent) (a -> b)
+        # `bad` resolves through `AirLine`'s FluidPort binding to
+        # ShopAir (gas), while the net header fixes Water -- a
+        # mixed-medium subnet.

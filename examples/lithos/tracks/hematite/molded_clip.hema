@@ -10,9 +10,9 @@ import std.mech.mounts (ScrewBoss, PanelHole, BossMount)
 profile ClipBase:
     walk:
         from base_plane
-        line right                    # a
-        arc tangent, bulge=left       # b: saddle for the cable
-        line right                    # c
+        a: line right
+        b: arc tangent, bulge=left    # saddle for the cable
+        c: line right
         close
     constraints:
         a.length = 6mm

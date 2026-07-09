@@ -5,7 +5,7 @@
 
 import "site.calx" (ElmStreet)
 import "hydronics.fluo" (HeatingLoop)           # cross-track promise
-import std.civil (Pinned, Moment, Bearing, BasePlate, Brace)
+import std.civil (Pinned, Moment, Bearing, BasePlate)
 
 # -- Members (02 sec. 4): frame line at row 2 --------------------------
 

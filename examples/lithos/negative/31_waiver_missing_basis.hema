@@ -6,10 +6,10 @@ import std.mech.sheet (Blank)
 profile Flat:
     walk:
         from left_edge
-        line right
-        line up
-        line left
-        close
+        a: line right
+        b: line up
+        c: line left
+        d: close
     hole h1:
         circle(dia 8mm)
     constraints:

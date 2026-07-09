@@ -22,10 +22,10 @@ interface PanelSeat<screw: thread, n: int>:
 profile RailSection:
     walk:
         from base_plane
-        line right                    # a: outer face (the launch rail)
-        line up                       # b
-        line left                     # c: inner relief
-        line up                       # d
+        a: line right                 # outer face (the launch rail)
+        b: line up
+        c: line left                  # inner relief
+        d: line up
         close
     constraints:
         a.length = 8.5mm
@@ -88,10 +88,10 @@ part SidePanel:
 profile PanelOutline:
     walk:
         from left_edge
-        line right                    # a
-        line up                       # b
-        line left                     # c
-        close                         # d
+        a: line right
+        b: line up
+        c: line left
+        d: close
     constraints:
         a.length = 96mm
         b.length = 96mm

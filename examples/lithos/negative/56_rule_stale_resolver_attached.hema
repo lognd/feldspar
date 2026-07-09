@@ -1,0 +1,21 @@
+# BREAKS: an ATTACHED `resolves:` rule whose target field is never
+#   `free` at any use site (a stale resolver, the mirror of the E0701
+#   stale-waiver check; design doc sec. 3). Unlike
+#   `37_rule_stale_resolver.hema` (whose pack no design attaches, so
+#   staleness is undecidable and nothing fires), this pack IS attached
+#   and its consuming design pins every radius concretely.
+# EXPECT: E0604
+process press_shop:
+    capability:
+        min_bend_ratio: 1.6
+    dfm:
+        rule min_bend_radius:
+            forall b in bends
+            demand: b.radius >= capability.min_bend_ratio * sheet
+            resolves: b.radius from free
+            why: "press pack minimum inside radius"
+
+part bracket:
+    stage cut: process=laser_cut(sheet=1.5mm)
+    stage formed: process=press_shop, from=cut
+        flange = Bend(edge=cut.top, angle=90deg, radius=3mm)

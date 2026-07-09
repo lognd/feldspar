@@ -18,10 +18,10 @@ import std.mech.seals (SealFace)
 profile BellBore:
     walk:
         from face_plane
-        line down                     # a: 58mm basket bore
-        line left                     # b: gasket step
-        line down                     # c: dispersion chamber wall
-        arc tangent, bulge=right      # d: chamber crown blend
+        a: line down                  # 58mm basket bore
+        b: line left                  # gasket step
+        c: line down                  # dispersion chamber wall
+        d: arc tangent, bulge=right   # chamber crown blend
         close via axis
     constraints:
         a.length = 12mm

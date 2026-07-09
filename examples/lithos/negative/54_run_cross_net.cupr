@@ -1,0 +1,20 @@
+# BREAKS: a `harness:` run whose `from`/`to` endpoints sit on two
+#   different nets with no inline component between them (WO-34
+#   deliverable 2, D99: "a run whose endpoints are on different nets
+#   with no inline component is a compile diagnostic").
+# EXPECT-TODO: E0306
+# Self-calibration: `regolith_lower::harness_lower::HarnessInputs::net_of`
+# is the resolver seam this check reads through (mirrors
+# `flownet_lower::FlownetInputs::geometry`'s deferred-ref idiom); the
+# check itself is unit-tested directly (`cross_net_run_is_an_error`,
+# `crates/regolith-lower/src/harness_lower.rs`) and fires whenever a
+# resolver supplies both endpoints' nets. No seam exposes cuprite net
+# membership (the `connect`/Mating machinery) to `regolith-lower` for
+# this pass today -- `AstHarnessInputs`/`RealizedHarnessInputs` both
+# honestly return `None` from `net_of`, so the real `check()` pipeline
+# never resolves either endpoint's net and this diagnostic stays
+# silent end-to-end until that seam lands (a named gap, not an
+# invented answer -- WO-34's own escalation).
+harness MainLoom:
+    run batt_to_kill: from battery.pos to ecu.gnd
+        along frame.spine_tube

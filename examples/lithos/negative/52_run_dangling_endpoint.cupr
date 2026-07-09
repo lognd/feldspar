@@ -1,0 +1,14 @@
+# BREAKS: a `harness:` run whose `from`/`to` header spells both
+#   keywords (so the D1 parse-time E0106 stays quiet) but names no
+#   endpoint text on the `from` side -- elaboration (WO-34
+#   deliverable 2, D99) cannot resolve a routed path with no endpoint.
+# EXPECT: E0307
+# Self-calibration: `regolith_lower::harness_lower::elaborate_run`
+# splits the header on `from`/`to`; an empty split on either side is
+# `HarnessLowerError::DanglingEndpoint`, rendered inline (unlike
+# `flownet_lower`'s deferred-rendering convention -- WO-34's own
+# acceptance criteria demand a compile diagnostic here).
+harness MainLoom:
+    run batt_to_kill: from  to kill_switch.in
+        along frame.spine_tube
+        bundle primary

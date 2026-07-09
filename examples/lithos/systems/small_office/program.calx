@@ -88,7 +88,7 @@ require Egress:
     travel:   civil.travel_distance(OpenOffice2 -> exterior) <= 76m
     capacity: civil.exit_capacity(level(ground))
                   >= civil.occupant_load(level(ground))
-              + civil.occupant_load(level(second))
+                  + civil.occupant_load(level(second))
     deadend:  civil.dead_end(Corridor1) <= 6.1m
 
 require Envelope:

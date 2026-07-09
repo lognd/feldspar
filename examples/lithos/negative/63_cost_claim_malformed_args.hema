@@ -1,0 +1,18 @@
+# BREAKS: an mfg.cost claim's argument list must be exactly
+#   `mfg.cost(<subject>[, profile=<name>])` (toolchain/27 sec. 1.1,
+#   WO-54: the profile= claim argument; quantity is PROFILE data --
+#   `[profiles.cost.<name>].quantity` in magnetite.toml -- never a
+#   claim argument).
+# EXPECT: E0438
+# Self-calibration (WO-54): `quantity=5` is an unknown keyword argument
+# on the cost claim; `regolith_lower::claims::parse_cost_claim_args`
+# rejects it at compile time naming the offender (constructive: the
+# diagnostic states the accepted shape). Verified against live output.
+
+part costed_bracket:
+    material: AlSi10Mg
+    parts:
+        insert: vendor(m4_heat_set)
+
+    require Cost:
+        bom: mfg.cost(costed_bracket, quantity=5) <= 40USD

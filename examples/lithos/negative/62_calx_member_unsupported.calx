@@ -1,0 +1,35 @@
+# BREAKS: a declared member cannot reach a `support:` node through the
+#   structure's `transfers:` edges (calcite/03 sec. 3: the load-path
+#   discipline's reachability check -- the load LEAK, INV-15's
+#   ledger-conservation family).
+# EXPECT: E0207
+# Self-calibration (WO-48 slice A): `C1` transfers into `Stray`, a
+# member that is declared but joins no further transfer -- the load
+# path dead-ends before `F1`. `regolith_lower::calcite`'s BFS over the
+# structure's transfer-edge graph cannot reach `F1` from `C1` (or from
+# `Stray`). Verified against live output. (Every member here IS
+# joined to something, so this is distinct from E0209, fixture 50's
+# unjoined-member case.)
+import std.civil (Pinned)
+
+member G1: beam
+    section: free
+    material: registry(astm_a992)
+    from (A, 1) to (B, 1) at level(roof)
+
+member C1: column
+    section: free
+    material: registry(astm_a992)
+    from (A, 1, ground) to (A, 1, roof)
+
+member Stray: beam
+    section: free
+    material: registry(astm_a992)
+    from (B, 1) to (C, 1) at level(roof)
+
+structure DeadEndLoad:
+    support: F1: footing
+    members: G1, C1, Stray
+    transfers:
+        g1_c1: Pinned() (G1 -> C1)
+        c1_s:  Pinned() (C1 -> Stray)

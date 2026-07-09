@@ -1,0 +1,11 @@
+# BREAKS: a `.cavity(inlet=..., outlet=...)` query names a port whose
+#   feature binding no `then:` op in the part declares (hematite/02
+#   sec. 6; D152 misuse surface).
+# EXPECT: E0444
+part LostPort:
+    stage milled:
+        then:
+            feed = Bore(dia 8mm, depth=12mm)
+            drain = Bore(dia 8mm, depth=12mm)
+    require Hydraulics:
+        wetted: body.cavity(inlet=intake.mouth, outlet=drain.mouth).volume <= 1000mm3

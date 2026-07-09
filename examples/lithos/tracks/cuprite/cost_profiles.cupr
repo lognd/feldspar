@@ -1,0 +1,37 @@
+# Cost profiles in anger (WO-54; toolchain/27-costing.md; D147) -- the
+# three costing surfaces on one small board:
+#
+#   1. the D95 profile SWEEP: `forall profile in {prototype,
+#      construction}:` is ONE obligation whose evidence carries
+#      per-profile axis points -- affordable to prototype AND economic
+#      at volume, two pricing worlds, one claim line;
+#   2. budget kind `cost` (D49: `kind=` names pack-provided budget
+#      math, never a compiler built-in -- std.cost ships it);
+#   3. the `minimize mfg.cost(all)` policy objective (regolith/12
+#      sec. 4, SOPEN-4 machinery: the lazy loop may trade component
+#      choices against a cost budget exactly as it trades mass).
+#
+# The profiles themselves are PROJECT data (magnetite.toml
+# [profiles.cost.<name>], AD-29): this file names them, never prices
+# them -- every priced number lives in profile-selected, hash-pinned
+# records (std.cost fixtures in-repo).
+
+system CostedSensor:
+    boundary:
+        supply:  5V
+        ambient: [0degC, 50degC]
+
+    parts:
+        mcu:  vendor(stm32g071)
+        vreg: vendor(ams1117_33)
+
+    policy:
+        minimize mfg.cost(all)
+
+    budget unit_cost: kind=cost
+        require: mfg.cost(all, profile=prototype) <= 30USD
+        members: [mcu, vreg]
+        allocate: worst_case
+
+    require Cost:
+        sweep: forall profile in {prototype, construction}: mfg.cost(CostedSensor) <= 40USD

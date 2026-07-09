@@ -1,0 +1,13 @@
+# BREAKS: a cavity's inlet->outlet feature-op chain passes through an
+#   op the v1 feature-op set cannot express, so no wetted path can be
+#   derived (hematite/07 sec. 2a's named escalation diagnostic -- the
+#   syntax-gap criterion, not a reopen).
+# EXPECT: E0445
+part SwirlBlock:
+    stage milled:
+        then:
+            feed = Bore(dia 8mm, depth=12mm)
+            swirl = SwirlGallery(turns=3, pitch=4mm)
+            drain = Bore(dia 8mm, depth=12mm)
+    require Hydraulics:
+        wetted: body.cavity(inlet=feed.mouth, outlet=drain.mouth).volume <= 1000mm3

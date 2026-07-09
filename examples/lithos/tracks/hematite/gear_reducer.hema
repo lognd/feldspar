@@ -70,8 +70,8 @@ part ReducerHousing:
 profile InShaftProfile:
     walk:
         from front_plane
-        line down                     # a: front face
-        line right                    # b: gear seat land
+        a: line down                  # front face
+        b: line right                 # gear seat land
         close via axis
     constraints:
         a.length = dia 20mm / 2
@@ -80,8 +80,8 @@ profile InShaftProfile:
 profile InJournalProfile:
     walk:
         from seat_plane
-        line down                     # a: shoulder drop
-        line right                    # b: journal land
+        a: line down                  # shoulder drop
+        b: line right                 # journal land
         close via axis
     constraints:
         a.length = dia 15mm / 2
@@ -112,8 +112,8 @@ part InputShaft:
 profile OutShaftProfile:
     walk:
         from front_plane
-        line down                     # a: front face
-        line right                    # b: gear seat land
+        a: line down                  # front face
+        b: line right                 # gear seat land
         close via axis
     constraints:
         a.length = dia 25mm / 2
@@ -122,8 +122,8 @@ profile OutShaftProfile:
 profile OutJournalProfile:
     walk:
         from seat_plane
-        line down                     # a: shoulder drop
-        line right                    # b: journal land
+        a: line down                  # shoulder drop
+        b: line right                 # journal land
         close via axis
     constraints:
         a.length = dia 20mm / 2

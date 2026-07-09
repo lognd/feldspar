@@ -1,0 +1,25 @@
+# BREAKS: an egress edge on a circulation's required path declares no
+#   positive `width=` (calcite/03 sec. 3: the circulation discipline's
+#   egress-edge declaration check).
+# EXPECT: E0206
+# Self-calibration (WO-48 slice A): `main_exit`'s constructor omits
+# `width=` entirely; `regolith_lower::calcite` reads the access
+# opening's keyword args off the typed `CallExpr` and flags the
+# missing positive width for every edge named in the circulation's
+# `edges:` field. Verified against live output. (`path_length=`
+# absence alone is NOT flagged -- see `calcite.rs`'s module doc
+# comment; the ratified `bus_shelter`/`pole_barn` corpus designs rely
+# on exactly this to stay zero-diagnostic.)
+
+access:
+    main_exit: Exit(path_length=8m) (Lobby -> exterior)
+
+space Lobby:
+    area: 40m2
+    occupancy: registry(a3_assembly)
+    at: level(ground)
+
+circulation Egress:
+    reference: exterior
+    nodes: Lobby
+    edges: main_exit

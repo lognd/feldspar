@@ -11,10 +11,10 @@
 profile Bad:
     walk:
         from left_edge
-        line right
-        line up
-        line left
-        close
+        a: line right
+        b: line up
+        c: line left
+        d: close
     constraints:
         a.length = 80mm
         b.length = 50mm

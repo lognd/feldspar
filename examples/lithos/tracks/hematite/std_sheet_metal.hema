@@ -1,0 +1,65 @@
+# std.sheet_metal -- the sheet-metal reference rule pack (WO-28
+# deliverable 6; hematite/02 sec. 10). Un-phantoms the corpus's press
+# pack: `sheet_bracket.hema` attaches it at `stage formed:
+# process=press_brake(std.sheet_metal)` and its `radius=free` bend
+# resolves through `min_bend_radius`'s `resolves:` clause with
+# `cause: dfm(std.sheet_metal.min_bend_radius)` in the lockfile.
+#
+# Fact tiers exercised deliberately (design/21 D-E):
+# - min_bend_radius is STATIC where `radius`/`sheet` are declared, and
+#   the eager resolver for `radius=free` slots.
+# - hole_edge_distance is a REALIZED fact for pierced holes that do not
+#   spell `edge_distance=` in source: it defers honestly (an
+#   indeterminate obligation naming `h.edge_distance`) until the
+#   geometry realizer measures it (WO-22).
+# - bend_relief carries a `.where(...)` physics filter, which the
+#   static tier does not evaluate yet: the whole rule defers, visibly.
+# The harness model `mech.sheet.min_bend_radius` remains the EXPENSIVE
+# tier (springback, grain direction); this pack is the eager tier and
+# both read the same capability numbers (D-A boundary).
+
+process std.sheet_metal:
+    capability:
+        thickness: [0.5mm, 4mm]
+        min_bend_ratio: 1.6            # inside radius / thickness
+
+    dfm:
+        rule min_bend_radius:
+            forall b in bends
+            demand: b.radius >= capability.min_bend_ratio * sheet
+            resolves: b.radius from free
+            per: "press pack table, 300-series stainless"
+            why: "tighter radii crack the outer grain"
+            expect:
+                pass: bend(radius=2.4mm, sheet=1.5mm)
+                fail: bend(radius=1.0mm, sheet=1.5mm)
+
+        rule hole_edge_distance:
+            forall h in holes
+            demand: h.edge_distance >= 2 * h.diameter
+            per: "DML handbook rev 4, hole tear-out"
+            why: "holes near an edge tear out during forming"
+            expect:
+                pass: hole(diameter=3mm, edge_distance=8mm)
+                fail: hole(diameter=3mm, edge_distance=4mm)
+
+        rule bend_relief:
+            forall b in bends.where(not b.at_free_edge)
+            demand: b.relief_cuts >= 1
+            per: "DML handbook rev 4, fig 9.12"
+            why: "unrelieved interior bends tear at the web"
+            expect:
+                pass: bend(relief_cuts=1)
+                fail: bend(relief_cuts=0)
+
+        # Dogfood rule (WO-28 acceptance: authored following ONLY
+        # docs/guide/03-writing-dfm-rules.md, friction recorded in the
+        # WO close-out note).
+        rule min_punch_diameter:
+            forall h in holes
+            demand: h.diameter >= sheet
+            per: "punch tooling floor, gauge-for-gauge rule of thumb"
+            why: "punches thinner than the stock they pierce snap"
+            expect:
+                pass: hole(diameter=4.5mm, sheet=1.5mm)
+                fail: hole(diameter=1.0mm, sheet=1.5mm)

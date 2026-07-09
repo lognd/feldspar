@@ -1,0 +1,17 @@
+# BREAKS: a circulation net with no `edges:` and no `reference:`
+#   (calcite/03 sec. 3: the circulation discipline's whole-net
+#   imposer-free-subnet analog -- no space can join an egress path
+#   with neither).
+# EXPECT: E0204
+# Self-calibration (WO-47 D4): the circulation net declares `nodes:`
+# only; `net_core::CirculationDiscipline` (the AD-23 core) flags the
+# net-wide check at compile time via `regolith_lower::calcite`.
+# Verified against live output.
+
+space Lobby:
+    area: 40m2
+    occupancy: registry(a3_assembly)
+    at: level(ground)
+
+circulation Egress:
+    nodes: Lobby

@@ -11,6 +11,27 @@
 #
 # Transcribed from general part knowledge; tier `community` until the
 # datasheet-rev hash is verified.
+#
+# VERIFICATION NOTE (2026-07-08, MECHANICAL queue item): cross-checked
+# against the official Raspberry Pi RP2040 datasheet
+# (datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf). Confirmed
+# against the vendor datasheet: sram 264kB, flash: none (external QSPI
+# mandatory), qfn56 gpio: 30, adc(12bit, 500ksps) x1 (in x4), pio sm x8,
+# dma x12, buses spi x2/uart x2/i2c x2, pwm x8 (2 channel) = 16 total
+# channels, i_pin <= 12mA (max of the 2/4/8/12mA drive-strength
+# ladder), package qfn56 7x7mm. NOT independently re-verified: the PIO
+# 2-blocks split, the column-rule function_modes mapping, t_j range,
+# i_iovdd aggregate figure, and vreg_in interval. The cited
+# `rpi_rp2040_ds_build1` catalog reference is a fixture placeholder,
+# not a real document build tag -- left as transcribed since no build
+# identifier of that literal form could be confirmed against the
+# vendor's actual datasheet builds. `tier=community` is NOT flipped:
+# per INV-14 (regolith/11 sec. 7, `quarry/trust.py`) trust tier is
+# earned by a verified SIGNATURE over the content hash, never by an
+# agent's text cross-check absent any vendor/authority signing key --
+# flipping it here would be the fabricated-verification failure mode
+# the tier machinery exists to prevent. The confirmed facts above
+# raise transcription confidence; they do not mint `tested`/`certified`.
 
 component rpi.rp2040:
     class: mcu(cortex_m0plus x 2)

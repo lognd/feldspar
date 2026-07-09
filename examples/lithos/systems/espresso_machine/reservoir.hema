@@ -11,10 +11,10 @@ import std.mech.molding (Wall, Rib, Boss, Draft)
 profile TankShell:
     walk:
         from base_plane
-        line right                    # a: floor
-        line up                       # b: outer wall
-        line left                     # c: rim
-        close                         # d: inner wall
+        a: line right                 # floor
+        b: line up                    # outer wall
+        c: line left                  # rim
+        d: close                      # inner wall
     constraints:
         a.length = 180mm
         b.length = 210mm

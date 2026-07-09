@@ -11,9 +11,9 @@ import std.mech.cnc (saw_stock, cnc_lathe)
 profile LinerBore:
     walk:
         from inlet_plane
-        line down                     # a: inlet wall
-        arc tangent, bulge=right      # b: throat blend
-        line down                     # c: throat bore
+        a: line down                  # inlet wall
+        b: arc tangent, bulge=right   # throat blend
+        c: line down                  # throat bore
         close via axis
     constraints:
         a.length = 40mm

@@ -1,0 +1,40 @@
+# BREAKS: using the `Mixer` boundary CONSTRUCTOR to launder a
+#   mismatched `from=` ref past the medium-consistency check, by
+#   NEVER declaring the outlet (fluorite/02 sec. 1 + sec. 3, D142):
+#   a mixer's terminals are exempt from the check ONLY when its
+#   outlet medium is actually declared -- an undeclared-outlet
+#   `Mixer` is not a valid boundary at all, and its `from=` ref is
+#   checked exactly like an ordinary `Pipe`'s.
+# EXPECT: E0210
+# Self-calibration (WO-52): `AirLine` declares its wetted side bound
+# to `ShopAir` (gas), same as fixture 40; the `bad` edge here wraps
+# that SAME mismatched `from=AirLine.vent` ref in a `Mixer(...)`
+# call with no `outlet=` argument, hoping the boundary treatment
+# would wave it through. It does not: `check_edge_medium`
+# (crates/regolith-lower/src/fluid.rs) only exempts a Mixer edge
+# when `outlet=` is present; absent that, the `from=`-bound
+# component's own FluidPort binding (ShopAir) still disagrees with
+# `Mixed`'s own `medium=Water` header, so E0210 fires exactly as it
+# would for fixture 40's plain `Pipe`.
+import std.fluorite (Mixer)
+
+medium Water: liquid
+    props: registry(potable_water_nist)
+
+medium ShopAir: gas
+    props: registry(air_nist)
+
+part AirLine:
+    impl FluidPort<medium=ShopAir, dia=12mm> for self as vent:
+        bore = turned.inlet
+
+flownet Mixed(medium=Water):
+    reference: ambient(101kPa, 293K)
+    nodes: a, b
+    edges:
+        bad: Mixer(from=AirLine.vent) (a -> b)
+        # No `outlet=` declared: this is not a valid Mixer boundary,
+        # so the `from=AirLine.vent` ref is checked like any other
+        # edge -- it resolves to ShopAir (gas), which disagrees with
+        # `Mixed`'s own Water header. Wrapping the mismatch in
+        # `Mixer(...)` does not launder it.

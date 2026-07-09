@@ -1,0 +1,33 @@
+# BREAKS: a structure member declared but joined by no transfer edge
+#   and not marked `unloaded` (calcite/03 sec. 3: the load-path
+#   terminal-ledger check, the E0202 analog for member ends).
+# EXPECT: E0209
+# Self-calibration (WO-47 D4): `Stray` is declared in `members:` but
+# no `transfers:` edge names it; `regolith_lower::calcite` flags the
+# unjoined member terminal at compile time (the front-end-decidable
+# half of E0209 -- see the module doc comment for the tributary-
+# partition half this front-end layer defers). Verified against live
+# output.
+import std.civil (Pinned, BasePlate)
+
+member G1: beam
+    section: free
+    material: registry(astm_a992)
+    from (A, 1) to (B, 1) at level(roof)
+
+member C1: column
+    section: free
+    material: registry(astm_a992)
+    from (A, 1, ground) to (A, 1, roof)
+
+member Stray: beam
+    section: free
+    material: registry(astm_a992)
+    from (B, 1) to (C, 1) at level(roof)
+
+structure MainFrame:
+    support: F1: footing
+    members: G1, C1, Stray
+    transfers:
+        g1_c1: Pinned()    (G1 -> C1)
+        c1_f1: BasePlate() (C1 -> F1)

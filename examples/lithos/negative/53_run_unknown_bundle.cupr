@@ -1,0 +1,12 @@
+# BREAKS: a `harness:` run's `bundle` clause present but naming no
+#   group text (WO-34 deliverable 2, D99: "bundle FACTORS ... are
+#   derived from group membership" -- an unnamed group is unknown).
+# EXPECT: E0308
+# Self-calibration: `regolith_lower::harness_lower::elaborate_run`
+# calls `BundleClause::group()`, which returns `None` for an empty
+# trailing text after the `bundle` word; that is
+# `HarnessLowerError::UnknownBundle`, rendered inline.
+harness MainLoom:
+    run batt_to_kill: from battery.pos to kill_switch.in
+        along frame.spine_tube
+        bundle

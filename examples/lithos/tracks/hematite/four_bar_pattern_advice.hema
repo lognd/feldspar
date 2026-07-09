@@ -1,0 +1,28 @@
+# WO-53 deliverable 5: proves INV-3 discipline (AD-21: `advise:` is a
+# verdict-inert warning, never release-gated) for the
+# std.mech.mechanisms recognition rule. Attaches the pack bare (the
+# `wire_ampacity` precedent, WO-34 deliverable 4) at a stage with no
+# hand-rolled pivot-pair content in this simple part -- the rule's
+# `forall p in pivots` domain is unpopulated here (the AD-22-escalated
+# gap: `pivots` has no structured `EntityKind` yet, same status as
+# jlc_2l's nets/traces/buses per the WO-28 close-out), so the pack
+# defers honestly rather than fabricating a match. What this fixture
+# DOES prove, end to end, through the real compiler: attaching an
+# `advise:`-only pack never blocks `check` -- the acceptance property
+# deliverable 5 asks for -- regardless of whether the rule matches or
+# defers (see `tests/golden/test_pattern_libraries.py`, which also
+# exercises the fired-advisory case through `rules test`'s `expect:
+# fail` fixture, the tractable proof of the same discipline).
+
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.mechanisms (FourBar)
+
+part LinkagePlate:
+    material: AL6061_T6
+
+    stage stock: process=saw_stock(rect(80mm, 20mm, 6mm))
+
+    stage milled: process=std.mech.mechanisms, from=stock
+        then:
+            pivot_a = Bore(dia 6mm, through)
+            pivot_b = Bore(dia 6mm, through)

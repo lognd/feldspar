@@ -1,0 +1,45 @@
+# WO-34 deliverable 5: the routed-runs demand fixture. Exercises: a
+# `harness:` block with a declared-waypoint run (extracted lengths,
+# bundle membership, an `environment` connector class) and a
+# `route: free` planner-routed run (D99: never hand-asserted in
+# source), plus deliverable 4's rule-pack demand proof -- one E06xx
+# ampacity rule whose `demand:` references `run.length`/
+# `run.bundle.count` (the run vocabulary reaching a `process` pack,
+# WO-28's grammar already parses this; the WO-28 ENGINE remainder has
+# not landed, so this is a grammar+lowering golden only -- no
+# evaluation is claimed or faked).
+#
+# This fixture supplies no realized-geometry compile input (the CLI
+# `check()` path always passes an empty `RealizedInputs`, WO-42's
+# orchestrator-side wiring is a later integration than this WO), so
+# `batt_to_kill`'s `along` refs honestly fail extraction (E0309) --
+# the same "honest deferral" shape already accepted for the
+# `regen_chamber`/`suspension_link` WO-33 fixtures in this corpus. A
+# realized-input-backed re-elaboration (mirroring `flownet_lower`'s
+# D4b upgrade path) proves the extracted-length half at the unit level
+# instead: `crates/regolith-lower/src/harness_lower.rs`'s
+# `two_run_harness_lowers_extracted_lengths` /
+# `changed_frame_geometry_changes_extracted_length` tests.
+
+process wire_ampacity:
+    capability:
+        max_bundle_derate: 0.7
+
+    dfm:
+        rule ampacity_margin:
+            forall r in harness.runs
+            demand: r.length <= 5m
+            resolves: r.length from free
+            why: "a run past 5m needs a heavier gauge for its bundle size"
+
+board MainLoom:
+    stage bare: process=wire_ampacity
+
+harness MainLoom:
+    run batt_to_kill: from battery.pos to kill_switch.in
+        along frame.spine_tube, frame.hoop_gusset
+        bundle primary
+    run vr_sense: from vr_sensor.sig to ecu.vr_in
+        along route: free
+        bundle shielded_signals
+    environment engine_bay: [-30degC, 125degC]

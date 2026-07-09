@@ -17,17 +17,17 @@ profile BeamSection:
     # a compile error, the sketch-layer analog of ambiguous queries.
     walk:
         from base_plane
-        line right                    # a: bottom face, 80mm
-        line up                       # b: rear wall
-        arc tangent, bulge=left       # c: rear chamfer blend
-        line left                     # d: top rear shelf (cable channel)
-        line up                       # e: channel rear lip
-        line left                     # f: top face
-        line down                     # g: rail land riser
-        line left                     # h: rail land, 23mm for HGR20
-        line down                     # i: front wall
-        arc tangent, bulge=right      # j: front toe blend
-        close                         # k: return to start
+        a: line right                 # bottom face, 80mm
+        b: line up                    # rear wall
+        c: arc tangent, bulge=left    # rear chamfer blend
+        d: line left                  # top rear shelf (cable channel)
+        e: line up                    # channel rear lip
+        f: line left                  # top face
+        g: line down                  # rail land riser
+        h: line left                  # rail land, 23mm for HGR20
+        i: line down                  # front wall
+        j: arc tangent, bulge=right   # front toe blend
+        k: close                      # return to start
     hole screw_ch:                    # ballscrew channel, one nesting
         circle(dia 40mm, at=(0mm, 12mm))
     hole wire_ch:

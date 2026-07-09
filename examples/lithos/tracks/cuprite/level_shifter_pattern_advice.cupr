@@ -1,0 +1,15 @@
+# WO-53 deliverable 5: proves INV-3 discipline (AD-21: `advise:` is a
+# verdict-inert warning, never release-gated) for the
+# std.elec.patterns recognition rule -- the elec sibling of
+# `examples/tracks/hematite/four_bar_pattern_advice.hema`. Attaches the
+# pack bare (the `wire_ampacity` precedent) at a board with no
+# discrete-level-shift content: the rule's `forall n in nets` domain is
+# unpopulated (nets/instances still carry no queryable fields per the
+# WO-28 close-out's own scoped residual), so it defers honestly rather
+# than fabricating a match. What this proves end to end through the
+# real compiler: attaching the pack never blocks `check`
+# (`tests/golden/test_pattern_libraries.py` exercises the fired-
+# advisory case through `rules test`'s `expect: fail` fixture).
+
+board TranslatorBoard:
+    stage bare: process=std.elec.patterns

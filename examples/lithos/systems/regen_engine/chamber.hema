@@ -12,10 +12,10 @@ import std.mech.joining (Braze, ElectroDeposit)
 profile LinerContour:
     walk:
         from injector_plane
-        line down                    # a: barrel
-        arc tangent, bulge=right     # b: convergent
-        arc tangent, bulge=left      # c: throat blend
-        line angled                  # d: divergent (15deg cone)
+        a: line down                 # barrel
+        b: arc tangent, bulge=right  # convergent
+        c: arc tangent, bulge=left   # throat blend
+        d: line angled               # divergent (15deg cone)
     constraints:
         a.length = 60mm
         c.radius = in [4mm, 9mm]

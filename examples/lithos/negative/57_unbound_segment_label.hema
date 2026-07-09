@@ -1,0 +1,15 @@
+# BREAKS: a profile `constraints:` item references a segment name that
+#   no walk-step label binds (hematite/02 sec. 5, 0.15/D150: segment
+#   names are syntax labels, `a: line right`; a comment is not a
+#   binding).
+# EXPECT: E0442
+profile Unbound:
+    walk:
+        from left_edge
+        line right                 # a: comment-only naming -- NOT a
+        b: line up                 #    binding; `b` is bound, `a` is not
+        line left
+        close
+    constraints:
+        a.length = 80mm
+        b.length = 50mm

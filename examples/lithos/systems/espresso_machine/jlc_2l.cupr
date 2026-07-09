@@ -1,0 +1,70 @@
+# jlc_2l -- the two-layer PCB reference rule pack (WO-28 deliverable
+# 6; cuprite/04 sec. 4). Un-phantoms the corpus's `process=
+# pcb_fab(jlc_2l)` references: `control_board.cupr`'s bare stage
+# attaches it in this project's build session.
+#
+# Every rule here quantifies over a domain the static entity layer
+# does not populate yet (nets/traces/vias/buses carry no queryable
+# fields -- the WO-29 note), so IN A BUILD each rule defers honestly:
+# an indeterminate obligation naming its domain, discharged by the
+# post-route extraction facts (WO-24). The rules still fully exercise
+# the authoring loop TODAY: `regolith rules test` runs every
+# `expect:` fixture below against synthetic entities, and the
+# capability table is the single source the KiCad DRC generation
+# reads (design/21 D-G).
+
+process jlc_2l:
+    capability:
+        min_trace: 0.09mm
+        min_space: 0.09mm
+        min_drill: 0.2mm
+
+    drc:
+        rule trace_width:
+            forall t in traces
+            demand: t.width >= capability.min_trace
+            per: "JLC 2-layer capability page, 2024-06"
+            why: "traces below the fab's floor etch open or thin out"
+            expect:
+                pass: trace(width=0.15mm)
+                fail: trace(width=0.05mm)
+
+        rule drill_size:
+            forall v in vias
+            demand: v.drill >= capability.min_drill
+            per: "JLC 2-layer capability page, 2024-06"
+            why: "drills below the floor wander and break out of the pad"
+            expect:
+                pass: via(drill=0.3mm)
+                fail: via(drill=0.1mm)
+
+        rule bus_length_match:
+            forall b in buses
+            demand: b.length_spread <= 2mm
+            per: "IPC-2141A, matched group skew"
+            why: "length spread eats the timing budget"
+            expect:
+                pass: bus(length_spread=0.8mm)
+                fail: bus(length_spread=5mm)
+
+        # Dogfood rule (WO-28 acceptance: authored following ONLY
+        # docs/guide/03-writing-dfm-rules.md, friction recorded in the
+        # WO close-out note).
+        rule annular_ring:
+            forall v in vias
+            demand: v.annular_ring >= 0.13mm
+            per: "JLC 2-layer capability page, 2024-06"
+            why: "thin rings break out under drill wander"
+            expect:
+                pass: via(annular_ring=0.2mm)
+                fail: via(annular_ring=0.05mm)
+
+    erc:
+        rule fanout_drive:
+            forall n in nets
+            demand: n.load_current <= n.drive_current
+            per: "component datasheets via family record cmos_3v3"
+            why: "aggregate input current beyond drive collapses edge rates"
+            expect:
+                pass: net(load_current=3mA, drive_current=8mA)
+                fail: net(load_current=12mA, drive_current=8mA)

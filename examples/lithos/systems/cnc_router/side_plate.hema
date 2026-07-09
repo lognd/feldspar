@@ -15,14 +15,14 @@ profile ShoulderOutline:
     # subject below -- one blend, two masters.
     walk:
         from foot_plane
-        line right                    # a: foot, 240mm
-        line up                       # b: heel rise
-        line left                     # c: step back over the carriage
-        arc tangent, bulge=left       # d: throat blend (the hot spot)
-        line up                       # e: neck
-        line left                     # f: ear top, beam seat width
-        line down                     # g: front edge
-        close                         # h
+        a: line right                 # foot, 240mm
+        b: line up                    # heel rise
+        c: line left                  # step back over the carriage
+        d: arc tangent, bulge=left    # throat blend (the hot spot)
+        e: line up                    # neck
+        f: line left                  # ear top, beam seat width
+        g: line down                  # front edge
+        h: close
     constraints:
         a.length = 240mm
         b.length = 40mm

@@ -1,0 +1,29 @@
+# Content addendum (WO-53, cycle-28 market research memo sec. 6 batch
+# 2): proves INV-3 discipline (AD-21: `advise:` is a verdict-inert
+# warning, never release-gated) for the std.mech.mechanisms Batch B
+# recognition rules (slider_crank, lead_screw, belt_drive, gear_train,
+# bearing_arrangement, helical_spring), mirroring
+# `four_bar_pattern_advice.hema` (WO-53 deliverable 5) exactly. Attaches
+# the pack bare (the `wire_ampacity` precedent) at a stage with no
+# hand-rolled mechanism content in this simple part -- each rule's
+# `forall p in pivots` domain is unpopulated here (the same AD-22-
+# escalated gap the seed fixture's header names: `pivots` has no
+# structured `EntityKind` yet), so the pack defers honestly rather than
+# fabricating a match. What this fixture proves end to end through the
+# real compiler: attaching an `advise:`-only pack never blocks `check`,
+# regardless of whether any one rule matches or defers (see
+# `tests/golden/test_pattern_libraries.py`, which exercises the fired-
+# advisory case through `rules test`'s `expect: fail` fixtures).
+
+import std.mech.cnc (saw_stock, cnc_mill)
+import std.mech.mechanisms (SliderCrank, LeadScrew, BeltDrive, GearTrain, BearingArrangement, HelicalSpring)
+
+part LinkagePlateBatchB:
+    material: AL6061_T6
+
+    stage stock: process=saw_stock(rect(80mm, 20mm, 6mm))
+
+    stage milled: process=std.mech.mechanisms, from=stock
+        then:
+            pivot_a = Bore(dia 6mm, through)
+            pivot_b = Bore(dia 6mm, through)

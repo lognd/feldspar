@@ -12,6 +12,24 @@
 # `community` UNTIL the datasheet-rev hash is verified -- the trust
 # machinery carrying transcription risk honestly (a `trust: >=
 # certified` claim group will refuse this record, correctly).
+#
+# VERIFICATION NOTE (2026-07-08, MECHANICAL queue item): cross-checked
+# against Microchip DS40001882 (SAM D21/DA1 family datasheet; Rev D is
+# a real, previously-published revision -- later letters exist but D
+# is not wrong, only not newest). Confirmed against the vendor
+# datasheet: vdd range [1.62V, 3.63V], f_max split (48MHz above 2.7V,
+# 24MHz below), flash 256kB / sram 32kB, sercom x6, adc(12bit,
+# 350ksps) x1 (in x20), dac(10bit) x1. NOT independently re-verified:
+# the per-pad function_modes tables, the tqfp48 pin-mux table
+# (pa08/pa09/pa10/pa11/pa22/pa23 rows), i_pin/i_vdd absolute-max
+# figures, and DMA channel count. `tier=community` is NOT flipped by
+# this note: per INV-14 (regolith/11 sec. 7, `quarry/trust.py`) trust
+# tier is earned by a verified SIGNATURE over the content hash, never
+# by a text cross-check performed by an agent holding no vendor or
+# authority signing key -- doing so here would be exactly the
+# fabricated-verification failure mode the tier machinery exists to
+# prevent. The confirmed facts above raise transcription confidence;
+# they do not and cannot mint `tested`/`certified`.
 
 component microchip.atsamd21g18a:
     class: mcu(cortex_m0plus)

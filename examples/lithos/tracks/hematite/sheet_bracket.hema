@@ -11,10 +11,10 @@ import std.mech.mounts (HolePattern)
 profile BracketFlat:
     walk:
         from left_edge
-        line right                    # a: base edge
-        line up                       # b: right edge
-        line left                     # c: top edge (becomes the flange)
-        close                         # d: left edge
+        a: line right                 # base edge
+        b: line up                    # right edge
+        c: line left                  # top edge (becomes the flange)
+        d: close                      # left edge
     hole wire_pass:
         circle(dia 8mm)
     constraints:
@@ -53,12 +53,15 @@ part SensorBracket:
                          grid(2, 2, 56mm x 30mm),
                          frame=blank.mid_plane.offset(y=8mm))
 
-    stage formed: process=press_brake, from=cut
-        # Bare statement: one bend, its own scope.
+    stage formed: process=press_brake(std.sheet_metal), from=cut
+        # Bare statement: one bend, its own scope. The press pack is
+        # the WO-28 reference pack (std_sheet_metal.hema, this
+        # directory), attached as the process call's pack argument.
         flange = Bend(edge=cut.blank.top_edge, angle=90deg, radius=free)
         # `radius=free` resolves to the press pack's minimum for 1.5mm
-        # AISI_304; lockfile:
-        #   flange.radius = 2.4mm   cause: dfm(min_bend_radius)
+        # AISI_304 (1.6 x 1.5mm, `min_bend_radius`'s `resolves:`);
+        # lockfile:
+        #   flange.radius = 2.4mm   cause: dfm(std.sheet_metal.min_bend_radius)
 
     # Expert waiver, evidence-less (substrate 12, rung 7): the wire_pass
     # hole sits inside the pack's hole-to-bend guard band, accepted for

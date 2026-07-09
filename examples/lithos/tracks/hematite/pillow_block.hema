@@ -16,10 +16,10 @@ import std.mech.cnc (saw_stock, cnc_mill)
 profile BodyOutline:
     walk:
         from base_plane
-        line right                    # a: base
-        line up                       # b: right wall
-        arc tangent, bulge=left       # c: dome
-        line down                     # d: left wall
+        a: line right                 # base
+        b: line up                    # right wall
+        c: arc tangent, bulge=left    # dome
+        d: line down                  # left wall
         close
     constraints:
         a.length = 90mm

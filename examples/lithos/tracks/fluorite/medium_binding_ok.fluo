@@ -1,0 +1,22 @@
+# WO-49 honest-pass sibling of examples/negative/40_fluo_medium_mismatch.
+# Exercises: an `impl FluidPort<medium=...>` binding whose medium AGREES
+# with its flownet's own `medium=` header -- the FOPEN-1 check (E0210)
+# must stay silent when the resolved edge -> component -> medium chain
+# is consistent (fluorite/02 sec. 1, sec. 2).
+
+import std.fluorite (Pipe)
+
+medium Water: liquid
+    props: registry(potable_water_nist)
+
+part SupplyLine:
+    impl FluidPort<medium=Water, dia=12mm> for self as feed:
+        bore = turned.inlet
+
+flownet Loop(medium=Water):
+    reference: ambient(101kPa, 293K)
+    nodes: a, b
+    edges:
+        supply: Pipe(from=SupplyLine.feed) (a -> b)
+        # `supply` resolves through `SupplyLine`'s FluidPort binding to
+        # Water, matching `Loop`'s own `medium=Water` header -- clean.

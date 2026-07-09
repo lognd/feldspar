@@ -1,0 +1,51 @@
+# Coolant gallery block -- the D152 cavity exemplar (WO-51): a
+# walk-defined body carrying a bore chain whose wetted void is claimed
+# through the `.cavity(inlet=..., outlet=...)` query (hematite/02
+# sec. 6). Exercises: D150 walk-step labels feeding the promoted
+# sketch payload, the `lower.programs` emission pass, and the
+# D151/D152 cavity -> flow_paths derivation (per-segment fields from
+# DECLARED facts only; underivable fields honestly indeterminate,
+# AD-25) consumed by the mech realizer and the fluorite extraction
+# seam. The cavity attributes (`volume`, `min_section`) lower to
+# obligations discharged at L4 by realizer facts -- the compiler never
+# computes geometry.
+
+import std.mech.cnc (cnc_mill)
+
+profile BlockOutline:
+    walk:
+        from left_edge
+        a: line right                 # base, 90mm
+        b: line up                    # right face
+        c: line left                  # top
+        d: close                      # left face
+    constraints:
+        a.length = 90mm
+        b.length = 36mm
+        c.length = 90mm
+    exports:
+        mid_plane: datum
+
+part CoolantGallery:
+    material: AL_6061_T6
+
+    stage milled: process=cnc_mill(axes=3)
+        then:
+            body = Blank(BlockOutline, depth=30mm)
+        then:
+            # The bore chain the cavity query walks, inlet -> outlet
+            # in source (op-graph) order: feed enters, the gallery
+            # runs the block, drain exits.
+            feed    = Bore(dia 8mm, depth=12mm)
+            gallery = Bore(dia 6mm, depth=66mm)
+            drain   = Bore(dia 8mm, depth=12mm)
+
+    require Hydraulics:
+        # The wetted void between the ports, as ONE derived entity
+        # (hematite/02 sec. 6): its measures are realizer facts
+        # (AD-25), so these claims stay honestly indeterminate until
+        # the staged loop supplies realized geometry.
+        coolant_volume: body.cavity(inlet=feed.mouth, outlet=drain.mouth).volume
+                            <= 8000mm3
+        no_choke: body.cavity(inlet=feed.mouth, outlet=drain.mouth).min_section
+                      >= 20mm2

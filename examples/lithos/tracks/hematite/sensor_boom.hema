@@ -12,10 +12,10 @@ import std.mech.sheet (Blank, Pierce, Bend)
 profile BoomFlat:
     walk:
         from root_edge
-        line right                  # a: root (clamped at chassis)
-        line up                     # b
-        line left                   # c: becomes the flange
-        close                       # d
+        a: line right               # root (clamped at chassis)
+        b: line up
+        c: line left                # becomes the flange
+        d: close
     hole harness_pass:
         circle(dia 10mm)
     constraints:

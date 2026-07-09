@@ -1,11 +1,10 @@
 # BREAKS: a rule pack's static rule evaluating false against a matched
 #   entity (RulePacks family: `pack.rule` provenance rendered).
-# EXPECT-TODO: E0601
-# Self-calibration: per `regolith-lower/src/checks.rs`'s own doc
-# comment, "Static rule EVALUATION (E0601) ... checks are cut" (WO-28
-# partial) -- only the name-collision half of rule packs (E0602) is
-# wired today; a rule whose `demand:` predicate is false against a real
-# entity does not yet produce E0601. See README candidate finding.
+# EXPECT: E0601
+# (Flipped from EXPECT-TODO by hand: the WO-28 engine remainder landed
+# static rule evaluation -- `regolith-lower/src/rules.rs::
+# evaluate_static_rules` runs every ATTACHED rule; an unquantified
+# `demand: false` evaluates once per consuming decl and violates.)
 process sheet_metal:
     dfm:
         rule min_web:

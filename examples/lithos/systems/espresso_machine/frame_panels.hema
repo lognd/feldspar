@@ -13,10 +13,10 @@ import std.mech.mounts (HolePattern, BoltPattern)
 profile ChassisFlat:
     walk:
         from left_edge
-        line right                    # a: base
-        line up                       # b
-        line left                     # c: top edge (rear flange)
-        close                         # d
+        a: line right                 # base
+        b: line up
+        c: line left                  # top edge (rear flange)
+        d: close
     hole group_pass:
         circle(dia 52mm)              # group spigot passes the face
     constraints:
@@ -96,10 +96,10 @@ part Chassis:
 profile SkinFlat:
     walk:
         from left_edge
-        line right                    # a
-        line up                       # b
-        line left                     # c
-        close                         # d
+        a: line right
+        b: line up
+        c: line left
+        d: close
     constraints:
         a.length = 300mm
         b.length = 420mm

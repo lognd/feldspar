@@ -15,7 +15,9 @@ examples/
     hematite/   mech: pillow_block, sheet_bracket, weldment_frame,
                 molded_clip, torch_igniter (flagship), gear_reducer,
                 regen_chamber, suspension_link; + manifold and
-                sensor_boom (feldspar fixtures, D148)
+                sensor_boom (feldspar fixtures, D148); +
+                coolant_gallery (the D152 cavity->flow_paths
+                exemplar, WO-51)
     cuprite/    elec + computer: thermostat, mux6to64,
                 buck_converter, motor_drive, fpga_mcu_board,
                 sampled_buck, flight_controller; + psu_enclosure
@@ -55,6 +57,15 @@ examples/
 extension, net discipline, lowering). `.calx` files are the current
 spec-pressure generation: invisible to `regolith check` until WO-47
 registers the extension, exactly the arc `.fluo` followed.
+
+Every `std.*` reference in this corpus (`import std.mech.X (...)`,
+bare `material: <Name>`, `process=pcb_fab(jlc_2l)`, ...) resolves
+against the real starter packages in `stdlib/` at the repo root
+(D135, WO-45) -- no phantom references; `tests/magnetite/
+test_stdlib.py` enumerates and checks every one. `std.civil`
+references (calcite fixtures) and the `std.compute`/`std.fluorite`
+language-builtin namespaces are the named exceptions (see that test
+module's docstring).
 
 THIS DIRECTORY IS THE ONE CORPUS (D148, cycle 27): the feldspar
 repo's `examples/lithos/` is a verbatim MIRROR of it, refreshed by

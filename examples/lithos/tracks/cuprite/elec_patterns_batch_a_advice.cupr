@@ -1,0 +1,18 @@
+# Content addendum (WO-53, cycle-28 market research memo sec. 6 batch
+# 1): proves INV-3 discipline (AD-21: `advise:` is a verdict-inert
+# warning, never release-gated) for the std.elec.patterns Batch A
+# recognition rules (decoupling, reverse_polarity, tvs_clamp,
+# rc_debounce, ldo), mirroring
+# `level_shifter_pattern_advice.cupr` (WO-53 deliverable 5) exactly.
+# Attaches the pack bare (the `wire_ampacity` precedent) at a board
+# with no discrete equivalent-shape content: each rule's
+# `forall n in nets` domain is unpopulated (nets/instances still carry
+# no queryable fields per the WO-28 close-out's own scoped residual),
+# so it defers honestly rather than fabricating a match. What this
+# proves end to end through the real compiler: attaching the pack
+# never blocks `check` (`tests/golden/test_pattern_libraries.py`
+# exercises the fired-advisory case through `rules test`'s `expect:
+# fail` fixtures).
+
+board PatternsBatchABoard:
+    stage bare: process=std.elec.patterns

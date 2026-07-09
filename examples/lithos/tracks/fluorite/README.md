@@ -40,17 +40,22 @@ obligations and solving remain WO-32.
   `nodes:` line, matching the worked example in `fluorite/02` sec. 4:
   the reference's own name is a synthesized node, not a declared one.
 
-## Status (updated cycle 27)
+## Status (updated cycle 28, WO-52)
 
 `.fluo` is registered (WO-31: the extension registry, parse, and
 the E020x fluid net discipline) and LOWERED (WO-32: elaboration,
 the FlownetPayload, every claim form's obligation shape -- landed
-cycle 24). Every pre-cycle-27 file here is check-clean and the two
-enrolled goldens freeze the lowering output. Still pending:
-the FOPEN-1 medium-binding ENFORCEMENT (WO-49) and the cycle-27
-additions' machinery (WO-52: `Mixer` boundary treatment, and the
-compressible discharge tier feldspar-side, WO-20 there) -- the two
-new fixtures are spec pressure for exactly those.
+cycle 24). Every file here is check-clean and the goldens freeze
+the lowering output (`fluorite_garden_irrigation`,
+`fluorite_dual_brake_circuit`, and now `fluorite_gn2_purge`). The
+FOPEN-1 medium-binding ENFORCEMENT (WO-49, `E0210`) and the `Mixer`
+boundary treatment (WO-52: parse, the `E0210` check's boundary
+exemption for a declared outlet, and the
+`EdgeKind::Mixer`/`EdgeParams::MixerOutlet` payload shape) have
+LANDED. Still pending: the compressible discharge tier's
+feldspar-side pack content (feldspar WO-20) -- `gn2_purge`'s
+`regime`/`choke` claims stay honestly indeterminate until that tier
+registers.
 
 ## Candidate findings
 
@@ -64,12 +69,14 @@ new fixtures are spec pressure for exactly those.
 - RESOLVED (D125c, cycle 23): `Plenum` is a two-terminal storage
   edge; both plumbing forms (in-line receiver, node-to-reference
   accumulator) are expressible -- `fluorite/02` sec. 3 states this.
-- NEW (cycle 27, `ullage_press.fluo`): the cross-subnet identity of
-  a mixer-shaped component (one physical tank with terminals in two
-  flownets) is spelled here via component paths
+- RESOLVED (WO-52, cycle 28): the cross-subnet identity of a
+  mixer-shaped component (one physical tank with terminals in two
+  flownets) is spelled in `ullage_press.fluo` via component paths
   (`press_tank.ullage`/`press_tank.fuel_path`, the InjectorHead
   precedent) with the `Mixer` edge on the pressurant side. D142
   decides the SEMANTICS (declared outlet, mixture records, subnet
-  boundary); WO-52 confirms or adjusts this SPELLING when it
-  implements the boundary treatment -- if it changes, this fixture
-  updates with it.
+  boundary); the spelling is CONFIRMED as-is -- the implemented
+  `E0210` boundary exemption and the `MixerOutlet` payload shape
+  key on exactly this component-path form, so the fixture is
+  unchanged (fluorite/02 sec. 4's own `InjectorHead.fuel_path`
+  precedent already licenses it; no adjustment was needed).

@@ -13,9 +13,23 @@
 # one place a human transcribes the datasheet; every design consumes it
 # by reference.
 
+# VERIFICATION NOTE (2026-07-08, MECHANICAL queue item): cross-checked
+# against ST DS12232 Rev 5 (Jun 2025), the current datasheet revision --
+# "rev6" did not exist and is corrected below. Confirmed against the
+# vendor datasheet: vdd range, flash/sram sizes, bus counts (4x USART,
+# 2x SPI, 2x I2C), 12-bit 2.5Msps ADC. NOT independently re-verified
+# here: per-pin alternate-function table (pa2/pa3/pb6/pb7), exact
+# derating curves, i_pin/i_vdd absolute-max figures, and the
+# pwm_capable channel count (datasheet enumerates timers, not a single
+# "PWM-capable" tally, so 11 is not a literal datasheet figure and is
+# left as transcribed). This record carries no `tier=` field in source
+# (unlike atsamd21/rp2040) so there is nothing to flip; per INV-14
+# (regolith/11 sec. 7, `quarry/trust.py`) trust tier is a property of
+# a verified SIGNATURE, not a text cross-check -- this note records
+# transcription confidence, it does not mint a certified/tested tier.
 component st.stm32g071cb:
     class: mcu(cortex_m0plus)
-    evidence: by catalog(st_ds12232_rev6)      # hash-pinned datasheet
+    evidence: by catalog(st_ds12232_rev5)      # hash-pinned; datasheet rev corrected (rev6 -> rev5, verified 2026-07-08)
 
     limits:                                    # absolute-max as intervals
         vdd:   [1.7V, 3.6V]

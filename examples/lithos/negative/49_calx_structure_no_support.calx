@@ -1,0 +1,26 @@
+# BREAKS: a structure (load-path net) declaring no `support:` node
+#   (calcite/03 sec. 3: the load-path discipline's imposer-counting
+#   analog -- a subnet with no support cannot discharge its
+#   reactions).
+# EXPECT: E0208
+# Self-calibration (WO-47 D4): the structure declares `members:` and a
+# `transfers:` block but no `support:` field; `net_core::
+# LoadPathDiscipline` (the AD-23 core) flags the missing-support
+# subnet at compile time via `regolith_lower::calcite`. Verified
+# against live output.
+import std.civil (Pinned)
+
+member G1: beam
+    section: free
+    material: registry(astm_a992)
+    from (A, 1) to (B, 1) at level(roof)
+
+member C1: column
+    section: free
+    material: registry(astm_a992)
+    from (A, 1, ground) to (A, 1, roof)
+
+structure NoSupport:
+    members: G1, C1
+    transfers:
+        g1_c1: Pinned() (G1 -> C1)

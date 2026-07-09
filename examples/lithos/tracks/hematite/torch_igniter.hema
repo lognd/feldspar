@@ -44,10 +44,10 @@ interface HubPivot<d: length>:
 profile OuterProfile:
     walk:
         from face_plane
-        line down                     # a: front face drop
-        line right                    # b: barrel OD
-        arc tangent, bulge=right      # c: shoulder blend
-        line right                    # d: flange OD
+        a: line down                  # front face drop
+        b: line right                 # barrel OD
+        c: arc tangent, bulge=right   # shoulder blend
+        d: line right                 # flange OD
         close via axis
     constraints:
         a.length = dia 38mm / 2
@@ -58,11 +58,11 @@ profile OuterProfile:
 profile FlameTubeBore:
     walk:
         from inlet_plane
-        line down                     # a
-        arc tangent, bulge=right      # b: converging
-        line angled                   # c
-        arc tangent, bulge=left      # d: throat blend
-        line down                     # e: exit bore
+        a: line down
+        b: arc tangent, bulge=right   # converging
+        c: line angled
+        d: arc tangent, bulge=left   # throat blend
+        e: line down                  # exit bore
         close via axis
     constraints:
         a.length = 8mm
@@ -176,9 +176,9 @@ part IgniterBoss:
 profile NozzleProfile:
     walk:
         from tip_plane
-        line down                     # a
-        line right                    # b: cone flank
-        line up                       # c
+        a: line down
+        b: line right                 # cone flank
+        c: line up
         close via axis
     constraints:
         a.length = dia 4mm / 2

@@ -1,0 +1,27 @@
+# BREAKS: a circulation net's declared space cannot reach the net's
+#   `reference:` set through its declared `edges:` (calcite/03 sec. 3:
+#   the circulation discipline's reachability check).
+# EXPECT: E0205
+# Self-calibration (WO-48 slice A): `Annex` is a declared `nodes:`
+# entry with no access opening joining it to `Lobby`/`exterior` among
+# the circulation's declared `edges:`; `regolith_lower::calcite`'s BFS
+# over the resolved access-opening graph cannot reach the reference
+# set from `Annex`. Verified against live output.
+
+access:
+    main_exit: Exit(width=1830mm, path_length=8m) (Lobby -> exterior)
+
+space Lobby:
+    area: 40m2
+    occupancy: registry(a3_assembly)
+    at: level(ground)
+
+space Annex:
+    area: 20m2
+    occupancy: registry(a3_assembly)
+    at: level(ground)
+
+circulation Egress:
+    reference: exterior
+    nodes: Lobby, Annex
+    edges: main_exit

@@ -1,0 +1,15 @@
+# BREAKS: a rule predicate dereferencing a field of its `forall`
+#   domain that no layer provides (design doc D-E: a compile error on
+#   the rule itself, not a deferral). Narrower than the general
+#   fact-unprovided gap `36_rule_fact_unprovided.hema` still tracks
+#   (that fixture has no `forall` domain to classify against): this one
+#   IS covered, WO-28 engine-remainder dispatch (`h.chamfer` is not one
+#   of `Hole`'s documented measures -- position/diameter/edge_distance,
+#   WO-29 Q1).
+# EXPECT: E0603
+process sheet_metal:
+    dfm:
+        rule hole_chamfer_check:
+            forall h in holes
+            demand: h.chamfer >= 1mm
+            why: "unchamfered holes snag during deburring"

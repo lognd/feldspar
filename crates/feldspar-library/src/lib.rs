@@ -2,4 +2,5 @@
 //! `extern "C"` (AD-3). Depends on `feldspar-core` only; no Python.
 //! Populated by WO-07.
 
+pub mod elec;
 pub mod mech;

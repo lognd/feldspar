@@ -29,9 +29,12 @@ use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
 use library::{
-    mech_bore_von_mises_py, mech_cantilever_required_youngs_modulus_py,
-    mech_cantilever_tip_deflection_py, mech_lame_hoop_stress_bore_py,
-    mech_lame_radial_stress_bore_py, mech_rect_second_moment_py, mech_von_mises_principal_py,
+    elec_bjt_bias_collector_current_py, elec_bjt_bias_collector_voltage_py,
+    elec_divider_loaded_vout_py, elec_nmos_saturation_drain_current_py, elec_rc_step_response_py,
+    elec_rlc_quality_factor_py, elec_rlc_resonant_frequency_py, mech_bore_von_mises_py,
+    mech_cantilever_required_youngs_modulus_py, mech_cantilever_tip_deflection_py,
+    mech_lame_hoop_stress_bore_py, mech_lame_radial_stress_bore_py, mech_rect_second_moment_py,
+    mech_von_mises_principal_py,
 };
 use propagation::{
     corner_sweep_py, delta_propagate_numeric_py, delta_propagate_symbolic_py, inflate_py,
@@ -75,6 +78,13 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mech_lame_radial_stress_bore_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_von_mises_principal_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_bore_von_mises_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_divider_loaded_vout_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rc_step_response_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rlc_resonant_frequency_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rlc_quality_factor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_bjt_bias_collector_current_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_bjt_bias_collector_voltage_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_nmos_saturation_drain_current_py, m)?)?;
     m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
     m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
     m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;

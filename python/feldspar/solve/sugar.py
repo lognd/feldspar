@@ -8,7 +8,7 @@ Every builder here calls the SAME `_build.build_solver_info_and_fn` the
 path to the raw protocol, so a sugar-built direction is digest-equal to
 its hand-built twin by construction (02-edge-cases WO-03 row)."""
 
-from typing import Any, Callable, Literal, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Literal, Mapping, Optional, Sequence, Tuple
 
 from typani.result import Err, Ok, Result
 
@@ -523,14 +523,51 @@ class CoupledGroup:
     """Strong two-way coupling as ONE composite solver (09 sec. 4b, M8;
     examples/solvers/06_coupled_groups.py). The planner sees a single
     composite `SolverInfo` (`tier="coupled"`) over the group's boundary
-    ports; the internal member cycle never appears in the graph.
+    ports; the internal member cycle never appears in the graph -- only
+    `boundary_inputs`/`boundary_outputs` are declared as this
+    `SolverInfo`'s inputs/outputs, so nothing internal is ever a
+    routable port and ordinary cyclic registrations remain a planner
+    error unchanged (WO-05's cycle check, untouched by this WO).
 
-    M8 TARGET SHAPE ONLY -- frozen here per WO-03 so the example is
-    importable and the interface is settled, but the fixed-point closure
-    itself (damped iteration, convergence/`NoConvergence`, the realized
-    eps charge) is WO-08+/M8 work. Calling the composite solver in M1
-    raises `NotImplementedError`; `register()` still performs the real
-    registry-level checks (citations, cost, ports, EXACT-forbidden)."""
+    The closure (WO-18) is a deterministic DAMPED FIXED POINT over the
+    member solvers, run in `members` order every iteration:
+
+    - Each member's declared `inputs` are read from the boundary values
+      (`x`) and/or the current iterate state; a port neither boundary
+      nor yet produced starts at `0.0` (the one, fixed, documented
+      initial guess -- never random).
+    - A member `Err` propagates AS-IS (a real domain violation inside
+      the loop is not a convergence failure and must not be relabeled
+      one).
+    - Every produced port is damped: `new = old + damping * (computed -
+      old)` (the first iterate for a port has no `old`, so it is taken
+      verbatim -- damping only ever tempers CHANGES, never the initial
+      sample).
+    - Convergence is the largest RELATIVE change across produced ports
+      dropping at or under `tol`; hitting `max_iter` first is
+      `SolveError.NoConvergence(iterations=max_iter, residual=...)`.
+
+    Same `members` order + same fixed damping/tol/max_iter (all folded
+    into `SolverInfo.settings_digest`) + no randomness anywhere makes
+    the iterate trajectory, and therefore the digest, a pure function
+    of the boundary inputs (determinism acceptance row).
+
+    Composite accuracy is CALIBRATED AS A UNIT: `accuracy=` is the
+    group's own cited band (EXACT forbidden, 09 sec. 4b), never derived
+    from member `Accuracy` values (member eps composition through a
+    fixed point is nonlinear and therefore forbidden by design -- this
+    closure never reads a member's `SolverInfo.accuracy` for anything).
+    At convergence the realized residual CHARGES INTO that ceiling:
+    `SolveOutput.measured_eps = accuracy.eps_rel + residual`, the
+    literal "closure residual charges into the realized eps" (09 sec.
+    4b) reading.
+
+    Corner sweeps at the group boundary fall out for free: this closure
+    is an ordinary `(x, eps_budget) -> Result[SolveOutput, SolveError]`
+    `SolveFn` like any other registered solver, so `plan/execute.py`'s
+    existing `corner_sweep` machinery calls it once per corner with no
+    group-specific code path (09 sec. 4b "corner sweeps ... loop solves
+    once per corner")."""
 
     def __init__(
         self,
@@ -556,20 +593,106 @@ class CoupledGroup:
         self._boundary_inputs = boundary_inputs
         self._boundary_outputs = boundary_outputs
         self._closure = closure
-        self._settings = settings
+        self._settings = dict(settings)
+        self._damping = float(self._settings["damping"])
+        self._tol = float(self._settings["tol"])
+        self._max_iter = int(self._settings["max_iter"])
         self._accuracy = accuracy
         self._citations = citations
         self._conservative_for = conservative_for
         self._cost = cost
         self._version = version
 
-    def _not_implemented_closure(self, x: Any) -> Any:
-        raise NotImplementedError(
-            f"CoupledGroup {self._group_id!r} closure ({self._closure}) lands in "
-            "WO-08+/M8; this is the frozen M1 interface shape only (09 sec. 4b)"
+    def _resolve_member(self, registry: Any, member_id: str) -> Tuple[Any, Any]:
+        """Member lookup is LAZY (call time, not `register()` time):
+        `SolverRegistry.get` (WO-18) so a composite may register before
+        or after its members exist in the same registry (AD-4
+        registration order is arbitrary). A missing member at solve
+        time is a catalog configuration bug, not a recoverable input
+        error -- raising here matches `wrap_solve_fn`'s precedent for
+        programmer-bug shapes."""
+        pair = registry.get(member_id)
+        if pair is None:
+            raise RuntimeError(
+                f"CoupledGroup {self._group_id!r} member {member_id!r} is not "
+                "registered in this registry (check the catalog's register() "
+                "call order/coverage)"
+            )
+        return pair
+
+    def _closure_fn(
+        self,
+        registry: Any,
+        x: Mapping[str, float],
+        _eps_budget: Optional[float] = None,
+    ) -> "Result[Any, SolveError]":
+        from feldspar.solve._build import invoke_solve_fn
+        from feldspar.solve._models import SolveOutput
+
+        state: Dict[str, float] = {}
+        residual = float("inf")
+        for iteration in range(self._max_iter):
+            prev_state = dict(state)
+            for member_id in self._members:
+                info, fn = self._resolve_member(registry, member_id)
+                call_inputs: Dict[str, float] = {}
+                for port in info.inputs:
+                    if port in x:
+                        call_inputs[port] = x[port]
+                    elif port in state:
+                        call_inputs[port] = state[port]
+                    else:
+                        call_inputs[port] = 0.0
+                result = invoke_solve_fn(fn, call_inputs)
+                if result.is_err:
+                    _log.warning(
+                        "coupled group %s: member %s failed: %s",
+                        self._group_id,
+                        member_id,
+                        result.danger_err,
+                    )
+                    return result
+                for port, value in result.danger_ok.values.items():
+                    if port in state:
+                        state[port] = state[port] + self._damping * (
+                            value - state[port]
+                        )
+                    else:
+                        state[port] = value
+            residual = max(
+                (
+                    abs(state[port] - prev_state[port])
+                    / max(abs(prev_state[port]), 1e-12)
+                    for port in prev_state
+                ),
+                default=float("inf"),
+            )
+            if residual <= self._tol:
+                _log.info(
+                    "coupled group %s converged in %d iterations (residual=%s)",
+                    self._group_id,
+                    iteration + 1,
+                    residual,
+                )
+                values = {port: state[port] for port in self._boundary_outputs}
+                measured_eps = self._accuracy.eps_rel + residual
+                return Ok(SolveOutput(values=values, measured_eps=measured_eps))
+        _log.warning(
+            "coupled group %s: NoConvergence after %d iterations (residual=%s)",
+            self._group_id,
+            self._max_iter,
+            residual,
+        )
+        return Err(
+            SolveError.NoConvergence(iterations=self._max_iter, residual=residual)
         )
 
     def register(self, registry: Any) -> "Result[None, RegistryError]":
+        def _raw_fn(
+            x: Mapping[str, float], eps_budget: Optional[float] = None
+        ) -> "Result[Any, SolveError]":
+            return self._closure_fn(registry, x, eps_budget)
+
         info, _fn = _build.build_solver_info_and_fn(
             solver_id=self._group_id,
             namespace=self._namespace,
@@ -583,7 +706,7 @@ class CoupledGroup:
             tier="coupled",
             settings=self._settings,
             conservative_for=self._conservative_for,
-            raw_fn=self._not_implemented_closure,
+            raw_fn=_raw_fn,
         )
         _log.info(
             "registering coupled group %s (members=%s, closure=%s)",

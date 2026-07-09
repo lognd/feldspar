@@ -10,6 +10,8 @@ freshness check is tool presence (04-routing "Corollaries"), re-verified
 symmetrically on every hit."""
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -48,6 +50,44 @@ _log = get_logger(__name__)
 
 _DEFAULT_CACHE_DIR = Path(".feldspar") / "cache"
 _DEFAULT_STEP_CACHE_DIR = _DEFAULT_CACHE_DIR / "steps"
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Writes `text` to `path` atomically: write to a sibling temp file
+    in the same directory, then `os.replace()` it into place. A
+    concurrent/interrupted writer to the same `path` can never leave a
+    torn/interleaved blob behind -- readers see either the old content
+    or the whole new content, never a partial write (M3, cycle-29
+    audit)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
+def _load_cache_json(path: Path) -> Optional[Any]:
+    """Reads and parses a cache blob, degrading to `None` (a miss) on a
+    corrupt/torn file instead of raising -- a malformed blob (e.g. from
+    a killed writer predating the atomic-write fix, or external
+    tampering) must never crash a solve that could simply recompute
+    (M3, cycle-29 audit)."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        _log.warning(
+            "cache blob at %s is corrupt/unreadable, treating as miss: %s", path, exc
+        )
+        return None
 
 
 def request_digest(
@@ -326,7 +366,10 @@ class SolveCache:
         if not path.exists():
             _log.info("cache miss: key=%s (no entry)", key)
             return None
-        data = json.loads(path.read_text())
+        data = _load_cache_json(path)
+        if data is None:
+            _log.info("cache miss: key=%s (corrupt blob)", key)
+            return None
         solution = solution_from_jsonable(data)
         excluded = solution.attempts[-1].excluded if solution.attempts else ()
         if not _tools_still_consistent(route, registry, excluded):
@@ -340,9 +383,8 @@ class SolveCache:
         `solve.py` guards via `is_route_cacheable` before reaching here
         (04-routing corollary), so this is a plain unconditional store."""
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
         payload = solution_to_jsonable(solution.model_copy(update={"cache_hit": False}))
-        path.write_text(json.dumps(payload, sort_keys=True))
+        _atomic_write_text(path, json.dumps(payload, sort_keys=True))
         _log.info("cache store: key=%s", key)
 
 
@@ -413,7 +455,11 @@ class PayloadStepCache:
             self.misses += 1
             _log.info("step cache miss: key=%s (tool vanished)", key)
             return None
-        data = json.loads(path.read_text())
+        data = _load_cache_json(path)
+        if data is None:
+            self.misses += 1
+            _log.info("step cache miss: key=%s (corrupt blob)", key)
+            return None
         hull = {port: _interval_from_json(iv) for port, iv in data["hull"].items()}
         refs = {port: PayloadRef(**ref) for port, ref in data["payloads"].items()}
         self.hits += 1
@@ -431,11 +477,10 @@ class PayloadStepCache:
         payload-touching steps reach here (execute.py's participation
         check), so this is a plain unconditional store."""
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
         entry = {
             "hull": {port: _interval_to_json(iv) for port, iv in hull.items()},
             "payloads": {port: ref.model_dump() for port, ref in payloads.items()},
             "step_eps": step_eps,
         }
-        path.write_text(json.dumps(entry, sort_keys=True))
+        _atomic_write_text(path, json.dumps(entry, sort_keys=True))
         _log.info("step cache store: key=%s", key)

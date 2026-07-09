@@ -17,9 +17,10 @@ typed here per FINV-3 -- the callable's error type is never imported)
 into feldspar's own `feldspar.solve.payload.PayloadResolver` protocol,
 and enforces D154's wire-format contract (a payload ref's bytes ARE the
 schema-versioned JSON `regolith._schema` publishes) before handing
-bytes onward: a major schema-version mismatch is an honest
-indeterminate (`SolveError.ParseFailed`), naming both versions, never a
-silent parse of a shape this build does not understand.
+bytes onward: any schema-version inequality (exact-match policy, no
+minor/patch tolerance) is an honest indeterminate
+(`SolveError.ParseFailed`), naming both versions, never a silent parse
+of a shape this build does not understand.
 
 A pack model with NO lithos resolver available (an unmodified pre-
 D154 discharge caller, or a build with no `PayloadStore` configured)

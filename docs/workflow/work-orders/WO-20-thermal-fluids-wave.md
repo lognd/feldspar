@@ -106,32 +106,91 @@ DELIVERED (Rust homes in `crates/feldspar-library/src/{fluids,heat}.rs`
 
 CUT / ESCALATED (named, not silently dropped):
 
-- `thermo` property tables (CoolProp wrapper) are NOT implemented.
-  A `cp312-abi3-manylinux2014_aarch64` CoolProp 8.0.0 wheel does
-  exist for this platform/Python (verified via `pip download`), so
-  the path is open, but wrapping it (interpolation eps, domain boxes,
-  device models, cycles, combustion, psychrometrics, exergy -- the
-  rest of the 07 `thermo` catalog) is a full sub-WO's worth of work
-  on its own and did not fit this pass. `pyproject.toml`'s existing
-  `props = []` extra is the anchor point for that follow-up; it was
-  NOT populated with `CoolProp` since nothing depends on it yet (an
-  unused pinned dependency would be its own smell).
-- Full multi-branch NETWORK solving over resolved `flownet` payload
-  BYTES (Hardy-Cross for incompressible loops, the analogous
-  Fanno-line reduction lithos's gn2_purge/ullage_press fixtures
-  ultimately need) is NOT implemented. `PayloadRef` is exact-by-
-  reference (09 sec. 4): interpreting resolved bytes into a network
-  topology and iterating a loop-correction solver is real algorithm
-  work, not a registration exercise, and needs its own design pass
-  (what wire format does a `flownet` payload's bytes carry?  that
-  question is NOT decided anywhere in the docs read for this WO).
-  What IS delivered is every per-segment/per-branch formula the
-  network tier would call (friction factors, dp, series/parallel
-  two-branch reduction, the Fanno function) plus the pump-curve and
-  water-hammer formulas -- the building blocks, not the graph solver.
-  Consequently the acceptance line "lithos's fluorite corpus claims
-  ... discharge against hand-built flownet fixtures" is NOT met by
-  this close-out; it needs the network-solver follow-up above.
+- **RESIDUAL UPDATE (2026-07-09, agent-wo20-residuals worktree,
+  branch `wo20-residuals`):** both residuals below landed, at a
+  narrower, explicitly-declared coverage -- neither residual line's
+  original scope claim is fully met, and the gaps are named in their
+  own paragraphs (this update does NOT flip WO-20's overall Status;
+  the wave is still `partial`).
+  - `thermo` property tables: DELIVERED as a CoolProp wrapper
+    (`python/feldspar/library/thermo.py`, `props = ["CoolProp>=8.0"]`
+    now populated in `pyproject.toml`/`uv.lock`, CoolProp 8.0.0
+    installed and exercised). Registers 9 directions --
+    `thermo.{water,air,nitrogen}_{density,specific_heat_cp,viscosity}`
+    -- each a `PropsSI('D'|'C'|'V', 'T', T, 'P', P, fluid)` call with a
+    declared `(T, P)` validity box and the benchmarks memo sec. 3.4
+    tolerance as its `Accuracy` (+/-0.5% density/cp, +/-2% viscosity),
+    verified against all 5 memo state points
+    (`tests/unit/test_library_thermo.py`). CUT, still open: device
+    models, cycles, combustion, psychrometrics, exergy, ideal/real-gas
+    closed-form directions, two-phase/saturation-region lookups, and
+    any CoolProp fluid beyond the three calibrated here -- the rest of
+    the 07 `thermo` catalog remains a follow-up's worth of work.
+  - Multi-branch NETWORK solving over resolved `flownet` payload
+    BYTES: DELIVERED as a Hardy-Cross loop-balancing solver
+    (`python/feldspar/library/fluids/network.py`,
+    `fluids.network.hardy_cross`, registered in the pack registry
+    exactly like `fea.payload_steps` -- declares its own payload ports
+    (F12), takes the `PayloadResolver`, registers LAST). D154 (this
+    cycle's escalation ruling, `lithos:docs/workflow/design-log/`
+    `2026-07-08-cycle-28.md`) settled the missing wire-format
+    question this WO's original close-out flagged: a payload
+    reference resolves to the schema-versioned JSON serialization of
+    the payload object, so this solver parses THAT shape (a
+    feldspar-owned, field-name-compatible subset of
+    `regolith._schema.models.FlownetPayload`, never importing
+    `regolith` itself, FINV-3). Algorithm: BFS spanning-tree
+    fundamental cycle basis (one loop per chord) plus a
+    continuity-respecting initial-flow seed (tree edges' flows are
+    DETERMINED by nodal balance given the chords' seeded guess, not
+    assumed uniform -- a uniform seed was tried first and converges to
+    a WRONG stationary point for asymmetric laminar networks; the
+    fix and its derivation are in the module docstring), then
+    classical Hardy-Cross loop correction with the per-iteration
+    slope computed by NUMERICAL differencing of the Darcy-Weisbach
+    `dp(Q)` (not an assumed fixed exponent -- a fixed quadratic
+    exponent still converges but far more slowly in the laminar
+    regime, verified during this pass). Calibration: the benchmarks
+    memo sec. 3.2 symmetric two-branch case wired verbatim (Q_total =
+    0.012 -> even 0.006/0.006 split); an independent Hagen-Poiseuille
+    closed-form oracle for the asymmetric laminar case (not in the
+    memo, derived and cross-checked in this WO's test file, since the
+    memo does not include a two-different-length-branch worked
+    number). Honest coverage (execution-time `OutOfDomain`, never
+    fabricated convergence): edge kinds ONLY `pipe` and `imposer` (a
+    fixed, externally-known flow) -- `hose`/`orifice`/`valve`/`pump`/
+    `regulator`/`filter`/`hx_segment`/`mixer` are named-cut, reported
+    as `edge_kind:<kind>`; edge params ONLY the literal-scalar
+    `EdgeParams1` shape -- the `EdgeParams2` geometry-extract selector
+    (D131's `regolith-lower::extract` seam) and the `EdgeParams3`
+    mixer-outlet medium record are named-cut, reported as
+    `edge_params:<source>`; fluid density/viscosity are read as
+    LITERAL values on the edge itself, NOT resolved from the payload's
+    `MediumRef` property records -- wiring the CoolProp wrapper above
+    through a resolver at this call site is a follow-up, the two
+    residuals landed this pass are NOT yet wired to each other;
+    disconnected networks and over/under-constrained nodal demand are
+    both named-cut (`disconnected_network`,
+    `overconstrained_demand`/`unbalanced_demand`); non-convergence
+    after 100 iterations reports `SolveError.NoConvergence` naming the
+    residual, same posture as WO-18's `CoupledGroup`. Consequently the
+    ORIGINAL acceptance line "lithos's fluorite corpus claims ...
+    discharge against hand-built flownet fixtures" is now met ONLY for
+    networks entirely inside this coverage (plain pipe/imposer
+    incompressible loops with literal properties) -- valve/pump/
+    regulator-bearing networks (pump-curve-driven systems, the
+    Fanno-line compressible tier) still need their own follow-up;
+    those per-segment formulas were already delivered by the ORIGINAL
+    WO-20 pass and are unchanged.
+  - Tests: `tests/unit/test_library_thermo.py` (11 cases) and
+    `tests/unit/test_library_fluids_network.py` (7 cases), all new,
+    all green. Full gate green in the `wo20-residuals` worktree:
+    `make fmt-check lint import-lint typecheck test` (375 passed, up
+    from the pre-existing 351) plus `cargo clippy --workspace
+    --all-targets -- -D warnings` and `cargo test --workspace` (both
+    clean, no Rust changes this pass -- both residuals are pure
+    Python, composing the ALREADY-DELIVERED Rust friction-factor/
+    Darcy-Weisbach homes rather than adding new ones).
 - Hydrostatics, external flow (drag/lift, boundary layer), open
   channel (Manning), flow measurement (ISO 5167), oblique shocks and
   CD-nozzle operation, and turbomachinery similarity/affinity laws

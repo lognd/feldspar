@@ -99,17 +99,26 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.fea import payload_steps
     from feldspar.fea.solver import register as register_fea
     from feldspar.library.fluids import register as register_fluids
+    from feldspar.library.fluids import register_network as register_fluids_network
     from feldspar.library.heat import register as register_heat
     from feldspar.library.mech import register as register_mech
+    from feldspar.library.thermo import register as register_thermo
+
+    engine_resolver = resolver if resolver is not None else NoStoreResolver()
 
     registry = SolverRegistry()
     register_mech(registry)
     register_fluids(registry)
     register_heat(registry)
+    register_thermo(registry)
     register_fea(registry)
-    payload_steps.register(
-        registry, resolver if resolver is not None else NoStoreResolver()
-    )
+    payload_steps.register(registry, engine_resolver)
+    # WO-20 residual: the Hardy-Cross `flownet` solver declares its own
+    # payload ports (F12), so it registers last, same as
+    # `payload_steps` -- order relative to `payload_steps` itself does
+    # not matter (disjoint port namespaces), only relative to the
+    # declaration-free modules above.
+    register_fluids_network(registry, engine_resolver)
     registry.freeze()
     return registry
 

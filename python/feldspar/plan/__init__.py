@@ -5,6 +5,7 @@ from __future__ import annotations
 from feldspar.plan.cache import PayloadStepCache, SolveCache
 from feldspar.plan.errors import PlanError
 from feldspar.plan.execute import AttemptRecord, Solution, execute
+from feldspar.plan.parallel import parallel_corner_sweep
 from feldspar.plan.policy import RoutePolicy
 from feldspar.plan.report import render_explain, render_to_dict
 from feldspar.plan.route import Route, RouteStep, plan
@@ -20,6 +21,7 @@ __all__ = [
     "SolveCache",
     "Solution",
     "execute",
+    "parallel_corner_sweep",
     "plan",
     "render_explain",
     "render_to_dict",

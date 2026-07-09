@@ -30,7 +30,9 @@ pub use dimension::Dimension;
 pub use domain::{Domain, DomainViolation};
 pub use error::{CoreError, UnitError};
 pub use interval::Interval;
-pub use propagation::{corner_sweep, enumerate_corners, inflate, total_error, Propagation};
+pub use propagation::{
+    corner_sweep, enumerate_corners, hull_from_results, inflate, total_error, Propagation,
+};
 pub use rank::{PortDecl, Rank};
 pub use search::{plan, PlanError, Route, RouteStep, Sense, SolverSummary};
 pub use units::{BuiltinUnitSystem, UnitSystem};

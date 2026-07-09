@@ -55,7 +55,9 @@ __all__ = [
     "corner_sweep",
     "delta_propagate_numeric",
     "delta_propagate_symbolic",
+    "enumerate_corners",
     "format_f64",
+    "hull_from_results",
     "inflate",
     "invert_for",
     "invertible_targets",
@@ -305,6 +307,30 @@ def corner_sweep(
         return Ok(_feldspar.corner_sweep(dict(box), fn))
     except _feldspar.PropagationErrorRaised as exc:
         return Err(exc.args[0])
+
+
+def enumerate_corners(box: Mapping[str, Interval]) -> Iterable[Mapping[str, float]]:
+    """The enumerate half of `corner_sweep` (WO-15, 09 sec. 6), exposed
+    standalone so a caller can evaluate corners itself -- e.g.
+    concurrently, via `feldspar.plan.parallel` -- and fold the results
+    with `hull_from_results` below instead of going through the single-
+    threaded `corner_sweep` callback path. Deduplicated and sorted,
+    exactly like `corner_sweep`'s internal enumeration (same core
+    routine, FINV-4)."""
+    return _feldspar.enumerate_corners(dict(box))
+
+
+def hull_from_results(
+    results: Iterable[Mapping[str, float]],
+) -> Mapping[str, Interval]:
+    """The fold half of `corner_sweep` (WO-15): hulls per-corner output
+    maps that MUST be in the same order `enumerate_corners` produced
+    (the caller's contract). Determinism (FINV-9) holds regardless of
+    what order `results` was COMPUTED in (any thread count) because the
+    fold -- elementwise interval hull -- is commutative/associative over
+    a fixed finite multiset; only the multiset, never arrival order,
+    can change the outcome."""
+    return _feldspar.hull_from_results([dict(r) for r in results])
 
 
 #: `[lo - eps, hi + eps]`; THE accumulation primitive (01-interfaces

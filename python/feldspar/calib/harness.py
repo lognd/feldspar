@@ -10,8 +10,9 @@ claims (FINV-6). Works against ANY `SolverRegistry`/`SolveFn` pair --
 no dependency on any specific solver catalog."""
 
 import random
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 from typani.result import Err, Ok, Result
 
@@ -76,6 +77,7 @@ def calibrate(
     registry: "SolverRegistry",
     n_samples: int = 256,
     seed: int = 0,
+    thread_count: int = 1,
 ) -> "Result[CalibRecord, CalibError]":
     """Sweep `solver_id` against `reference_id` over `n_samples`
     deterministic (`random.Random(seed)`) uniform samples of their
@@ -84,7 +86,19 @@ def calibrate(
     reference value is exactly zero for a sample, that sample
     contributes only to `worst_abs_error` (rel error is undefined/skipped
     for that sample, documented interpretation of the NORMATIVE
-    interface -- see WO-07 report)."""
+    interface -- see WO-07 report).
+
+    WO-15 (09 sec. 6): `thread_count > 1` dispatches the (independent,
+    per-point) candidate/reference evaluations across a thread pool --
+    "calibration sweeps parallelize (03) -- the dev-loop win that
+    motivates the milestone." Sample points are generated FIRST,
+    sequentially, from `random.Random(seed)` (so the point sequence
+    never depends on `thread_count`), then evaluated (any order), then
+    folded over in the ORIGINAL point order with the max-reduction
+    (`worst_abs_error`/`worst_rel_error`) -- commutative and associative,
+    so the recorded digest is byte-identical at any `thread_count`
+    (FINV-9). `thread_count <= 1` is the always-present serial
+    fallthrough: no executor is spun up at all."""
     solvers = _solver_map(registry)
     if solver_id not in solvers:
         _log.warning("calibrate: unknown solver_id=%s", solver_id)
@@ -121,22 +135,39 @@ def calibrate(
     rng = random.Random(seed)
     ports = sorted(box.keys())
 
-    worst_abs_error = 0.0
-    worst_rel_error = 0.0
-    n_valid = 0
-
+    # Points are generated sequentially, up front, from the seeded rng --
+    # the point SEQUENCE never depends on `thread_count` (WO-15).
+    points: List[Dict[str, float]] = []
     for _ in range(n_samples):
         point: Dict[str, float] = {}
         for port in ports:
             lo, hi = box[port]
             point[port] = rng.uniform(lo, hi)
+        points.append(point)
 
+    def _evaluate(point: Dict[str, float]) -> Tuple[Any, Any]:
         cand_point = {p: v for p, v in point.items() if p in cand_info.inputs}
         ref_point = {p: v for p, v in point.items() if p in ref_info.inputs}
+        return invoke_solve_fn(cand_fn, cand_point), invoke_solve_fn(ref_fn, ref_point)
 
-        cand_result = invoke_solve_fn(cand_fn, cand_point)
-        ref_result = invoke_solve_fn(ref_fn, ref_point)
+    if thread_count <= 1:
+        evaluations = [_evaluate(point) for point in points]
+    else:
+        _log.info(
+            "calibrate: dispatching %d sample point(s) across %d thread(s)",
+            len(points),
+            thread_count,
+        )
+        with ThreadPoolExecutor(max_workers=thread_count) as executor:
+            # `map` preserves input order regardless of completion order
+            # -- the fold below always runs in the original point order.
+            evaluations = list(executor.map(_evaluate, points))
 
+    worst_abs_error = 0.0
+    worst_rel_error = 0.0
+    n_valid = 0
+
+    for cand_result, ref_result in evaluations:
         if cand_result.is_err or ref_result.is_err:
             _log.debug(
                 "calibrate: skipping sample point (candidate_err=%s reference_err=%s)",

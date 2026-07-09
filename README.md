@@ -67,7 +67,7 @@ uncertainty through every step.
 2. **The pack** (`feldspar.pack`, `feldspar.fea`) -- the WO-27 deliverable.
    Static stress/deflection FEA solvers built on the engine's protocol,
    wrapped as `regolith.harness.Model` subclasses and exposed through the
-   `regolith.model_packs` entry point. Evidence is deterministic
+   `regolith.plugins` entry point (lithos WO-44/AD-26). Evidence is deterministic
    (byte-identical hash for identical requests) and signable.
 
 The pack is deliberately the engine's first, hardest customer: if the

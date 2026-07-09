@@ -60,7 +60,7 @@ routing is pure computation over their declared metadata.
 **Pack** (`feldspar.pack` + `feldspar.fea`): the WO-27 deliverable.
 Static stress/deflection FEA solvers built on the engine's protocol,
 wrapped as `regolith.harness.Model` subclasses, registered via the
-`regolith.model_packs` entry point, producing evidence that is
+`regolith.plugins` entry point (lithos WO-44/AD-26), producing evidence that is
 deterministic (byte-identical hash for identical requests) and
 signable (WO-21 attestation).
 

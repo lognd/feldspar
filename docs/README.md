@@ -4,7 +4,7 @@ feldspar is the external solver pack for the lithos toolchain: a
 graph-theoretic solution-path engine ("which sequence of models gets me
 from what I know to what I need, cheaply enough and accurately enough")
 with a native FEA workhorse (gmsh + CalculiX), exposed to regolith as a
-`regolith.model_packs` plugin per WO-27.
+`regolith.plugins` plugin (lithos WO-44/AD-26) per WO-27.
 
 The name joins the geology theme (hematite, cuprite, magnetite, regolith,
 lithos): feldspar is the most abundant mineral in the crust -- the

@@ -19,8 +19,10 @@ mesh = ["gmsh"]
 regolith = ["regolith"]
 props = []
 
-[project.entry-points."regolith.model_packs"]
-feldspar = "feldspar.pack:register"
+# lithos WO-44/AD-26: the one plugin seam; the target is a
+# PluginManifest attribute, not the register callable.
+[project.entry-points."regolith.plugins"]
+feldspar = "feldspar.pack:MANIFEST"
 
 [tool.uv.sources]
 regolith = { path = "../lithos", editable = true }

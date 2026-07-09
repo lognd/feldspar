@@ -10,7 +10,7 @@ def test_version_single_sourced() -> None:
 
 
 # `feldspar.pack` itself now requires regolith installed to import (it is
-# the `regolith.model_packs` entry point target, WO-09): unlike the WO-01
+# the `regolith.plugins` entry point target (lithos WO-44), WO-09): unlike the WO-01
 # no-op stub, real registration needs regolith's `Model`/`ModelSignature`
 # types, so it is no longer import-safe in a bare (non-`regolith`-extra)
 # environment. Its coverage lives under the `regolith` marker in

@@ -1,30 +1,38 @@
 version = 1
 disable_existing_loggers = false
 
+# Logs are diagnostics, stdout is data: BOTH handlers target stderr
+# (the split is formatting only -- below-WARNING lines stay terse,
+# WARNING+ show their level). Scoped to the `feldspar` logger, never
+# [root]: feldspar loads as a plugin inside host processes (regolith),
+# and a library configuring the root logger hijacks the host's
+# logging (the lithos WO-44 stdout-pollution incident, cycle 28).
+
 [filters.below_warning]
 "()" = "feldspar.logging_setup.filter.BelowLevelFilter"
 below = "WARNING"
 
-[formatters.stdout_fmt]
+[formatters.detail_fmt]
 "()" = "feldspar.logging_setup.formatter.MalmbergFormatter"
 
-[formatters.stderr_fmt]
+[formatters.warn_fmt]
 "()" = "feldspar.logging_setup.formatter.MalmbergFormatter"
 show_level = true
 
-[handlers.stdout]
+[handlers.detail]
 class = "logging.StreamHandler"
-formatter = "stdout_fmt"
-stream = "ext://sys.stdout"
+formatter = "detail_fmt"
+stream = "ext://sys.stderr"
 level = "DEBUG"
 filters = ["below_warning"]
 
-[handlers.stderr]
+[handlers.warnings]
 class = "logging.StreamHandler"
-formatter = "stderr_fmt"
+formatter = "warn_fmt"
 stream = "ext://sys.stderr"
 level = "WARNING"
 
-[root]
+[loggers.feldspar]
 level = "DEBUG"
-handlers = ["stdout", "stderr"]
+handlers = ["detail", "warnings"]
+propagate = false

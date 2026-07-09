@@ -1,7 +1,7 @@
 # 06 -- The regolith pack
 
 One sentence: `feldspar.pack` adapts engine solvers to regolith's
-harness Model contract behind the `regolith.model_packs` entry point,
+harness Model contract behind the `regolith.plugins` entry point (lithos WO-44/AD-26),
 producing deterministic, attributable, signable evidence -- the WO-27
 deliverable.
 
@@ -20,8 +20,8 @@ the feldspar side; the regolith side is cited, not copied.
 - Entry point (D-B):
 
 ```toml
-[project.entry-points."regolith.model_packs"]
-feldspar = "feldspar.pack:register"
+[project.entry-points."regolith.plugins"]
+feldspar = "feldspar.pack:MANIFEST"
 ```
 
 `register(registry: ModelRegistry) -> None` registers the models below

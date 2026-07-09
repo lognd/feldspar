@@ -237,6 +237,10 @@ pub fn heat_cylindrical_wall_resistance_py(
         inner_radius,
         outer_radius,
         conductivity,
+        length,
+    )
+}
+
 /// See `feldspar_library::mech::sdof_first_mode` for the formula and
 /// citation (Rao, *Mechanical Vibrations*, SDOF undamped natural
 /// frequency).
@@ -299,6 +303,8 @@ pub fn heat_coefficient_from_nusselt_py(
     diameter: f64,
 ) -> f64 {
     feldspar_library::heat::heat_coefficient_from_nusselt(nusselt, fluid_conductivity, diameter)
+}
+
 /// See `feldspar_library::mech::miles_grms` for the formula and
 /// citation (Steinberg, *Vibration Analysis for Electronic Equipment*,
 /// ch. 2, Miles' equation).

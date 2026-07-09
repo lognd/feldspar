@@ -29,6 +29,9 @@ use dimension::PyDimension;
 use domain::PyDomain;
 use interval::PyInterval;
 use library::{
+    elec_bjt_bias_collector_current_py, elec_bjt_bias_collector_voltage_py,
+    elec_divider_loaded_vout_py, elec_nmos_saturation_drain_current_py, elec_rc_step_response_py,
+    elec_rlc_quality_factor_py, elec_rlc_resonant_frequency_py,
     fluids_colebrook_friction_factor_py, fluids_darcy_dp_py, fluids_fanno_function_py,
     fluids_haaland_friction_factor_py, fluids_isentropic_stagnation_pressure_ratio_py,
     fluids_isentropic_stagnation_temp_ratio_py, fluids_joukowsky_dp_py,
@@ -118,6 +121,13 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mech_sdof_first_mode_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_beam_cantilever_first_mode_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_miles_grms_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_divider_loaded_vout_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rc_step_response_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rlc_resonant_frequency_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_rlc_quality_factor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_bjt_bias_collector_current_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_bjt_bias_collector_voltage_py, m)?)?;
+    m.add_function(wrap_pyfunction!(elec_nmos_saturation_drain_current_py, m)?)?;
     m.add_function(wrap_pyfunction!(invert_for_py, m)?)?;
     m.add_function(wrap_pyfunction!(invertible_targets_py, m)?)?;
     m.add_function(wrap_pyfunction!(predicate_to_box_py, m)?)?;

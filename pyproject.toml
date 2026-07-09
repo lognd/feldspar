@@ -61,6 +61,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "fea: requires ccx and gmsh installed (AD-12e)",
+    "spice: requires ngspice installed (WO-17, same posture as fea)",
     "regolith: requires a local lithos regolith install (AD-12d, FINV-3)",
     "slow: long-running test, excluded from the default fast loop",
 ]
@@ -101,5 +102,6 @@ source_modules = [
     "feldspar.plan",
     "feldspar.library",
     "feldspar.fea",
+    "feldspar.elec",
 ]
 forbidden_modules = ["regolith"]

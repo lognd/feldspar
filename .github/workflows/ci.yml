@@ -54,9 +54,9 @@ jobs:
       - run: uv sync --all-extras --no-extra regolith
       - run: uv run maturin develop
       - name: run twice serial (threads=1), compare digests
-        run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
+        run: uv run pytest tests/ -k determinism -m "not regolith and not fea and not spice"
       - name: run twice serial (threads=1), compare digests (rerun)
-        run: uv run pytest tests/ -k determinism -m "not regolith and not fea"
+        run: uv run pytest tests/ -k determinism -m "not regolith and not fea and not spice"
 
   # AD-12d: the regolith conformance job -- needs a sibling lithos
   # checkout for the editable path source. If lithos is private, give
@@ -95,3 +95,18 @@ jobs:
       - name: install ccx (best-effort; job is continue-on-error)
         run: sudo apt-get update && sudo apt-get install -y calculix-ccx || true
       - run: uv run pytest tests/ -m fea
+
+  # WO-17: spice job with ngspice; same "can't pass until the env has
+  # it" posture as the fea job above (AD-12e precedent).
+  spice:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --all-extras --no-extra regolith
+      - run: uv run maturin develop
+      - name: install ngspice (best-effort; job is continue-on-error)
+        run: sudo apt-get update && sudo apt-get install -y ngspice || true
+      - run: uv run pytest tests/ -m spice

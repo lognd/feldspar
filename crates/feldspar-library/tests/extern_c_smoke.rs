@@ -120,5 +120,41 @@ fn wo07_extern_c_symbols_resolve_via_dlopen() {
             .get(b"miles_grms\0")
             .expect("miles_grms symbol should resolve");
         let _ = f(100.0, 10.0, 0.1);
+        // WO-17 (elec): same AD-3 link-visibility check for the elec
+        // formula home, `crates/feldspar-library/src/elec.rs`.
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64, f64) -> f64> = lib
+            .get(b"divider_loaded_vout\0")
+            .expect("divider_loaded_vout symbol should resolve");
+        assert!((f(10.0, 10e3, 10e3, 100e3) - 4.761904761904762).abs() < 1e-9);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64, f64) -> f64> = lib
+            .get(b"rc_step_response\0")
+            .expect("rc_step_response symbol should resolve");
+        let _ = f(5.0, 1000.0, 1e-6, 1e-3);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64) -> f64> = lib
+            .get(b"rlc_resonant_frequency\0")
+            .expect("rlc_resonant_frequency symbol should resolve");
+        let _ = f(10e-3, 100e-9);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64) -> f64> = lib
+            .get(b"rlc_quality_factor\0")
+            .expect("rlc_quality_factor symbol should resolve");
+        let _ = f(10.0, 10e-3, 100e-9);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64, f64, f64, f64) -> f64> = lib
+            .get(b"bjt_bias_collector_current\0")
+            .expect("bjt_bias_collector_current symbol should resolve");
+        let _ = f(12.0, 47e3, 10e3, 1e3, 100.0, 0.7);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64) -> f64> = lib
+            .get(b"bjt_bias_collector_voltage\0")
+            .expect("bjt_bias_collector_voltage symbol should resolve");
+        let _ = f(12.0, 1.286e-3, 2.2e3);
+
+        let f: Symbol<unsafe extern "C" fn(f64, f64, f64) -> f64> = lib
+            .get(b"nmos_saturation_drain_current\0")
+            .expect("nmos_saturation_drain_current symbol should resolve");
+        assert!((f(1e-3, 3.0, 1.0) - 2.0e-3).abs() < 1e-12);
     }
 }

@@ -651,3 +651,74 @@ def test_solve_error_variants_are_total() -> None:
 def test_claim_senses_coercion() -> None:
     assert ClaimSenses.coerce("upper") is ClaimSenses.UPPER
     assert ClaimSenses.coerce(ClaimSenses.LOWER) is ClaimSenses.LOWER
+
+
+# ---------------------------------------------------------------------------
+# WO-13 (09 sec. 3): `@solver(eps_seeking=..., cost_curve=...)` wiring --
+# generic, solver-family-agnostic (the FEA-specific ladder itself is
+# covered by tests/unit/test_fea_ladder.py and
+# tests/unit/test_fea_solver_seeking.py).
+# ---------------------------------------------------------------------------
+
+
+def test_eps_seeking_defaults_false_and_cost_curve_none() -> None:
+    @solver(
+        namespace="wo13",
+        inputs=("wo13.x",),
+        outputs=("wo13.y",),
+        domain={"wo13.x": (0.0, 1.0)},
+        cost=1.0,
+        accuracy=EXACT,
+        citations=("handbook: fixture",),
+        version="1",
+    )
+    def plain(x):
+        return Ok({"wo13.y": x["wo13.x"]})
+
+    info, _fn = plain.solver_direction
+    assert info.eps_seeking is False
+    assert info.cost_curve is None
+
+
+def test_eps_seeking_solver_body_receives_eps_budget() -> None:
+    from feldspar.solve._build import invoke_solve_fn
+    from feldspar.solve.seeking import CostCurve
+
+    seen_budgets = []
+
+    @solver(
+        namespace="wo13",
+        inputs=("wo13.x",),
+        outputs=("wo13.y",),
+        domain={"wo13.x": (0.0, 1.0)},
+        cost=1.0,
+        accuracy=EXACT,
+        citations=("handbook: fixture",),
+        version="1",
+        eps_seeking=True,
+        cost_curve=CostCurve.scalar(1.0),
+    )
+    def seeking(x, eps_budget=None):
+        seen_budgets.append(eps_budget)
+        return Ok({"wo13.y": x["wo13.x"]})
+
+    info, fn = seeking.solver_direction
+    assert info.eps_seeking is True
+    assert info.cost_curve is not None
+    assert info.cost_curve.cost_for_budget(1e30) == 1.0
+
+    result = invoke_solve_fn(fn, {"wo13.x": 0.5}, 0.01)
+    assert result.is_ok
+    assert seen_budgets == [0.01]
+
+    # A raw single-argument (non-eps-seeking) SolveFn is untouched --
+    # `invoke_solve_fn` never passes the extra argument to it.
+    plain_calls = []
+
+    def raw_fn(x):
+        plain_calls.append(x)
+        return Ok({"wo13.y": x["wo13.x"]})
+
+    raw_result = invoke_solve_fn(raw_fn, {"wo13.x": 0.5}, 0.01)
+    assert raw_result.is_ok
+    assert plain_calls == [{"wo13.x": 0.5}]

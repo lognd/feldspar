@@ -14,6 +14,7 @@ from feldspar.solve.payload import (
     payload_feature_violation,
 )
 from feldspar.solve.registry import SolverRegistry
+from feldspar.solve.seeking import CostCurve, CostPoint
 from feldspar.solve.solver import (
     EXACT,
     Citation,
@@ -35,6 +36,8 @@ __all__ = [
     "Citation",
     "ClaimSenses",
     "Correlation",
+    "CostCurve",
+    "CostPoint",
     "CoupledGroup",
     "EXACT",
     "Err",

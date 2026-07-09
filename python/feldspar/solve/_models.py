@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from feldspar.core import Accuracy
 from feldspar.solve.payload import PayloadRef
+from feldspar.solve.seeking import CostCurve
 
 
 class Citation(BaseModel):
@@ -65,11 +66,19 @@ class SolverInfo(BaseModel):
     conservative_for: ClaimSenses = ClaimSenses.BOTH
     settings_digest: str
 
-    # RESERVED for M3 budget-seeking refinement (09 sec. 8 milestones);
-    # documented, not implemented -- always None in M1. TODO(M3): give
-    # these real types once budget-seeking search lands (WO-11+).
-    eps_seeking: Optional[Any] = None
-    cost_curve: Optional[Any] = None
+    # WO-13 (M3, 09 sec. 3): budget-seeking refinement + cost curves.
+    # `eps_seeking=True` means the ladder policy folded into this
+    # SolverInfo's `settings_digest` climbs a deterministic refinement
+    # ladder driven by the caller's remaining eps budget
+    # (`feldspar.fea.ladder.climb_richardson_ladder`; `plan/execute.py`
+    # passes the remaining budget to the `SolveFn` for these solvers
+    # only, see `_build.wrap_solve_fn`). `cost_curve` is the additive
+    # sampled-(eps, cost) schema (`feldspar.solve.seeking.CostCurve`);
+    # `None` for non-eps-seeking solvers, which the scalar `cost` field
+    # alone already serves (no planner redesign -- the Rust search still
+    # reads only `cost`).
+    eps_seeking: bool = False
+    cost_curve: Optional[CostCurve] = None
 
     # Symbolic-derivation provenance (WO-11, `Relation.law`): carried
     # for `explain()`/`to_dict()` rendering only -- `exclude=True` so

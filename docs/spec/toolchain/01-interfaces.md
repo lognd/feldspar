@@ -101,6 +101,19 @@ class SolverInfo(BaseModel):        # frozen
     corner_monotone: bool = True
     conservative_for: ClaimSenses = ClaimSenses.BOTH
     settings_digest: str            # from decorator settings= (F1)
+    eps_seeking: bool = False       # WO-13, 09 sec. 3: budget-seeking
+    cost_curve: CostCurve | None = None  # WO-13: sampled (eps, cost)
+
+class CostCurve(BaseModel):         # frozen (WO-13, 09 sec. 3)
+    points: tuple[CostPoint, ...]   # sorted ascending by eps
+    @staticmethod
+    def scalar(cost: float) -> CostCurve  # one-point curve, eps=0.0
+    def cost_for_budget(self, eps_budget: float) -> float
+        # conservative lookup: cheapest point whose eps fits the
+        # budget; if none fits, the finest (most expensive) point.
+
+class CostPoint(BaseModel):         # frozen
+    eps: float; cost: float         # eps >= 0, cost > 0
 
 class SolveOutput(BaseModel):       # frozen (DX F16)
     values: Mapping[str, float]
@@ -113,7 +126,13 @@ SolveFn = Callable[[Mapping[str, float]],
 # AUTHOR-facing returns are looser; the decorator normalizes
 # (DX F13/F14/F16): Result | SolveOutput | Mapping | float
 # (float only when len(outputs) == 1). Registered SolveFns are
-# always the strict form above.
+# always the strict form above -- EXCEPT an `eps_seeking=True`
+# direction's raw body, which is `(x, eps_budget) -> ...` (WO-13):
+# both shapes lower to the same wrapped 2-argument callable, tagged
+# `.eps_seeking` so `feldspar.solve._build.invoke_solve_fn` (the one
+# call-site every caller uses) knows whether to pass the remaining
+# eps budget. A plain (untagged, e.g. hand-registered raw) SolveFn
+# keeps the exact one-argument call.
 
 EXACT: Accuracy                      # Accuracy(0.0, 0.0) constant
 
@@ -121,7 +140,8 @@ def solver(*, namespace, inputs, outputs, domain, cost, accuracy,
            citations, version, tier="closed_form", settings=None,
            deterministic=True, corner_monotone=True,
            conservative_for=ClaimSenses.BOTH,
-           solver_id_suffix=None) -> Callable[[F], F]
+           solver_id_suffix=None,
+           eps_seeking=False, cost_curve=None) -> Callable[[F], F]
     # attaches fn.solver_direction: tuple[SolverInfo, SolveFn];
     # NO global state (AD-4); solver_id =
     # f"{namespace}.{fn.__name__}" + ("." + suffix if suffix).
@@ -281,7 +301,10 @@ WO-12 adds `PayloadKindMismatch(port, expected_kind, actual_kind)`
 (execution-time twin of the registration kind check),
 `MissingPayload(port)` (declared payload port with no supplied ref),
 and `DanglingDigest(digest)` (a ref the resolver's store has no
-content for).
+content for). WO-13 adds `LadderExhausted(best_eps, budget,
+rungs_tried)` (09 sec. 3: a budget-seeking solver's refinement ladder
+ran out of rungs without meeting the caller's remaining budget --
+honest indeterminate carrying the best eps achieved).
 (`NoConvergence` is reserved for M8 coupled groups, 09 sec. 4b.)
 
 ## feldspar.fea (WO-08) and feldspar.pack (WO-09)

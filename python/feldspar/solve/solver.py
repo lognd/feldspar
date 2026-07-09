@@ -25,10 +25,12 @@ from feldspar.solve._models import (
     SolveOutput,
     SolverInfo,
 )
+from feldspar.solve.seeking import CostCurve
 
 __all__ = [
     "Citation",
     "ClaimSenses",
+    "CostCurve",
     "EXACT",
     "SolveFn",
     "SolveOutput",
@@ -36,7 +38,14 @@ __all__ = [
     "solver",
 ]
 
-SolveFn = Callable[[Any], Any]  # Result[SolveOutput, SolveError]
+# The one `SolveFn` type -- re-exported from `_build` so every caller
+# (this module, `sugar.py`) shares the exact same type, never a
+# near-duplicate. `Result[SolveOutput, SolveError]`, called as
+# `fn(x, eps_budget)` (WO-13): an `eps_seeking=True` solver's raw body
+# is `(x, eps_budget) -> ...` instead of `(x) -> ...`; both author-
+# facing shapes lower to this same wrapped 2-argument `SolveFn`
+# (`_build.wrap_solve_fn`).
+SolveFn = _build.SolveFn
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -58,6 +67,8 @@ def solver(
     conservative_for: "ClaimSenses | str" = ClaimSenses.BOTH,
     solver_id_suffix: Optional[str] = None,
     tags: Any = (),
+    eps_seeking: bool = False,
+    cost_curve: Optional[CostCurve] = None,
 ) -> Callable[[F], F]:
     """Attaches `fn.solver_direction: tuple[SolverInfo, SolveFn]`
     (01-interfaces). `solver_id = f"{namespace}.{fn.__name__}"` (plus
@@ -67,7 +78,16 @@ def solver(
     called. All F10/F11/F13/F14/F15/F16 coercions are already active
     here -- 01_sugar_coercions.py imports this SAME decorator, not a
     separate sugared one (00 and 01 lower to identical SolverInfo
-    digests)."""
+    digests).
+
+    WO-13 (09 sec. 3): `eps_seeking=True` declares a budget-seeking
+    direction whose body is `fn(x, eps_budget)` instead of `fn(x)` --
+    the executor (`plan/execute.py`) passes the remaining eps budget so
+    the body can drive its own deterministic refinement ladder
+    (`feldspar.fea.ladder`). `cost_curve` is the optional additive
+    sampled-(eps, cost) metadata (`feldspar.solve.seeking.CostCurve`);
+    both fold into `SolverInfo` and therefore into the registry digest
+    like every other field here."""
 
     def deco(fn: F) -> F:
         solver_id = f"{namespace}.{fn.__name__}"  # ty: ignore[unresolved-attribute]
@@ -90,6 +110,8 @@ def solver(
             conservative_for=conservative_for,
             tags=tags,
             raw_fn=fn,
+            eps_seeking=eps_seeking,
+            cost_curve=cost_curve,
         )
         fn.solver_direction = (info, wrapped)  # ty: ignore[unresolved-attribute]
         return fn

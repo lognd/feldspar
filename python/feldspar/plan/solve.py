@@ -157,7 +157,7 @@ def solve(
                 return Ok(cached)
 
         exec_result = execute_with_attribution(
-            route, registry, known, payloads, step_cache
+            route, registry, known, payloads, step_cache, eps_budget
         )
         if exec_result.is_err:
             failing_id, serr = exec_result.danger_err

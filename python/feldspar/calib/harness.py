@@ -19,6 +19,7 @@ from feldspar.calib._models import CalibRecord
 from feldspar.calib.errors import CalibError
 from feldspar.calib.store import read_record, write_record
 from feldspar.logging_setup import get_logger
+from feldspar.solve._build import invoke_solve_fn
 from feldspar.solve._models import EXACT, SolverInfo
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.solver import SolveFn
@@ -133,8 +134,8 @@ def calibrate(
         cand_point = {p: v for p, v in point.items() if p in cand_info.inputs}
         ref_point = {p: v for p, v in point.items() if p in ref_info.inputs}
 
-        cand_result = cand_fn(cand_point)
-        ref_result = ref_fn(ref_point)
+        cand_result = invoke_solve_fn(cand_fn, cand_point)
+        ref_result = invoke_solve_fn(ref_fn, ref_point)
 
         if cand_result.is_err or ref_result.is_err:
             _log.debug(
@@ -255,7 +256,7 @@ def resweep_derived(
             point[port] = rng.uniform(iv.lo, iv.hi)
 
         cand_inputs = {p: v for p, v in point.items() if p in info.inputs}
-        result = fn(cand_inputs)
+        result = invoke_solve_fn(fn, cand_inputs)
         if result.is_err:
             _log.debug(
                 "resweep_derived: %s skipping sample (solve err=%r)",

@@ -27,8 +27,21 @@ from feldspar.core import Accuracy, Domain, Interval
 from feldspar.solve import digest as _digest
 from feldspar.solve._models import Citation, ClaimSenses, SolveOutput, SolverInfo
 from feldspar.solve.errors import SolveError
+from feldspar.solve.seeking import CostCurve
 
 RawReturn = Union[Result, SolveOutput, Mapping[str, float], float, int]
+# The public one-argument protocol (01-interfaces, unchanged by WO-13):
+# a hand-registered `SolveFn` (`registry.register(info, fn)` directly,
+# `examples/solvers/00_raw_protocol.py`, `tests/unit/test_calib.py`'s
+# fixtures) is `(Mapping[str, float]) -> Result[...]` and NOTHING calls
+# it any other way. WO-13's `eps_seeking` solvers are the one exception:
+# `wrap_solve_fn` below stamps `.eps_seeking = True` on the wrapped
+# callable it returns (mirroring `fea/solver.py`'s existing
+# `.probe_tools` attribute-tagging convention), and `plan/execute.py`/
+# `calib/harness.py` probe that attribute to decide whether to also
+# pass the remaining eps budget as a second positional argument --
+# never by widening this type (every non-eps-seeking SolveFn, wrapped
+# or raw, keeps working exactly as before).
 SolveFn = Callable[[Mapping[str, float]], "Result[SolveOutput, SolveError]"]
 
 
@@ -78,18 +91,32 @@ def coerce_accuracy(
     return dict(accuracy)
 
 
-def wrap_solve_fn(raw_fn: Callable[..., Any], outputs: Tuple[str, ...]) -> SolveFn:
+def wrap_solve_fn(
+    raw_fn: Callable[..., Any],
+    outputs: Tuple[str, ...],
+    eps_seeking: bool = False,
+) -> SolveFn:
     """F13/F14/F16 return normalization: the author-facing return type is
     `Result | SolveOutput | Mapping | float` (float only with exactly one
     output); this wraps it into the strict `SolveFn` protocol
     (`Result[SolveOutput, SolveError]`) every registered solver has.
     Raising remains a programmer bug (F13), same as `Interval`'s direct-
     construction-raises precedent -- never converted into a SolveError
-    value here."""
+    value here.
+
+    WO-13: `wrapped` is stamped `.eps_seeking = eps_seeking` (module
+    docstring's attribute-tagging convention); when `True`, `raw_fn`
+    itself is called AS `(x, eps_budget)` so an author's `eps_seeking=
+    True` solver body can drive its own ladder (09 sec. 3) -- the
+    executor calls `wrapped(x, eps_budget)` only for tagged solvers,
+    every other (untagged) `SolveFn` keeps its original one-argument
+    call untouched."""
     single_output = outputs[0] if len(outputs) == 1 else None
 
-    def wrapped(x: Mapping[str, float]) -> "Result[SolveOutput, SolveError]":
-        raw = raw_fn(x)
+    def wrapped(
+        x: Mapping[str, float], eps_budget: Optional[float] = None
+    ) -> "Result[SolveOutput, SolveError]":
+        raw = raw_fn(x, eps_budget) if eps_seeking else raw_fn(x)
         if isinstance(raw, Result):
             if raw.is_err:
                 return raw
@@ -109,7 +136,25 @@ def wrap_solve_fn(raw_fn: Callable[..., Any], outputs: Tuple[str, ...]) -> Solve
             f"{raw_fn!r} returned an unrecognized SolveFn type: {type(raw)!r}"
         )
 
+    wrapped.eps_seeking = eps_seeking  # ty: ignore[unresolved-attribute]
     return wrapped
+
+
+def invoke_solve_fn(
+    fn: SolveFn, x: Mapping[str, float], eps_budget: Optional[float] = None
+) -> "Result[SolveOutput, SolveError]":
+    """The ONE call-site for invoking a registered `SolveFn` (WO-13, 09
+    sec. 3): probes the `.eps_seeking` attribute `wrap_solve_fn` stamps
+    to decide whether to also pass `eps_budget` -- every caller
+    (`plan/execute.py`'s corner sweep, `calib/harness.py`'s sampling
+    loops) goes through this so the branch exists in exactly one place
+    (house rule: no duplication). A raw hand-registered `SolveFn` with
+    no such attribute (`registry.register(info, fn)` directly,
+    `examples/solvers/00_raw_protocol.py`) is called with the original
+    one argument, unchanged."""
+    if getattr(fn, "eps_seeking", False):
+        return fn(x, eps_budget)  # ty: ignore[too-many-positional-arguments]
+    return fn(x)
 
 
 def build_solver_info_and_fn(
@@ -137,6 +182,8 @@ def build_solver_info_and_fn(
     derivation_digest: Optional[str] = None,
     law_lhs: Optional[Any] = None,
     law_rhs: Optional[Any] = None,
+    eps_seeking: bool = False,
+    cost_curve: Optional[CostCurve] = None,
 ) -> Tuple[SolverInfo, SolveFn]:
     """The one lowering path from author-facing (sugared or raw)
     arguments to a registered `(SolverInfo, SolveFn)` pair."""
@@ -171,5 +218,7 @@ def build_solver_info_and_fn(
         derivation_digest=derivation_digest,
         law_lhs=law_lhs,
         law_rhs=law_rhs,
+        eps_seeking=eps_seeking,
+        cost_curve=cost_curve,
     )
-    return info, wrap_solve_fn(raw_fn, outputs_tuple)
+    return info, wrap_solve_fn(raw_fn, outputs_tuple, eps_seeking=eps_seeking)

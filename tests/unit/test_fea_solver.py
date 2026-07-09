@@ -9,6 +9,7 @@ from feldspar.fea.mesh import MeshSettings
 from feldspar.fea.solver import (
     SolveSettings,
     ToolVersions,
+    _fold_ladder_settings_digest,
     _fold_settings_digest,
     register,
 )
@@ -114,6 +115,45 @@ def test_fold_changes_when_feldspar_version_changes() -> None:
 
 def test_fold_deterministic_for_identical_inputs() -> None:
     assert _base_digest() == _base_digest()
+
+
+def test_ladder_fold_changes_when_a_rung_char_length_changes() -> None:
+    """WO-13: the ladder-policy fold `cantilever` uses -- changing any
+    rung's char_length (not just the h/h2 pair) must move the digest."""
+    base = (
+        _MESH_H,
+        _MESH_H2,
+        MeshSettings(family="cantilever", element_type="C3D20", char_length=0.005),
+        MeshSettings(family="cantilever", element_type="C3D20", char_length=0.0025),
+    )
+    other = (
+        _MESH_H,
+        _MESH_H2,
+        MeshSettings(family="cantilever", element_type="C3D20", char_length=0.006),
+        base[3],
+    )
+    assert _fold_ladder_settings_digest(
+        base, _SETTINGS, _TOOL_VERSIONS
+    ) != _fold_ladder_settings_digest(other, _SETTINGS, _TOOL_VERSIONS)
+
+
+def test_ladder_fold_changes_when_a_rung_is_added() -> None:
+    shorter = (_MESH_H, _MESH_H2)
+    longer = (
+        _MESH_H,
+        _MESH_H2,
+        MeshSettings(family="cantilever", element_type="C3D20", char_length=0.005),
+    )
+    assert _fold_ladder_settings_digest(
+        shorter, _SETTINGS, _TOOL_VERSIONS
+    ) != _fold_ladder_settings_digest(longer, _SETTINGS, _TOOL_VERSIONS)
+
+
+def test_ladder_fold_deterministic() -> None:
+    rungs = (_MESH_H, _MESH_H2)
+    assert _fold_ladder_settings_digest(
+        rungs, _SETTINGS, _TOOL_VERSIONS
+    ) == _fold_ladder_settings_digest(rungs, _SETTINGS, _TOOL_VERSIONS)
 
 
 def test_register_succeeds_on_fresh_registry() -> None:

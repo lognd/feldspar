@@ -152,6 +152,22 @@ enumeration of the numeric surface.
 | abstraction edge: payload feature out of domain (G7 hole-in-root) | Err(OutOfDomain) value at EXECUTION; fallback reroute lands the next tier; deterministic twice |
 | one-sided abstraction edge, wrong-sense request | edge absent (A-3/G4 unchanged by payloads) |
 
+## Budget-seeking + cost curves (WO-13)
+
+| case | required behavior |
+|---|---|
+| zero remaining eps budget reaches an eps_seeking step | ladder climbs to exhaustion; `Err(SolveError.LadderExhausted(best_eps, budget=0.0, rungs_tried))`, never a false success |
+| budget met at rung 0 (first Richardson pair already fits) | climb stops after the mandatory 2-rung pair; zero extra rungs run |
+| ladder exhaustion (every rung tried, none fits) | `Err(LadderExhausted)` carrying the best eps actually achieved -- honest indeterminate, never a silent downgrade |
+| non-monotone eps ladder (a finer rung's pair reports WORSE eps) | loud `RuntimeError` -- a solver/ladder-policy bug, never a `Result` value |
+| no budget context (`eps_budget=None`, bare `execute()` call) | runs exactly the fixed first pair (pre-WO-13 behavior), never seeks further |
+| same budget, same registry, run twice | identical rungs climbed, identical eps, identical value (determinism) |
+| looser later request over the same scalar box | reuses every already-cached coarser rung (`RungCache` hit); only strictly-finer NEW rungs run |
+| `cost_curve` query at a budget tighter than every declared point | reports the finest (most expensive) point's cost -- conservative, never an under-estimate |
+| `cost_curve` query at a budget looser than every declared point | reports the coarsest (cheapest) point's cost |
+| scalar (non-eps-seeking) solver's cost | unaffected: planner still reads only `SolverInfo.cost`; `cost_curve` stays `None` |
+| eps_seeking solver's raw body signature | `(x, eps_budget)`, tagged `.eps_seeking` on the wrapped `SolveFn` (`_build.wrap_solve_fn`); a plain/raw `SolveFn` keeps the one-argument call unchanged |
+
 ## Symbolic core (WO-11)
 
 | case | required behavior |

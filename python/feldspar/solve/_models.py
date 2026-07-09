@@ -13,6 +13,7 @@ from typing import Any, Literal, Mapping, Optional, Tuple
 from pydantic import BaseModel, ConfigDict, Field
 
 from feldspar.core import Accuracy
+from feldspar.solve.payload import PayloadRef
 
 
 class Citation(BaseModel):
@@ -88,12 +89,16 @@ class SolveOutput(BaseModel):
     DX F16). `measured_eps` replaces the declared accuracy ceiling for
     measuring solvers (FEA, Richardson); validity (non-negative, finite)
     is an EXECUTOR check (WO-06, `SolveError.InvalidMeasurement`), not
-    enforced at construction here."""
+    enforced at construction here. `payloads` (WO-12, 09 sec. 4) carries
+    any payload-rank output ports' `PayloadRef` values -- exact by
+    reference, so unlike `values` they are never corner-swept or hulled
+    (the executor requires them corner-INVARIANT instead)."""
 
     model_config = ConfigDict(frozen=True)
 
     values: Mapping[str, float]
     measured_eps: Optional[float] = None
+    payloads: Mapping[str, PayloadRef] = {}
 
 
 #: `Accuracy(0.0, 0.0)`; the EXACT constant (01-interfaces `feldspar.solve.EXACT`).

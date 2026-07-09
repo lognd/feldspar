@@ -195,3 +195,55 @@ def test_output_in_declared_box_still_succeeds():
     route = plan(registry, known, frozenset(), "narrow.b", _GENEROUS_EPS).danger_ok
     result = execute(route, registry, known)
     assert result.is_ok, result.err
+
+
+def _registry_with_eps_seeking_output_box() -> SolverRegistry:
+    """A solver whose declared output box is wide enough for the RAW
+    output hull but not for that hull inflated by the step's own
+    realized `step_eps` (L1: `_check_step_output_domain` must check the
+    eps-inflated hull, matching the input-side admission filter's
+    posture at execute.py:443)."""
+    registry = SolverRegistry()
+
+    @solver(
+        namespace="eps",
+        inputs=("eps.a",),
+        outputs=("eps.b",),
+        domain=Domain(
+            box={
+                "eps.a": Interval(0.0, 100.0),
+                "eps.b": Interval(0.0, 100.0),
+            },
+            tags=frozenset(),
+        ),
+        cost=1.0,
+        accuracy={"eps.b": Accuracy(eps_abs=5.0, eps_rel=0.0)},
+        citations=(Citation(kind="handbook", ref="test fixture"),),
+        version="1",
+    )
+    def eps_seeking_step(x):
+        from typani import Ok
+
+        # Raw hull sits at [99, 100] -- inside the [0, 100] box on its
+        # own, but [99-5, 100+5] = [94, 105] (the step's own eps_abs=5
+        # folded in) escapes it on the high side.
+        return Ok({"eps.b": 99.0 if x["eps.a"] < 5.5 else 100.0})
+
+    assert registry.register(*eps_seeking_step.solver_direction).is_ok
+    registry.freeze()
+    return registry
+
+
+def test_output_out_of_domain_only_after_step_eps_inflation():
+    """L1 regression: raw hull ([99, 100]) is a subset of the declared
+    box ([0, 100]), but the step's own realized eps (5.0) inflates it
+    to [94, 105], which escapes the box -- must be the named
+    `OutputOutOfDomain` failure, not a silent pass."""
+    registry = _registry_with_eps_seeking_output_box()
+    known = {"eps.a": Interval(5.0, 6.0)}
+    route = plan(registry, known, frozenset(), "eps.b", 10.0).danger_ok
+    result = execute(route, registry, known)
+    assert result.is_err
+    err = result.danger_err
+    assert err.kind == "OutputOutOfDomain"
+    assert err.port == "eps.b"

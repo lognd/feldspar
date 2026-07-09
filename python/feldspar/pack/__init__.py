@@ -27,7 +27,7 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's five regolith models on `registry` (a
+    """Registers feldspar's six regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 

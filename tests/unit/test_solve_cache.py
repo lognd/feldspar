@@ -360,6 +360,29 @@ def test_cache_miss_when_tool_vanished_since_cached_success(tmp_path) -> None:
     assert cache.get(key, route, registry) is None
 
 
+def test_cache_key_changes_when_feldspar_version_changes(monkeypatch, tmp_path) -> None:
+    """M1 regression: `feldspar_version` is folded into `cache_key`
+    (plan/cache.py:141) precisely so an engine-logic change (a version
+    bump) invalidates caches persisted under the old key -- a stale
+    Solution must never be served across a version change."""
+    import feldspar.plan.cache as cache_mod
+
+    registry = _registry_direct()
+    known = {"sc.x": Interval(1.0, 2.0)}
+    route = plan(registry, known, frozenset(), "sc.y", 10.0).danger_ok
+
+    key_before = cache_mod.cache_key(
+        registry, known, frozenset(), "sc.y", 10.0, "both", route
+    )
+
+    monkeypatch.setattr(cache_mod, "__version__", "9.9.9")
+    key_after = cache_mod.cache_key(
+        registry, known, frozenset(), "sc.y", 10.0, "both", route
+    )
+
+    assert key_before != key_after
+
+
 def test_deterministic_false_route_never_cached(tmp_path) -> None:
     registry = SolverRegistry()
 

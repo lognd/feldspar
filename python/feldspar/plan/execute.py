@@ -213,7 +213,7 @@ def _check_step_output(
 
 
 def _check_step_output_domain(
-    info: Any, hull: Mapping[str, Interval]
+    info: Any, hull: Mapping[str, Interval], step_eps: float
 ) -> "Result[None, SolveError]":
     """The execution-time twin of the planner's INPUT-only admission
     filter (`feldspar_core::search`, 04-routing point 2): a solver's
@@ -223,10 +223,15 @@ def _check_step_output_domain(
     checking it at plan time would make every `Relation`-declared
     multi-direction solver permanently unroutable -- the bug this
     function's addition closes). Checked here, once, against the
-    realized (already eps-inflated-consistent) output hull, so an
-    out-of-box output is an honest `SolveError` the fallback reroute
-    (04-routing "Fallback rerouting") handles like any other step
-    failure -- never a silent pass."""
+    realized output hull INFLATED BY this step's own realized `step_eps`
+    -- the same `inflate()` the input-side admission filter applies
+    (:443) -- not the raw hull: the honest-conservative posture of the
+    rest of the pipeline is that a value's error band is part of the
+    value for admission purposes, so a hull that is in-box but whose
+    error band escapes it is still an out-of-domain result. An
+    out-of-box (post-inflation) output is an honest `SolveError` the
+    fallback reroute (04-routing "Fallback rerouting") handles like any
+    other step failure -- never a silent pass."""
     for port, allowed in info.domain.box.items():
         value = hull.get(port)
         if value is None:
@@ -234,12 +239,13 @@ def _check_step_output_domain(
             # entry, or a port this step doesn't touch at all) -- nothing
             # to check here.
             continue
-        if not value.is_subset(allowed):
+        inflated = inflate(value, step_eps)
+        if not inflated.is_subset(allowed):
             return Err(
                 SolveError.OutputOutOfDomain(
                     port=port,
-                    lo=value.lo,
-                    hi=value.hi,
+                    lo=inflated.lo,
+                    hi=inflated.hi,
                     box_lo=allowed.lo,
                     box_hi=allowed.hi,
                 )
@@ -547,7 +553,7 @@ def _execute_impl(
                 step_cache.put(step_key, hull, produced_refs, step_eps)
         _log.debug("execute: step %s realized_eps=%s", step.solver_id, step_eps)
 
-        domain_check = _check_step_output_domain(info, hull)
+        domain_check = _check_step_output_domain(info, hull, step_eps)
         if domain_check.is_err:
             _log.warning(
                 "execute: step %s realized output out of declared domain: %r",

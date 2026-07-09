@@ -1,27 +1,24 @@
 from __future__ import annotations
 
-"""Fluid-mechanics closed-form solver directions (WO-20 Phase 2).
+"""Incompressible fluid-mechanics closed-form solver directions (WO-20 Phase 2).
 
 Pure marshalling over `feldspar._feldspar.fluids_*` (the single Rust
-home of each formula, `crates/feldspar-library/src/fluids.rs`): no math
+home of each formula, `crates/feldspar-library/src/fluids/`): no math
 is reimplemented in Python here (NO DUPLICATION). Every direction
 declares `accuracy=EXACT` following the `mech.py` precedent (A-7): each
 solver evaluates its OWN declared closed-form model exactly, even where
-that model (Haaland, the Fanno function) is itself a textbook
-approximation of physical reality -- the model is the contract, and
-these compute it to floating-point precision.
+that model (Haaland) is itself a textbook approximation of physical
+reality -- the model is the contract, and these compute it to
+floating-point precision.
 
 Scope note (WO-20 close-out): this module covers the acceptance-tested
 slice of the 07 `fluids` catalog -- internal flow (Poiseuille,
 Colebrook/Haaland, Darcy-Weisbach, minor-K), series/parallel network
-reduction, turbomachinery (pump operating point, NPSH), Joukowsky
-water hammer, and the D141 compressible tier (isentropic relations,
-normal shocks, the Fanno function as the per-segment building block for
-gas-subnet Fanno-line delivery). Hydrostatics, external flow, open
-channel, flow measurement (ISO 5167), oblique shocks/CD-nozzle
-operation, and full multi-branch Hardy-Cross/Fanno NETWORK solving over
-resolved `flownet` payload bytes are EXPLICITLY CUT and flagged in the
-WO-20 close-out report -- not silently dropped."""
+reduction, turbomachinery (pump operating point, NPSH), and Joukowsky
+water hammer. Hydrostatics, external flow, open channel, flow
+measurement (ISO 5167), and full multi-branch Hardy-Cross NETWORK
+solving over resolved `flownet` payload bytes are EXPLICITLY CUT and
+flagged in the WO-20 close-out report -- not silently dropped."""
 
 from typani import Ok
 
@@ -42,7 +39,6 @@ _WHITE = "White, Fluid Mechanics, 8th ed."
 _CRANE = "Crane Technical Paper 410, Flow of Fluids Through Valves, Fittings, and Pipe"
 _CENGEL = "Cengel & Cimbala, Fluid Mechanics: Fundamentals and Applications, latest ed."
 _WYLIE = "Wylie & Streeter, Fluid Transients in Systems, ch. 1 (Joukowsky equation)"
-_ANDERSON = "Anderson, Modern Compressible Flow, 3rd ed."
 _COLEBROOK_PAPER = "Colebrook, Turbulent Flow in Pipes, J. Inst. Civ. Eng., 1939"
 _HAALAND_PAPER = (
     "Haaland, Simple and Explicit Formulas for the Friction Factor "
@@ -424,172 +420,10 @@ def joukowsky_dp(x):
     )
 
 
-# ---------------------------------------------------------------------------
-# Compressible tier (D141): isentropic relations, normal shock, Fanno.
-# Registered under the SAME `fluids` namespace/claim ports the
-# incompressible entries use (dp/friction_factor family), distinguished
-# by `Domain.tags` ("compressible" vs "incompressible") so the planner's
-# regime screening routes a beyond-regime gas case here (proven both
-# ways in tests/unit/test_library_fluids.py).
-# ---------------------------------------------------------------------------
+def register(registry: SolverRegistry) -> int:
+    """Registers every incompressible fluids Phase 2 direction (WO-20).
 
-_COMPRESSIBLE_CITATIONS = (Citation(kind="handbook", ref=_ANDERSON, note="ch. 3"),)
-
-
-@solver(
-    namespace="fluids",
-    inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
-    outputs=("fluids.compressible.stagnation_temp_ratio",),
-    domain=Domain(
-        box={
-            "fluids.compressible.mach": Interval(0.0, 5.0),
-            "fluids.gas.gamma": Interval(1.1, 1.8),
-        },
-        tags={"compressible"},
-    ),
-    cost=1e-7,
-    accuracy=EXACT,
-    citations=_COMPRESSIBLE_CITATIONS,
-    version="1",
-)
-def isentropic_stagnation_temp_ratio(x):
-    mach = x["fluids.compressible.mach"]
-    gamma = x["fluids.gas.gamma"]
-    return Ok(
-        {
-            "fluids.compressible.stagnation_temp_ratio": (
-                _feldspar.fluids_isentropic_stagnation_temp_ratio(mach, gamma)
-            )
-        }
-    )
-
-
-@solver(
-    namespace="fluids",
-    inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
-    outputs=("fluids.compressible.stagnation_pressure_ratio",),
-    domain=Domain(
-        box={
-            "fluids.compressible.mach": Interval(0.0, 5.0),
-            "fluids.gas.gamma": Interval(1.1, 1.8),
-        },
-        tags={"compressible"},
-    ),
-    cost=1e-7,
-    accuracy=EXACT,
-    citations=_COMPRESSIBLE_CITATIONS,
-    version="1",
-)
-def isentropic_stagnation_pressure_ratio(x):
-    mach = x["fluids.compressible.mach"]
-    gamma = x["fluids.gas.gamma"]
-    return Ok(
-        {
-            "fluids.compressible.stagnation_pressure_ratio": (
-                _feldspar.fluids_isentropic_stagnation_pressure_ratio(mach, gamma)
-            )
-        }
-    )
-
-
-@solver(
-    namespace="fluids",
-    inputs=("fluids.compressible.mach_upstream", "fluids.gas.gamma"),
-    outputs=("fluids.compressible.mach_downstream",),
-    domain=Domain(
-        box={
-            "fluids.compressible.mach_upstream": Interval(1.0, 5.0),
-            "fluids.gas.gamma": Interval(1.1, 1.8),
-        },
-        tags={"compressible", "normal_shock"},
-    ),
-    cost=1e-7,
-    accuracy=EXACT,
-    citations=_COMPRESSIBLE_CITATIONS,
-    version="1",
-)
-def normal_shock_mach2(x):
-    mach1 = x["fluids.compressible.mach_upstream"]
-    gamma = x["fluids.gas.gamma"]
-    return Ok(
-        {
-            "fluids.compressible.mach_downstream": _feldspar.fluids_normal_shock_mach2(
-                mach1, gamma
-            )
-        }
-    )
-
-
-@solver(
-    namespace="fluids",
-    inputs=("fluids.compressible.mach_upstream", "fluids.gas.gamma"),
-    outputs=("fluids.compressible.shock_pressure_ratio",),
-    domain=Domain(
-        box={
-            "fluids.compressible.mach_upstream": Interval(1.0, 5.0),
-            "fluids.gas.gamma": Interval(1.1, 1.8),
-        },
-        tags={"compressible", "normal_shock"},
-    ),
-    cost=1e-7,
-    accuracy=EXACT,
-    citations=_COMPRESSIBLE_CITATIONS,
-    version="1",
-)
-def normal_shock_pressure_ratio(x):
-    mach1 = x["fluids.compressible.mach_upstream"]
-    gamma = x["fluids.gas.gamma"]
-    return Ok(
-        {
-            "fluids.compressible.shock_pressure_ratio": (
-                _feldspar.fluids_normal_shock_pressure_ratio(mach1, gamma)
-            )
-        }
-    )
-
-
-_FANNO_CITATIONS = (
-    Citation(kind="handbook", ref=_ANDERSON, note="ch. 3, Fanno flow"),
-    Citation(
-        kind="handbook",
-        ref=(
-            "Shapiro, The Dynamics and Thermodynamics of Compressible "
-            "Fluid Flow, vol. 1, ch. 6"
-        ),
-    ),
-)
-
-
-@solver(
-    namespace="fluids",
-    inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
-    outputs=("fluids.compressible.fanno_function",),
-    domain=Domain(
-        box={
-            "fluids.compressible.mach": Interval(1e-3, 5.0),
-            "fluids.gas.gamma": Interval(1.1, 1.8),
-        },
-        tags={"compressible", "fanno"},
-    ),
-    cost=1e-7,
-    accuracy=EXACT,
-    citations=_FANNO_CITATIONS,
-    version="1",
-)
-def fanno_function(x):
-    mach = x["fluids.compressible.mach"]
-    gamma = x["fluids.gas.gamma"]
-    return Ok(
-        {
-            "fluids.compressible.fanno_function": _feldspar.fluids_fanno_function(
-                mach, gamma
-            )
-        }
-    )
-
-
-def register(registry: SolverRegistry) -> None:
-    """Registers every fluids Phase 2 direction (WO-20)."""
+    Returns the count of directions registered."""
     directions = [
         laminar_friction_factor.solver_direction,  # ty: ignore[unresolved-attribute]
         colebrook_friction_factor.solver_direction,  # ty: ignore[unresolved-attribute]
@@ -600,11 +434,6 @@ def register(registry: SolverRegistry) -> None:
         parallel_flow.solver_direction,  # ty: ignore[unresolved-attribute]
         npsh_available.solver_direction,  # ty: ignore[unresolved-attribute]
         joukowsky_dp.solver_direction,  # ty: ignore[unresolved-attribute]
-        isentropic_stagnation_temp_ratio.solver_direction,  # ty: ignore[unresolved-attribute]
-        isentropic_stagnation_pressure_ratio.solver_direction,  # ty: ignore[unresolved-attribute]
-        normal_shock_mach2.solver_direction,  # ty: ignore[unresolved-attribute]
-        normal_shock_pressure_ratio.solver_direction,  # ty: ignore[unresolved-attribute]
-        fanno_function.solver_direction,  # ty: ignore[unresolved-attribute]
     ]
     count = 0
     for direction in directions:
@@ -614,4 +443,4 @@ def register(registry: SolverRegistry) -> None:
     result_pump = pump_operating_point.register(registry)
     _ = result_pump.danger_ok
     count += 2
-    _log.info("fluids: registered %d solver directions", count)
+    return count

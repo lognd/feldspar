@@ -90,6 +90,24 @@ class RegistryError(_TaggedError):
     def BadTable(cls, reason: str) -> "RegistryError":
         return cls("BadTable", reason=reason)
 
+    # Payload-port declaration failures (WO-12, 09 sec. 4): kind
+    # checking at registration mirrors unit checking, so these two are
+    # the payload twins of `PortUnitConflict`/`UnknownPort`.
+
+    @classmethod
+    def PayloadKindConflict(cls, port: str) -> "RegistryError":
+        """Two declarations of the same port name with DIFFERENT payload
+        kinds (e.g. `mesh` vs `spectrum`) -- the 09 sec. 4 registration
+        error, same shape as a unit mismatch."""
+        return cls("PayloadKindConflict", port=port)
+
+    @classmethod
+    def UnknownPayloadKind(cls, port: str, payload_kind: str) -> "RegistryError":
+        """A payload-rank declaration whose kind string is not in the
+        09 sec. 4 table (`feldspar.solve.PAYLOAD_KINDS`, the single
+        vocabulary home)."""
+        return cls("UnknownPayloadKind", port=port, payload_kind=payload_kind)
+
     # Symbolic declaration-time failures (WO-11, `Relation.law`):
     # `_feldspar.SymbolicErrorRaised` gets caught and re-wrapped into
     # one of these four variants at the Python boundary, matching
@@ -159,3 +177,35 @@ class SolveError(_TaggedError):
     @classmethod
     def NoRouteRemaining(cls, attempts: Any) -> "SolveError":
         return cls("NoRouteRemaining", attempts=attempts)
+
+    @classmethod
+    def PayloadKindMismatch(
+        cls, port: str, expected_kind: str, actual_kind: str
+    ) -> "SolveError":
+        """WO-12 (09 sec. 4): a payload value arrived at `port` whose
+        `kind` does not match the port's declared payload kind. This is
+        the EXECUTION-time twin of `RegistryError.PortRankConflict` --
+        registration already rejects two SOLVERS declaring the same port
+        name with different payload kinds, but a caller can still hand a
+        wrong-kind `PayloadRef` value to a correctly-registered port at
+        solve time, and that is this variant's job to catch."""
+        return cls(
+            "PayloadKindMismatch",
+            port=port,
+            expected_kind=expected_kind,
+            actual_kind=actual_kind,
+        )
+
+    @classmethod
+    def MissingPayload(cls, port: str) -> "SolveError":
+        """WO-12 (09 sec. 4, 02-edge-cases): a payload port had no value
+        at all where one was required."""
+        return cls("MissingPayload", port=port)
+
+    @classmethod
+    def DanglingDigest(cls, digest: str) -> "SolveError":
+        """WO-12 (09 sec. 4, 02-edge-cases): a `PayloadRef.digest` that
+        the orchestrator-provided `PayloadResolver` could not find any
+        content for (a payload in a digest is its hash, per 09 sec. 4 --
+        but the store behind that hash is not feldspar's to guarantee)."""
+        return cls("DanglingDigest", digest=digest)

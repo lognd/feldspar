@@ -132,6 +132,26 @@ enumeration of the numeric surface.
 | explain after reroute | full attempt trail rendered |
 | golden stability | byte-identical across runs and platforms |
 
+## Payload ports (WO-12)
+
+| case | required behavior |
+|---|---|
+| same port declared `payload(mesh)` and `payload(spectrum)` | Err(PayloadKindConflict) -- the unit-mismatch mirror |
+| payload decl with a kind outside the 09 sec. 4 table | Err(UnknownPayloadKind) naming port and kind |
+| same port declared scalar and `payload(kind)` | Err(PortRankConflict) (unchanged rank rule) |
+| wrong-kind PayloadRef supplied at execution | Err(PayloadKindMismatch) naming both kinds |
+| declared payload port, no ref supplied | Err(MissingPayload), never a KeyError |
+| ref whose digest the store cannot resolve | solver's Err(DanglingDigest) surfaces with step attribution |
+| declared payload output absent from SolveOutput.payloads | Err(MissingOutput) (A-4 extended) |
+| payload output varies across corners | Err(InvalidMeasurement) -- payloads are exact by reference |
+| two requests differing only in a payload's digest | distinct request digests (FINV-12: a payload in a digest is its hash) |
+| two refs same digest, different `origin` | identical request digests (origin is provenance, never folds) |
+| cantilever geometry.parametric -> mesh -> fea | routed as two registry edges; twice-run route digest identical |
+| second solve consuming the same mesh payload | mesh step is a step-cache HIT (hit count +1); mesher runs once ever |
+| tier labels permuted on payload edges | identical Route (FINV-8 unchanged by payloads) |
+| abstraction edge: payload feature out of domain (G7 hole-in-root) | Err(OutOfDomain) value at EXECUTION; fallback reroute lands the next tier; deterministic twice |
+| one-sided abstraction edge, wrong-sense request | edge absent (A-3/G4 unchanged by payloads) |
+
 ## Symbolic core (WO-11)
 
 | case | required behavior |

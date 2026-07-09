@@ -13,6 +13,7 @@ from feldspar.logging_setup import get_logger
 from feldspar.solve import digest as _digest
 from feldspar.solve._models import SolverInfo
 from feldspar.solve.errors import RegistryError
+from feldspar.solve.payload import PAYLOAD_KINDS
 from feldspar.solve.solver import SolveFn
 
 _log = get_logger(__name__)
@@ -37,6 +38,23 @@ class SolverRegistry:
             _log.warning("declare_ports rejected: registry is frozen")
             return Err(RegistryError.Frozen())
         for decl in decls:
+            # WO-12 (09 sec. 4): a payload-rank declaration's kind string
+            # must come from the one vocabulary home (PAYLOAD_KINDS) --
+            # checked before any conflict logic so a typo'd kind is named
+            # as such, never mis-reported as a conflict.
+            if decl.rank.kind == "payload":
+                declared_kind = decl.rank.payload_kind or ""
+                if declared_kind not in PAYLOAD_KINDS:
+                    _log.warning(
+                        "unknown payload kind %r declared for port %s",
+                        declared_kind,
+                        decl.name,
+                    )
+                    return Err(
+                        RegistryError.UnknownPayloadKind(
+                            port=decl.name, payload_kind=declared_kind
+                        )
+                    )
             existing = self._ports.get(decl.name)
             if existing is None:
                 self._ports[decl.name] = decl
@@ -55,6 +73,23 @@ class SolverRegistry:
                     decl.unit,
                 )
                 return Err(RegistryError.PortUnitConflict(port=decl.name))
+            # WO-12: two payload declarations of the same port with
+            # DIFFERENT kinds get the dedicated kind-conflict error (the
+            # unit-mismatch mirror, 09 sec. 4) rather than the generic
+            # rank conflict -- connecting `mesh` to `spectrum` must be
+            # named as a KIND error.
+            if (
+                existing.rank.kind == "payload"
+                and decl.rank.kind == "payload"
+                and existing.rank.payload_kind != decl.rank.payload_kind
+            ):
+                _log.warning(
+                    "payload kind conflict for %s: %s vs %s",
+                    decl.name,
+                    existing.rank.payload_kind,
+                    decl.rank.payload_kind,
+                )
+                return Err(RegistryError.PayloadKindConflict(port=decl.name))
             if existing.rank != decl.rank:
                 _log.warning(
                     "port rank conflict for %s: %s vs %s",

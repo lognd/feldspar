@@ -5,13 +5,18 @@ from __future__ import annotations
 "Solve cache"). The one entry point that ties WO-05's `plan()` and this
 WO's `execute()`/`SolveCache` together into the caller-facing facade."""
 
-from typing import TYPE_CHECKING, Iterator, Mapping, Tuple
+from typing import TYPE_CHECKING, Iterator, Mapping, Optional, Tuple
 
 from typani.result import Err, Ok, Result
 
 from feldspar.core import Interval, total_error
 from feldspar.logging_setup import get_logger
-from feldspar.plan.cache import SolveCache, cache_key, is_route_cacheable
+from feldspar.plan.cache import (
+    PayloadStepCache,
+    SolveCache,
+    cache_key,
+    is_route_cacheable,
+)
 from feldspar.plan.errors import PlanError
 from feldspar.plan.execute import (
     AttemptRecord,
@@ -23,6 +28,7 @@ from feldspar.plan.policy import RoutePolicy
 from feldspar.plan.route import Route, plan
 from feldspar.solve._models import ClaimSenses
 from feldspar.solve.errors import SolveError
+from feldspar.solve.payload import PayloadRef
 
 if TYPE_CHECKING:
     from feldspar.solve.registry import SolverRegistry
@@ -61,6 +67,8 @@ def solve(
     eps_budget: float,
     sense: "ClaimSenses | str" = ClaimSenses.BOTH,
     policy: "RoutePolicy | None" = None,
+    payloads: Optional[Mapping[str, PayloadRef]] = None,
+    step_cache: Optional[PayloadStepCache] = None,
 ) -> "Result[Solution, SolveError | PlanError]":
     """`plan()` then `execute()` (01-interfaces `solve`), with:
 
@@ -79,17 +87,34 @@ def solve(
     `Solution.attempts`/`SolveError.NoRouteRemaining(attempts)` trail,
     so a reroute is fully reconstructable from the return value alone,
     not just the logs (though every reroute is ALSO logged at WARNING,
-    per the logging mantra)."""
+    per the logging mantra).
+
+    WO-12: `payloads` names the request's known payload-port refs (they
+    fold into the request digest as their hashes, FINV-12, and pass to
+    every step exact-by-reference); payload-touching deterministic steps
+    go through the per-step `PayloadStepCache` (default-constructed when
+    `policy.cache` and none is injected; inject one to observe hit
+    counts or share a root across solves)."""
     if policy is None:
         policy = RoutePolicy()
     resolved_sense = ClaimSenses.coerce(sense)
     cache = SolveCache() if policy.cache else None
+    if step_cache is None and policy.cache:
+        step_cache = PayloadStepCache()
     excluded: "frozenset[str]" = frozenset()
     attempts: list = []
 
     while True:
         view = _ExcludingRegistryView(registry, excluded)
-        plan_result = plan(view, known, tags, target, eps_budget, resolved_sense)  # ty: ignore[invalid-argument-type]
+        plan_result = plan(
+            view,  # ty: ignore[invalid-argument-type]
+            known,
+            tags,
+            target,
+            eps_budget,
+            resolved_sense,
+            payloads,
+        )
         if plan_result.is_err:
             perr = plan_result.danger_err
             kind, detail = error_to_record_fields(perr)
@@ -118,13 +143,22 @@ def solve(
         cacheable = policy.cache and is_route_cacheable(route, registry)
         if cache is not None and cacheable:
             cache_hit_key = cache_key(
-                registry, known, tags, target, eps_budget, resolved_sense, route
+                registry,
+                known,
+                tags,
+                target,
+                eps_budget,
+                resolved_sense,
+                route,
+                payloads,
             )
             cached = cache.get(cache_hit_key, route, registry)
             if cached is not None:
                 return Ok(cached)
 
-        exec_result = execute_with_attribution(route, registry, known)
+        exec_result = execute_with_attribution(
+            route, registry, known, payloads, step_cache
+        )
         if exec_result.is_err:
             failing_id, serr = exec_result.danger_err
             kind, detail = error_to_record_fields(serr)

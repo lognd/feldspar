@@ -853,3 +853,81 @@ Tolerance: exact (rel 1e-9), pure arithmetic.
 Case count, section 11: 3 closed-form bearing-life cases.
 
 ---
+
+## 12. Lumped-capacitance thermal transient (feldspar WO-24 deliverable
+6, `python/feldspar/library/thermal_transient.py`)
+
+These cases back the `heat.transient.*` directions. Incropera &
+DeWitt, Fundamentals of Heat and Mass Transfer, 7th ed., ch. 5 sec.
+5.1-5.2, single-node governing ODE `C_th*dT/dt = P - (T-T_amb)/R_th`.
+Common fixture across 12.1-12.3: `T_amb = 298.15 K` (25 C),
+`P = 5.0 W`, `R_th = 20.0 K/W`, `C_th = 2.0 J/K` -> `tau = R_th*C_th
+= 40.0 s`, asymptotic steady rise `P*R_th = 100.0 K`. All cases
+assume `Bi < 0.1` (caller-asserted, not derived in these worked
+values -- the Biot GATE itself has no numeric worked case here since
+it is a pure inequality check, not a formula with a reference
+answer).
+
+### 12.1 Step response, T(t) = T_amb + P*R_th*(1-exp(-t/tau))  [exact]
+
+At `t = tau = 40.0 s` (one time constant, the textbook ~63.2% mark):
+
+    rise = 100.0 * (1 - exp(-1)) = 100.0 * 0.6321205588... = 63.21205588 K
+    T = 298.15 + 63.21205588 = 361.36205588 K
+
+At `t = 5*tau = 200.0 s` (textbook ~99.3% mark):
+
+    rise = 100.0 * (1 - exp(-5)) = 99.32620530... K
+    T = 397.47620530 K
+
+Tolerance: exact (rel 1e-9), closed-form transcendental (`exp`
+evaluated in floating point, no series truncation).
+
+### 12.2 Time-to-threshold, invert 12.1 for t  [exact]
+
+Threshold `T_thresh = T_amb + 63.21205588... K` (the exact 12.1
+one-tau rise, chosen so the inverted time recovers `tau` itself as a
+closed-form self-check):
+
+    needed = 63.21205588... K, steady = 100.0 K
+    t = -40.0 * ln(1 - 63.21205588.../100.0) = -40.0 * ln(exp(-1))
+      = -40.0 * (-1) = 40.0 s
+
+Matches `tau` exactly by construction (tolerance: exact, rel 1e-9) --
+the algebraic inverse of 12.1 recovers its own input.
+
+### 12.3 Duty-cycle peak temperature, periodic square-wave forcing
+[exact]
+
+`t_on = 2.0 s`, `t_off = 8.0 s` (period 10 s, duty 0.2), same
+`tau = 40.0 s` fixture:
+
+    a = exp(-2.0/40.0) = exp(-0.05) = 0.9512294245...
+    b = exp(-8.0/40.0) = exp(-0.2)  = 0.8187307531...
+    rise = 100.0 * (1-a)/(1-a*b) = 100.0 * 0.0487705755 / 0.2212088...
+         = 22.04825866 K
+    T_peak = 298.15 + 22.04825866 = 320.19825866 K
+
+Tolerance: exact (rel 1e-9), closed-form (two `exp` evaluations, no
+series truncation).
+
+**Two limiting-case sanity checks** (not separately asserted as
+their own numeric fixtures, but load-bearing for the derivation's
+honesty -- verified by direct substitution, not merely claimed):
+
+- `t_off -> 0` (continuous power, duty -> 1): `b -> 1`, and the
+  fraction `(1-a)/(1-a*b) -> (1-a)/(1-a) = 1`, so `rise -> P*R_th =
+  100.0 K`, the 12.1 asymptote -- continuous power recovers the
+  ordinary step response's steady state exactly, as it must.
+- Switching period `<< tau` (`t_on = 0.001 s`, `t_off = 0.004 s`,
+  duty `d = 0.2`, same `tau = 40.0 s`): numerically, `rise =
+  20.001000012...` K, matching the quasi-steady average-power
+  reduction `P*d*R_th = 5.0*0.2*20.0 = 20.0` K to 5 significant
+  figures -- the standard power-electronics "average-power" duty
+  derating heuristic is this direction's own high-switching-
+  frequency limit, not a separate assumption bolted on.
+
+Case count, section 12: 3 closed-form thermal-transient cases (+2
+limiting-case derivation checks, not independent fixtures).
+
+---

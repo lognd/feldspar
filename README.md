@@ -203,10 +203,11 @@ three graph rows sharing one metadata block.
 
 feldspar cannot be exercised as a pack from this repo alone (it needs
 a real lithos/regolith checkout, `make install-regolith`); the claim
-contract is pinned by `tests/regolith/test_pack_closed_form_models.py`
-and `python/feldspar/pack/models.py`. `feldspar.pack.register()`
+contract is pinned by `tests/regolith/test_pack_closed_form_models.py`,
+`tests/regolith/test_pack_wo24_exposure.py`, and
+`python/feldspar/pack/models.py`. `feldspar.pack.register()`
 (the `regolith.plugins` entry point target, `feldspar.pack:MANIFEST`)
-registers six `regolith.harness.Model` instances:
+registers twelve `regolith.harness.Model` instances:
 
 | model | claim kind | sense | required inputs |
 |---|---|---|---|
@@ -216,6 +217,30 @@ registers six `regolith.harness.Model` instances:
 | `MechStiffnessModel` | `mech.stiffness` | lower bound (floor) | `e_modulus`, `i_area`, `length` (SI: Pa, m^4, m) |
 | `ElecRailModel` (lo) | `elec.rail.lo` | lower bound | `vin`, `r1`, `r2`, `rload` (SI: V, ohm, ohm, ohm) |
 | `ElecRailModel` (hi) | `elec.rail.hi` | upper bound | `vin`, `r1`, `r2`, `rload` (SI: V, ohm, ohm, ohm) |
+| `MemberFlexuralCapacityModel` | `mech.member.flexural_capacity` | lower bound (floor) | `mech.member.flexure.{fy,zx}` (AISC 360-16 F2.1) |
+| `MemberAxialCapacityModel` | `mech.member.axial_capacity` | lower bound (floor) | `mech.member.axial.{fy,ag,e,kl_over_r}` (AISC 360-16 E3) |
+| `EulerBucklingLoadModel` | `mech.member.euler_buckling_load` | lower bound (floor) | `mech.member.euler.{e,i,k,length}` (Timoshenko/Shigley) |
+| `BoltLoadFactorModel` | `mech.joint.bolt_load_factor` | lower bound (floor) | `mech.joint.bolt.{cb,cp,fv,fa}` (VDI 2230 Blatt 1) |
+| `WeldUtilizationModel` | `mech.weld.utilization` | upper bound (ceiling) | `mech.weld.group.{inplane_line_force,bending_line_force,leg_size,allowable_stress}` (Shigley/Blodgett/AWS D1.1) |
+| `BearingRatingLifeModel` | `mech.bearing.rating_life_hours` | lower bound (floor) | `mech.bearing.{l10,speed_rpm}` (ISO 281:2007) |
+
+The last six (cycle-33 pack-exposure wave) wrap WO-24 library-depth
+directions that already existed in `_engine_registry()` (via
+`library.member_capacity`/`library.bolted_joints`/
+`library.weld_groups`/`library.bearing_life`) with no prior regolith
+`Model` wrapper -- they went through `_ClosedFormEngineModel`
+(`pack/models.py`), the SAME convert -> `solve()` -> convert-back
+plumbing `_FeaModel` uses, at the cheapest (`cost=1`) tier since no
+FEA is involved. NOT every landed WO-24 direction is exposed:
+intermediate distribution outputs a caller composes into one of the
+top-level claims above (`bolt_group_shear_torsion`/
+`bolt_group_tension_from_moment`, `weld_group_inplane_shear_torsion`/
+`weld_group_outofplane_bending`, `bearing_basic_rating_life_l10_ball`/
+`_l10_roller`) and the entire `thermal_transient.py` module (its
+lithos-side claim-kind names are decided but registration is scoped to
+a FUTURE lithos-side model pack, per that module's own docstring) are
+named residuals, not oversights -- see `pack/models.py`'s "cycle-33
+pack-exposure wave" section comment for the full reasoning.
 
 `MechStiffnessModel` computes `k = 3*E*I/L**3` (the exact algebraic
 inverse of the cantilever tip-deflection formula at unit force, cost

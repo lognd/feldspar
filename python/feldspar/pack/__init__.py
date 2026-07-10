@@ -28,6 +28,7 @@ from feldspar.pack.models import (  # noqa: E402
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
+    LeadscrewTorqueRaiseModel,
     MechStiffnessModel,
     MemberAxialCapacityModel,
     MemberFlexuralCapacityModel,
@@ -45,7 +46,7 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's twenty regolith models on `registry` (a
+    """Registers feldspar's twenty-one regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 
@@ -69,6 +70,17 @@ def register(registry: Any) -> None:
     `weld_group_inplane_shear_torsion`/`_outofplane_bending` do for
     `WeldUtilizationModel` (intermediate unit quantities, not
     independently sense-bearing claims).
+
+    WO-24 remainder dispatch (deliverable 7, leadscrew half only):
+    `library.leadscrew.py`'s `leadscrew_torque_raise` direction is
+    exposed as `LeadscrewTorqueRaiseModel`, a ceiling claim (required
+    drive torque <= available motor/actuator torque) -- collar
+    friction (`leadscrew_collar_torque`) and the self-locking margin
+    (`leadscrew_self_locking_margin`) stay internal-only residuals, a
+    caller composes them separately (that module's own docstring has
+    the full reasoning). The belt half of deliverable 7 (GT2-class
+    tooth shear/tension ratings) is NOT built at all -- no regolith
+    exposure to record because no `@solver` direction exists yet.
 
     WO-25 signal-integrity wave: `MicrostripImpedanceModel`/
     `StriplineImpedanceModel` (two instances each, one per `within
@@ -117,6 +129,7 @@ def register(registry: Any) -> None:
     registry.register(WeldUtilizationModel())
     registry.register(BearingRatingLifeModel())
     registry.register(FatigueGoodmanFactorOfSafetyModel())
+    registry.register(LeadscrewTorqueRaiseModel())
     registry.register(
         MicrostripImpedanceModel(
             claim_kind=DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND,
@@ -146,7 +159,7 @@ def register(registry: Any) -> None:
     registry.register(TheveninTerminationR2Model())
     registry.register(AcShuntResistorModel())
     registry.register(AcShuntCapacitorModel())
-    _log.info("feldspar.pack: registered 20 regolith model(s)")
+    _log.info("feldspar.pack: registered 21 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

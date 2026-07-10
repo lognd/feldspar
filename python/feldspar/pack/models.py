@@ -124,6 +124,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.fluids import register as register_fluids
     from feldspar.library.fluids import register_network as register_fluids_network
     from feldspar.library.heat import register as register_heat
+    from feldspar.library.leadscrew import register as register_leadscrew
     from feldspar.library.mech import register as register_mech
     from feldspar.library.member_capacity import register as register_member_capacity
     from feldspar.library.signal_integrity import register as register_signal_integrity
@@ -140,6 +141,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_weld_groups(registry)
     register_bearing_life(registry)
     register_fatigue(registry)
+    register_leadscrew(registry)
     register_signal_integrity(registry)
     register_fluids(registry)
     register_heat(registry)
@@ -988,6 +990,7 @@ DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND = "mech.joint.bolt_load_factor"
 DEFAULT_WELD_UTILIZATION_CLAIM_KIND = "mech.weld.utilization"
 DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND = "mech.bearing.rating_life_hours"
 DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND = "mech.fatigue.factor_of_safety"
+DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND = "mech.drive.leadscrew_torque_raise"
 
 
 class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
@@ -1230,6 +1233,45 @@ class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
             sense=ClaimSense.lower_bound(),
             inputs=self._inputs,
             domain=("steel", "hcf", "fatigue_governs", "kf_pre_applied"),
+        )
+
+
+class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
+    """Square-thread power-screw torque to raise a load
+    (`library.leadscrew.leadscrew_torque_raise`), a ceiling claim: the
+    REQUIRED drive torque must stay AT OR BELOW the caller's available
+    motor/actuator torque (the caller's own obligation states that
+    limit; same "this model reports the demand, the obligation states
+    the supply" shape `WeldUtilizationModel`'s ratio uses). Thrust-
+    collar friction (`leadscrew_collar_torque`) and the self-locking
+    margin are NOT folded in here -- named residuals, a caller
+    composes them separately (same "caller composes" seam every
+    WO-24 module uses, `library.leadscrew`'s own module docstring has
+    the full reasoning)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.drive.leadscrew.torque_raise",
+            inputs=(
+                "mech.drive.leadscrew.force",
+                "mech.drive.leadscrew.dm",
+                "mech.drive.leadscrew.lead",
+                "mech.drive.leadscrew.friction",
+            ),
+            engine_tags=frozenset({"square_thread", "no_collar"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_leadscrew_torque_raise",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("square_thread", "no_collar", "no_acme_correction"),
         )
 
 

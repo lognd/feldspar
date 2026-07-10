@@ -1112,3 +1112,57 @@ numeric factors, composed but not derived here); the Goodman
 derivation (Neuber/Figure 6-20, caller pre-applies Kf).
 
 ---
+
+## 15. Leadscrew (square-thread power screw) drive sizing -- LEADSCREW
+half of WO-24 deliverable 7
+
+Source: Shigley's Mechanical Engineering Design, 11th ed., ch. 8 sec.
+8-2 ("The Mechanics of Power Screws"), square-thread only. Every
+formula below is EXACT ALGEBRA (a statics result from unrolling one
+thread as an inclined plane) -- calibration is HAND-COMPUTED exact
+arithmetic against a self-consistent worked case, not a published
+numeric table (none exists to calibrate an exact closed form against,
+same precedent as sec. 9's Euler buckling case and sec. 8.1's VDI
+2230 bolt-load-factor case).
+
+Worked case: `F = 1000 N`, `dm = 0.010 m` (10 mm mean diameter),
+`lead = 0.002 m` (2 mm, single thread), `f = 0.15`.
+
+    TR = (F*dm/2)*((lead+pi*f*dm)/(pi*dm-f*lead))
+       = 5*((0.002+0.0047124)/(0.0314159-0.0003))
+       = 5*(0.0067124/0.0311159) = 1.078610 N*m
+
+    TL = (F*dm/2)*((pi*f*dm-lead)/(pi*dm+f*lead))
+       = 5*((0.0047124-0.002)/(0.0314159+0.0003))
+       = 5*(0.0027124/0.0317159) = 0.427607 N*m   (positive -> screw
+         IS self-locking)
+
+    e = F*lead/(2*pi*TR) = 1000*0.002/(2*pi*1.078610) = 0.295111
+
+    tan(lambda) = lead/(pi*dm) = 0.002/(pi*0.010) = 0.063662
+    self_locking_margin = f - tan(lambda) = 0.15-0.063662 = 0.086338
+        (positive -> self-locking, consistent with TL>0 above)
+
+Collar torque (independent exact case): `F=1000 N, fc=0.15, dc=0.020
+m -> Tc = F*fc*dc/2 = 1.5 N*m` (exact product, no rounding).
+
+Sanity check (low-friction, non-self-locking case): the SAME `dm`/
+`lead` with `f=0.02` gives `TL < 0` and `self_locking_margin < 0`
+consistently (the screw back-drives without applied torque) --
+`tests/unit/test_library_leadscrew.py` pins both signs.
+
+Case count, section 15: 1 TR case + 1 TL case (+ 1 sign-consistency
+sanity case) + 1 efficiency case + 1 self-locking-margin case (+ 1
+sign-consistency sanity case) + 1 collar-torque case = 6 numeric
+fixtures + 2 sign-consistency sanity checks.
+
+**Named cuts** (module `python/feldspar/library/leadscrew.py`
+docstring has the full reasoning): ACME-thread wedging correction
+(friction terms divided by cos(alpha)); critical (whirling) speed
+(needs an end-support-factor table, its own citation surface); belt
+(GT2-class tooth shear/tension ratings, WO-24 deliverable 7's OTHER
+named half) -- NOT STARTED, no manufacturer belt-tooth rating table
+was transcribed or verified within this dispatch's research budget,
+recorded whole in the WO-24 ledger, not half-landed.
+
+---

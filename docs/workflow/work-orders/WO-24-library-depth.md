@@ -22,6 +22,13 @@ invented physics.
 
 ## Deliverables (each = model + citations + calibration + predicates + registration)
 
+0. Member capacity forms (added per lithos D176, closing the
+   WO-21/23 cut-1 seam consumer-side): AISC 360-16 F2 compact-
+   section flexural yield (Mp = Fy*Zx, phi_b) and E3 axial
+   yield/flexural-buckling basic forms, over caller-supplied section
+   properties (Zx/A/r from record data) + material Fy -- cited,
+   calibrated against hand-computed cases, validity predicates
+   narrow (compact, braced; LTB stays the recorded WO-23 cut).
 1. Bolted joints: VDI 2230-class single-bolt tier (preload, load
    factor, working-load margins) + bolt-group shear/tension
    distribution (elastic method).

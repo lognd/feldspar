@@ -120,6 +120,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.fea.solver import register as register_fea
     from feldspar.library.bearing_life import register as register_bearing_life
     from feldspar.library.bolted_joints import register as register_bolted_joints
+    from feldspar.library.fatigue import register as register_fatigue
     from feldspar.library.fluids import register as register_fluids
     from feldspar.library.fluids import register_network as register_fluids_network
     from feldspar.library.heat import register as register_heat
@@ -138,6 +139,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_bolted_joints(registry)
     register_weld_groups(registry)
     register_bearing_life(registry)
+    register_fatigue(registry)
     register_signal_integrity(registry)
     register_fluids(registry)
     register_heat(registry)
@@ -985,6 +987,7 @@ DEFAULT_EULER_BUCKLING_LOAD_CLAIM_KIND = "mech.member.euler_buckling_load"
 DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND = "mech.joint.bolt_load_factor"
 DEFAULT_WELD_UTILIZATION_CLAIM_KIND = "mech.weld.utilization"
 DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND = "mech.bearing.rating_life_hours"
+DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND = "mech.fatigue.factor_of_safety"
 
 
 class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
@@ -1184,6 +1187,49 @@ class BearingRatingLifeModel(_ClosedFormEngineModel):
             sense=ClaimSense.lower_bound(),
             inputs=self._inputs,
             domain=("iso_281", "constant_speed", "basic_rating", "no_a_iso"),
+        )
+
+
+class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
+    """Modified-Goodman fatigue factor of safety, fatigue-governs
+    branch (`library.fatigue.fatigue_goodman_factor_of_safety`), a
+    floor claim: `factor_of_safety` must stay AT OR ABOVE the
+    caller's stated margin (typically `1.0`). Takes the already-
+    Marin-composed `Se` and an already-Kf-multiplied
+    `sigma_a`/`sigma_m` pair directly -- the Marin composition
+    (`fatigue_marin_endurance_limit`) and the Kf notch-sensitivity
+    multiplication both stay caller-resolved upstream steps, same
+    "caller-resolved aggregate" seam `BearingRatingLifeModel`'s `L10`
+    input uses (WO-24 deliverable 4's own module docstring has the
+    full named-cut reasoning: no static-yielding branch, no Kf
+    derivation, no Marin factor-table transcription beyond the one
+    calibrated Table 6-2 row)."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.fatigue.goodman.factor_of_safety",
+            inputs=(
+                "mech.fatigue.goodman.se",
+                "mech.fatigue.goodman.sut",
+                "mech.fatigue.goodman.sigma_a",
+                "mech.fatigue.goodman.sigma_m",
+            ),
+            engine_tags=frozenset({"steel", "hcf", "fatigue_governs"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_fatigue_goodman_factor_of_safety",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("steel", "hcf", "fatigue_governs", "kf_pre_applied"),
         )
 
 

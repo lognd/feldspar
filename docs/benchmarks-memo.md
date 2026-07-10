@@ -1029,3 +1029,86 @@ cases (3 exact, 1 heuristic-pinned) = 9 numeric fixtures, plus the
 `diff_pair_z` named cut.
 
 ---
+
+## 14. Shaft/member fatigue: Marin-modified endurance limit + modified
+Goodman (WO-24 deliverable 4)
+
+Source: Shigley's Mechanical Engineering Design, 11th ed., ch. 6
+(Fatigue Failure Resulting from Variable Loading). All numeric values
+below reproduce a fully worked axially-loaded fatigue example from a
+ch. 6 class-notes companion for Shigley 11e (a 40 mm diameter
+AISI-1045 CD steel bar, machined surface, fluctuating tensile load
+0..100 kN, end-fillet stress concentration Kf=1.85 pre-applied) --
+every intermediate number below is independently reproduced by
+`tests/unit/test_library_fatigue.py`, not merely copied from the
+source.
+
+### 14.1 Baseline endurance limit (eq. 6-8, steel, Sut <= 1400 MPa)
+
+    Se' = 0.5*Sut
+
+    Sut = 630 MPa -> Se' = 315 MPa (exact).
+
+### 14.2 Surface-condition Marin factor ka (Table 6-2)
+
+    ka = a*Sut^b   (Sut in MPa)
+
+Machined/cold-drawn row: a=4.51, b=-0.265.
+
+    Sut = 630 MPa -> ka = 4.51*630^-0.265 = 0.8177 (matches the
+    source's own rounded worked value, ka=0.817, to 3 sig figs).
+
+Only this one row is independently calibrated; `a`/`b` are
+caller-supplied ports in `library.fatigue.fatigue_marin_surface_factor`
+(no lookup table baked in -- see that module's docstring).
+
+### 14.3 Marin-modified endurance limit (eq. 6-18)
+
+    Se = ka*kb*kc*kd*ke*Se'
+
+Axial loading case: kb=1 (axial, per eq. 6-20's own kb=1 axial
+special case), kc=0.85 (axial, sec. 6-9 load-type table), kd=ke=1
+(no temperature/reliability derating applied in the source example).
+
+    ka=0.817, kb=1, kc=0.85, kd=1, ke=1, Se'=315 MPa
+    -> Se = 0.817*0.85*315 = 218.75 MPa (matches the source's own
+       rounded worked value, Se=218.8 MPa).
+
+### 14.4 Modified-Goodman fatigue factor of safety (eq. 6-46,
+fatigue-governs branch)
+
+    r = sigma_a/sigma_m
+    Sa = r*Se*Sut/(r*Sut+Se)
+    Sm = Sa/r
+    nf = 1/(sigma_a/Se + sigma_m/Sut)   (equivalently Sa/sigma_a)
+
+Worked case: d=40 mm bar, A=pi/4*d^2=1257 mm^2, fluctuating tensile
+load 0..100 kN, Kf=1.85 (end fillet):
+
+    sigma_max = 100e3/1257 = 79.6 MPa, sigma_min = 0
+    sigma_mo = sigma_ao = (sigma_max-sigma_min)/2 = 39.8 MPa
+    sigma_m = sigma_a = Kf*39.8 = 1.85*39.8 = 73.6 MPa  (Kf applied
+        to BOTH components, per the source's own convention)
+
+    r = sigma_a/sigma_m = 1
+    Sa = Sm = 1*218.8*630/(630+218.8) = 162.4 MPa
+    nf = Sa/sigma_a = 162.4/73.6 = 2.207 (matches the source's own
+         rounded worked value, nf=2.21).
+
+Case count, section 14: 1 baseline case + 1 surface-factor case + 1
+Marin-composed Se case + 1 Goodman factor-of-safety case (all four
+chained from the SAME worked example, each independently pinned) + 1
+pure-alternating (sigma_m=0) degenerate-limit sanity case = 5 numeric
+fixtures.
+
+**Named cuts** (module `python/feldspar/library/fatigue.py`
+docstring has the full reasoning): the `Sut > 1400 MPa` Se' plateau
+branch; every Table 6-2 surface-condition row except machined/
+cold-drawn (a/b are caller-supplied, not a baked table); the kb
+(size, Table 6-3), kd (temperature, eq. 6-27), ke (reliability,
+Table 6-5) modifying-factor derivations themselves (caller-supplied
+numeric factors, composed but not derived here); the Goodman
+`r < r_crit` static-yielding branch; the Kf notch-sensitivity
+derivation (Neuber/Figure 6-20, caller pre-applies Kf).
+
+---

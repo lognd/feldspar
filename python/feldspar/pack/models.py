@@ -109,12 +109,14 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.fluids import register_network as register_fluids_network
     from feldspar.library.heat import register as register_heat
     from feldspar.library.mech import register as register_mech
+    from feldspar.library.member_capacity import register as register_member_capacity
     from feldspar.library.thermo import register as register_thermo
 
     engine_resolver = resolver if resolver is not None else NoStoreResolver()
 
     registry = SolverRegistry()
     register_mech(registry)
+    register_member_capacity(registry)
     register_fluids(registry)
     register_heat(registry)
     register_thermo(registry)
@@ -720,8 +722,7 @@ class MechStiffnessModel(Model):
                     worst = min(worst, stiffness)
 
         _log.info(
-            "%s: worst-corner stiffness=%s over e_modulus=%s i_area=%s "
-            "length=%s",
+            "%s: worst-corner stiffness=%s over e_modulus=%s i_area=%s length=%s",
             self.model_id,
             worst,
             e_modulus,

@@ -79,6 +79,20 @@ Wave 3 -- after their named gates:
       cut) and unresolved joint coordinates for inclined members. Full
       cut list in the WO-21 file's close-out; a follow-up WO should
       pick up the registry-resolution channel first.
+- [x] **WO-23** PARTIAL (2026-07-09 dispatch): tributary-transfer
+      load-path resolution (`Bearing(tributary=width|area)` ->
+      member UDLs), demand extraction, and a SCOPED
+      `civil.utilization` AISC H1-1 combined axial-flexure numeric
+      check landed, all Python-side in `struct.py` (no Rust changes
+      -- scalar arithmetic over the existing solver's outputs).
+      Fixture mirrors the lithos calcite corpus's `small_office`
+      `G2_AB` girder-under-slab shape end to end. NOT landed:
+      section/material CAPACITY resolution (still WO-21's cut 1,
+      the largest blocker for a REAL run), buckling/connection
+      checks, and the lithos corpus conformance run itself (lithos
+      WO-65). Two lithos-side escalations recorded in the WO-23
+      file's close-out (a `frame` payload `transfers` field; a
+      capacity-bearing registry-resolution channel).
 
 Standing:
 

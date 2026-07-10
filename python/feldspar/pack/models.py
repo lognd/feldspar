@@ -52,6 +52,13 @@ __all__ = [
     "BoltLoadFactorModel",
     "WeldUtilizationModel",
     "BearingRatingLifeModel",
+    "MicrostripImpedanceModel",
+    "StriplineImpedanceModel",
+    "SeriesTerminationModel",
+    "TheveninTerminationR1Model",
+    "TheveninTerminationR2Model",
+    "AcShuntResistorModel",
+    "AcShuntCapacitorModel",
 ]
 
 # Vocabulary-owned default claim kinds (06 "Models", DECIDED D94/WO-30
@@ -118,6 +125,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.heat import register as register_heat
     from feldspar.library.mech import register as register_mech
     from feldspar.library.member_capacity import register as register_member_capacity
+    from feldspar.library.signal_integrity import register as register_signal_integrity
     from feldspar.library.thermal_transient import register as register_thermal
     from feldspar.library.thermo import register as register_thermo
     from feldspar.library.weld_groups import register as register_weld_groups
@@ -130,6 +138,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_bolted_joints(registry)
     register_weld_groups(registry)
     register_bearing_life(registry)
+    register_signal_integrity(registry)
     register_fluids(registry)
     register_heat(registry)
     register_thermal(registry)
@@ -1175,4 +1184,264 @@ class BearingRatingLifeModel(_ClosedFormEngineModel):
             sense=ClaimSense.lower_bound(),
             inputs=self._inputs,
             domain=("iso_281", "constant_speed", "basic_rating", "no_a_iso"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# WO-25 signal-integrity wave: `library.signal_integrity`'s directions
+# (Hammerstad-Jensen microstrip, Cohn exact stripline, exact-algebra
+# termination sizing) exposed the SAME way the cycle-33 pack-exposure
+# wave above exposed WO-24's -- thin `_ClosedFormEngineModel` binds, no
+# physics duplicated here (lithos design-log 2026-07-10-cycle-32 D186,
+# lithos:docs/spec/toolchain/35-signal-integrity.md sec. 1.6).
+#
+# Impedance claims lower to TWO obligations (D186 sec. 1 point 2,
+# `elec.impedance(<net|class>) within [lo, hi] ohm`), the SAME shape
+# `ElecRailModel` uses for `elec.rail.lo`/`.hi`: `MicrostripImpedanceModel`
+# and `StriplineImpedanceModel` each take a `sense` at construction and
+# `pack.register()` instantiates each twice (once per half).
+#
+# `diff_pair_z` (deliverable 1's third impedance form) is NOT exposed --
+# `library.signal_integrity` never registered it (named cut, see that
+# module's own docstring: no independently verifiable published
+# numeric table could be confirmed within the WO-25 dispatch's research
+# budget). This is a residual to RECORD, not an oversight to silently
+# paper over.
+# ---------------------------------------------------------------------------
+
+DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND = "elec.si.microstrip_z0.lo"
+DEFAULT_MICROSTRIP_Z0_HI_CLAIM_KIND = "elec.si.microstrip_z0.hi"
+DEFAULT_STRIPLINE_Z0_LO_CLAIM_KIND = "elec.si.stripline_z0.lo"
+DEFAULT_STRIPLINE_Z0_HI_CLAIM_KIND = "elec.si.stripline_z0.hi"
+DEFAULT_SERIES_TERMINATION_CLAIM_KIND = "elec.si.series_termination.rs"
+DEFAULT_THEVENIN_TERMINATION_R1_CLAIM_KIND = "elec.si.thevenin_termination.r1"
+DEFAULT_THEVENIN_TERMINATION_R2_CLAIM_KIND = "elec.si.thevenin_termination.r2"
+DEFAULT_AC_SHUNT_R_CLAIM_KIND = "elec.si.ac_shunt.r"
+DEFAULT_AC_SHUNT_C_CLAIM_KIND = "elec.si.ac_shunt.c"
+
+
+class MicrostripImpedanceModel(_ClosedFormEngineModel):
+    """Hammerstad-Jensen microstrip characteristic impedance
+    (`library.signal_integrity.microstrip_z0`), one instance per
+    `within [lo, hi]` half (D186 sec. 1 point 2, mirrors `ElecRailModel`):
+    `sense=lower_bound()` for the `.lo` floor half (the worst-corner
+    LOW Z0 over the input box must still clear the claim's lower
+    limit), `sense=upper_bound()` for the `.hi` ceiling half."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str,
+        sense: ClaimSense,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.microstrip.z0",
+            inputs=(
+                "elec.si.microstrip.w",
+                "elec.si.microstrip.h",
+                "elec.si.microstrip.t",
+                "elec.si.microstrip.er",
+            ),
+            engine_tags=frozenset({"tem", "surface_microstrip", "hammerstad_jensen"}),
+        )
+        self._sense = sense
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name=f"elec_si_microstrip_z0_{'hi' if self._sense.upper else 'lo'}",
+            claim_kind=self._claim_kind,
+            sense=self._sense,
+            inputs=self._inputs,
+            domain=("tem", "surface_microstrip", "hammerstad_jensen"),
+        )
+
+
+class StriplineImpedanceModel(_ClosedFormEngineModel):
+    """Cohn's exact symmetric-stripline characteristic impedance
+    (`library.signal_integrity.stripline_z0`), one instance per
+    `within [lo, hi]` half (same shape as `MicrostripImpedanceModel`
+    above)."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str,
+        sense: ClaimSense,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.stripline.z0",
+            inputs=(
+                "elec.si.stripline.w",
+                "elec.si.stripline.b",
+                "elec.si.stripline.er",
+            ),
+            engine_tags=frozenset(
+                {"tem", "symmetric_stripline", "centred_track", "zero_thickness"}
+            ),
+        )
+        self._sense = sense
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name=f"elec_si_stripline_z0_{'hi' if self._sense.upper else 'lo'}",
+            claim_kind=self._claim_kind,
+            sense=self._sense,
+            inputs=self._inputs,
+            domain=(
+                "tem",
+                "symmetric_stripline",
+                "centred_track",
+                "zero_thickness",
+            ),
+        )
+
+
+class SeriesTerminationModel(_ClosedFormEngineModel):
+    """Source-series termination resistor sizing
+    (`library.signal_integrity.series_termination`), a floor claim:
+    the caller's chosen `Rs` must be AT LEAST the worst-corner sized
+    value (INV-9 conservative-low corner) so the series+driver
+    impedance never UNDER-shoots the line's Z0."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_SERIES_TERMINATION_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.series_termination.rs",
+            inputs=(
+                "elec.si.series_termination.z0",
+                "elec.si.series_termination.ro",
+            ),
+            engine_tags=frozenset({"source_series", "matched_line"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="elec_si_series_termination_rs",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("source_series", "matched_line", "johnson_graham_ch4"),
+        )
+
+
+class TheveninTerminationR1Model(_ClosedFormEngineModel):
+    """Thevenin (parallel) termination pull-up leg sizing
+    (`library.signal_integrity.thevenin_termination_r1`), a floor
+    claim over the same three inputs `TheveninTerminationR2Model`
+    consumes (the algebraic twin, D94: one model MAY register under
+    multiple kinds -- here two SEPARATE kinds share one input set,
+    same posture as `ElecRailModel`'s two obligation halves)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_THEVENIN_TERMINATION_R1_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.thevenin_termination.r1",
+            inputs=(
+                "elec.si.thevenin_termination.z0",
+                "elec.si.thevenin_termination.vcc",
+                "elec.si.thevenin_termination.vbias",
+            ),
+            engine_tags=frozenset({"thevenin_parallel", "matched_line"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="elec_si_thevenin_termination_r1",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("thevenin_parallel", "matched_line", "johnson_graham_ch4"),
+        )
+
+
+class TheveninTerminationR2Model(_ClosedFormEngineModel):
+    """Thevenin (parallel) termination pull-down leg sizing
+    (`library.signal_integrity.thevenin_termination_r2`), the
+    algebraic twin of `TheveninTerminationR1Model` (SAME derivation,
+    the other unknown -- NO DUPLICATION)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_THEVENIN_TERMINATION_R2_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.thevenin_termination.r2",
+            inputs=(
+                "elec.si.thevenin_termination.z0",
+                "elec.si.thevenin_termination.vcc",
+                "elec.si.thevenin_termination.vbias",
+            ),
+            engine_tags=frozenset({"thevenin_parallel", "matched_line"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="elec_si_thevenin_termination_r2",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("thevenin_parallel", "matched_line", "johnson_graham_ch4"),
+        )
+
+
+class AcShuntResistorModel(_ClosedFormEngineModel):
+    """AC shunt termination resistor sizing
+    (`library.signal_integrity.ac_shunt_sizing_r`), a floor claim: `R`
+    matches `Z0` exactly (the matched-shunt condition), exact
+    algebra."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_AC_SHUNT_R_CLAIM_KIND) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.ac_shunt.r",
+            inputs=("elec.si.ac_shunt.z0",),
+            engine_tags=frozenset({"ac_shunt"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="elec_si_ac_shunt_sizing_r",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("ac_shunt", "johnson_graham_ch4"),
+        )
+
+
+class AcShuntCapacitorModel(_ClosedFormEngineModel):
+    """AC shunt termination capacitor sizing
+    (`library.signal_integrity.ac_shunt_sizing_c`), a floor claim over
+    the quarter-rise-time heuristic (NAMED heuristic, wide declared
+    accuracy -- see the library module's own docstring; this wrapper
+    adds no additional approximation, it only routes to the already-
+    honestly-declared direction)."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_AC_SHUNT_C_CLAIM_KIND) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="elec.si.ac_shunt.c",
+            inputs=("elec.si.ac_shunt.rise_time", "elec.si.ac_shunt.r"),
+            engine_tags=frozenset({"ac_shunt", "quarter_rise_time_heuristic"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="elec_si_ac_shunt_sizing_c",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("ac_shunt", "quarter_rise_time_heuristic", "johnson_graham_ch4"),
         )

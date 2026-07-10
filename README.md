@@ -204,10 +204,11 @@ three graph rows sharing one metadata block.
 feldspar cannot be exercised as a pack from this repo alone (it needs
 a real lithos/regolith checkout, `make install-regolith`); the claim
 contract is pinned by `tests/regolith/test_pack_closed_form_models.py`,
-`tests/regolith/test_pack_wo24_exposure.py`, and
+`tests/regolith/test_pack_wo24_exposure.py`,
+`tests/regolith/test_pack_wo25_exposure.py`, and
 `python/feldspar/pack/models.py`. `feldspar.pack.register()`
 (the `regolith.plugins` entry point target, `feldspar.pack:MANIFEST`)
-registers twelve `regolith.harness.Model` instances:
+registers nineteen `regolith.harness.Model` instances:
 
 | model | claim kind | sense | required inputs |
 |---|---|---|---|
@@ -223,8 +224,17 @@ registers twelve `regolith.harness.Model` instances:
 | `BoltLoadFactorModel` | `mech.joint.bolt_load_factor` | lower bound (floor) | `mech.joint.bolt.{cb,cp,fv,fa}` (VDI 2230 Blatt 1) |
 | `WeldUtilizationModel` | `mech.weld.utilization` | upper bound (ceiling) | `mech.weld.group.{inplane_line_force,bending_line_force,leg_size,allowable_stress}` (Shigley/Blodgett/AWS D1.1) |
 | `BearingRatingLifeModel` | `mech.bearing.rating_life_hours` | lower bound (floor) | `mech.bearing.{l10,speed_rpm}` (ISO 281:2007) |
+| `MicrostripImpedanceModel` (lo) | `elec.si.microstrip_z0.lo` | lower bound | `elec.si.microstrip.{w,h,t,er}` (Hammerstad-Jensen, Wadell 1991) |
+| `MicrostripImpedanceModel` (hi) | `elec.si.microstrip_z0.hi` | upper bound | `elec.si.microstrip.{w,h,t,er}` (Hammerstad-Jensen, Wadell 1991) |
+| `StriplineImpedanceModel` (lo) | `elec.si.stripline_z0.lo` | lower bound | `elec.si.stripline.{w,b,er}` (Cohn 1954 exact) |
+| `StriplineImpedanceModel` (hi) | `elec.si.stripline_z0.hi` | upper bound | `elec.si.stripline.{w,b,er}` (Cohn 1954 exact) |
+| `SeriesTerminationModel` | `elec.si.series_termination.rs` | lower bound (floor) | `elec.si.series_termination.{z0,ro}` (Johnson & Graham 1993) |
+| `TheveninTerminationR1Model` | `elec.si.thevenin_termination.r1` | lower bound (floor) | `elec.si.thevenin_termination.{z0,vcc,vbias}` (Johnson & Graham 1993) |
+| `TheveninTerminationR2Model` | `elec.si.thevenin_termination.r2` | lower bound (floor) | `elec.si.thevenin_termination.{z0,vcc,vbias}` (Johnson & Graham 1993) |
+| `AcShuntResistorModel` | `elec.si.ac_shunt.r` | lower bound (floor) | `elec.si.ac_shunt.z0` (matched shunt, exact) |
+| `AcShuntCapacitorModel` | `elec.si.ac_shunt.c` | lower bound (floor) | `elec.si.ac_shunt.{rise_time,r}` (Johnson & Graham 1993, tr/4 heuristic) |
 
-The last six (cycle-33 pack-exposure wave) wrap WO-24 library-depth
+The six before those (cycle-33 pack-exposure wave) wrap WO-24 library-depth
 directions that already existed in `_engine_registry()` (via
 `library.member_capacity`/`library.bolted_joints`/
 `library.weld_groups`/`library.bearing_life`) with no prior regolith
@@ -241,6 +251,21 @@ lithos-side claim-kind names are decided but registration is scoped to
 a FUTURE lithos-side model pack, per that module's own docstring) are
 named residuals, not oversights -- see `pack/models.py`'s "cycle-33
 pack-exposure wave" section comment for the full reasoning.
+
+The nine after those (WO-25 signal-integrity wave) wrap
+`library.signal_integrity`'s directions (Hammerstad-Jensen microstrip,
+Cohn's exact symmetric stripline, exact-algebra termination sizing --
+`docs/benchmarks-memo.md` sec. 13) the SAME way, at the same `cost=1`
+tier. `MicrostripImpedanceModel`/`StriplineImpedanceModel` each
+register TWICE (once per `within [lo, hi]` obligation half, the same
+shape `ElecRailModel` uses for `elec.rail.lo`/`.hi`). `diff_pair_z`
+(edge-coupled differential impedance) is NOT exposed -- it was never
+registered in `library.signal_integrity` either: no independently
+verifiable published numeric table could be confirmed against a
+primary source within the WO-25 dispatch's research budget (a named
+cut, not an oversight -- see that module's own docstring for the
+reopen criteria). See `pack/models.py`'s "WO-25 signal-integrity wave"
+section comment for the full reasoning.
 
 `MechStiffnessModel` computes `k = 3*E*I/L**3` (the exact algebraic
 inverse of the cantilever tip-deflection formula at unit force, cost

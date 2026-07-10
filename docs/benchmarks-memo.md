@@ -1029,3 +1029,140 @@ cases (3 exact, 1 heuristic-pinned) = 9 numeric fixtures, plus the
 `diff_pair_z` named cut.
 
 ---
+
+## 14. Shaft/member fatigue: Marin-modified endurance limit + modified
+Goodman (WO-24 deliverable 4)
+
+Source: Shigley's Mechanical Engineering Design, 11th ed., ch. 6
+(Fatigue Failure Resulting from Variable Loading). All numeric values
+below reproduce a fully worked axially-loaded fatigue example from a
+ch. 6 class-notes companion for Shigley 11e (a 40 mm diameter
+AISI-1045 CD steel bar, machined surface, fluctuating tensile load
+0..100 kN, end-fillet stress concentration Kf=1.85 pre-applied) --
+every intermediate number below is independently reproduced by
+`tests/unit/test_library_fatigue.py`, not merely copied from the
+source.
+
+### 14.1 Baseline endurance limit (eq. 6-8, steel, Sut <= 1400 MPa)
+
+    Se' = 0.5*Sut
+
+    Sut = 630 MPa -> Se' = 315 MPa (exact).
+
+### 14.2 Surface-condition Marin factor ka (Table 6-2)
+
+    ka = a*Sut^b   (Sut in MPa)
+
+Machined/cold-drawn row: a=4.51, b=-0.265.
+
+    Sut = 630 MPa -> ka = 4.51*630^-0.265 = 0.8177 (matches the
+    source's own rounded worked value, ka=0.817, to 3 sig figs).
+
+Only this one row is independently calibrated; `a`/`b` are
+caller-supplied ports in `library.fatigue.fatigue_marin_surface_factor`
+(no lookup table baked in -- see that module's docstring).
+
+### 14.3 Marin-modified endurance limit (eq. 6-18)
+
+    Se = ka*kb*kc*kd*ke*Se'
+
+Axial loading case: kb=1 (axial, per eq. 6-20's own kb=1 axial
+special case), kc=0.85 (axial, sec. 6-9 load-type table), kd=ke=1
+(no temperature/reliability derating applied in the source example).
+
+    ka=0.817, kb=1, kc=0.85, kd=1, ke=1, Se'=315 MPa
+    -> Se = 0.817*0.85*315 = 218.75 MPa (matches the source's own
+       rounded worked value, Se=218.8 MPa).
+
+### 14.4 Modified-Goodman fatigue factor of safety (eq. 6-46,
+fatigue-governs branch)
+
+    r = sigma_a/sigma_m
+    Sa = r*Se*Sut/(r*Sut+Se)
+    Sm = Sa/r
+    nf = 1/(sigma_a/Se + sigma_m/Sut)   (equivalently Sa/sigma_a)
+
+Worked case: d=40 mm bar, A=pi/4*d^2=1257 mm^2, fluctuating tensile
+load 0..100 kN, Kf=1.85 (end fillet):
+
+    sigma_max = 100e3/1257 = 79.6 MPa, sigma_min = 0
+    sigma_mo = sigma_ao = (sigma_max-sigma_min)/2 = 39.8 MPa
+    sigma_m = sigma_a = Kf*39.8 = 1.85*39.8 = 73.6 MPa  (Kf applied
+        to BOTH components, per the source's own convention)
+
+    r = sigma_a/sigma_m = 1
+    Sa = Sm = 1*218.8*630/(630+218.8) = 162.4 MPa
+    nf = Sa/sigma_a = 162.4/73.6 = 2.207 (matches the source's own
+         rounded worked value, nf=2.21).
+
+Case count, section 14: 1 baseline case + 1 surface-factor case + 1
+Marin-composed Se case + 1 Goodman factor-of-safety case (all four
+chained from the SAME worked example, each independently pinned) + 1
+pure-alternating (sigma_m=0) degenerate-limit sanity case = 5 numeric
+fixtures.
+
+**Named cuts** (module `python/feldspar/library/fatigue.py`
+docstring has the full reasoning): the `Sut > 1400 MPa` Se' plateau
+branch; every Table 6-2 surface-condition row except machined/
+cold-drawn (a/b are caller-supplied, not a baked table); the kb
+(size, Table 6-3), kd (temperature, eq. 6-27), ke (reliability,
+Table 6-5) modifying-factor derivations themselves (caller-supplied
+numeric factors, composed but not derived here); the Goodman
+`r < r_crit` static-yielding branch; the Kf notch-sensitivity
+derivation (Neuber/Figure 6-20, caller pre-applies Kf).
+
+---
+
+## 15. Leadscrew (square-thread power screw) drive sizing -- LEADSCREW
+half of WO-24 deliverable 7
+
+Source: Shigley's Mechanical Engineering Design, 11th ed., ch. 8 sec.
+8-2 ("The Mechanics of Power Screws"), square-thread only. Every
+formula below is EXACT ALGEBRA (a statics result from unrolling one
+thread as an inclined plane) -- calibration is HAND-COMPUTED exact
+arithmetic against a self-consistent worked case, not a published
+numeric table (none exists to calibrate an exact closed form against,
+same precedent as sec. 9's Euler buckling case and sec. 8.1's VDI
+2230 bolt-load-factor case).
+
+Worked case: `F = 1000 N`, `dm = 0.010 m` (10 mm mean diameter),
+`lead = 0.002 m` (2 mm, single thread), `f = 0.15`.
+
+    TR = (F*dm/2)*((lead+pi*f*dm)/(pi*dm-f*lead))
+       = 5*((0.002+0.0047124)/(0.0314159-0.0003))
+       = 5*(0.0067124/0.0311159) = 1.078610 N*m
+
+    TL = (F*dm/2)*((pi*f*dm-lead)/(pi*dm+f*lead))
+       = 5*((0.0047124-0.002)/(0.0314159+0.0003))
+       = 5*(0.0027124/0.0317159) = 0.427607 N*m   (positive -> screw
+         IS self-locking)
+
+    e = F*lead/(2*pi*TR) = 1000*0.002/(2*pi*1.078610) = 0.295111
+
+    tan(lambda) = lead/(pi*dm) = 0.002/(pi*0.010) = 0.063662
+    self_locking_margin = f - tan(lambda) = 0.15-0.063662 = 0.086338
+        (positive -> self-locking, consistent with TL>0 above)
+
+Collar torque (independent exact case): `F=1000 N, fc=0.15, dc=0.020
+m -> Tc = F*fc*dc/2 = 1.5 N*m` (exact product, no rounding).
+
+Sanity check (low-friction, non-self-locking case): the SAME `dm`/
+`lead` with `f=0.02` gives `TL < 0` and `self_locking_margin < 0`
+consistently (the screw back-drives without applied torque) --
+`tests/unit/test_library_leadscrew.py` pins both signs.
+
+Case count, section 15: 1 TR case + 1 TL case (+ 1 sign-consistency
+sanity case) + 1 efficiency case + 1 self-locking-margin case (+ 1
+sign-consistency sanity case) + 1 collar-torque case = 6 numeric
+fixtures + 2 sign-consistency sanity checks.
+
+**Named cuts** (module `python/feldspar/library/leadscrew.py`
+docstring has the full reasoning): ACME-thread wedging correction
+(friction terms divided by cos(alpha)); critical (whirling) speed
+(needs an end-support-factor table, its own citation surface); belt
+(GT2-class tooth shear/tension ratings, WO-24 deliverable 7's OTHER
+named half) -- NOT STARTED, no manufacturer belt-tooth rating table
+was transcribed or verified within this dispatch's research budget,
+recorded whole in the WO-24 ledger, not half-landed.
+
+---

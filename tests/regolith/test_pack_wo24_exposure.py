@@ -22,12 +22,16 @@ from feldspar.pack.models import (
     DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND,
     DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND,
     DEFAULT_EULER_BUCKLING_LOAD_CLAIM_KIND,
+    DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND,
+    DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND,
     DEFAULT_MEMBER_AXIAL_CAPACITY_CLAIM_KIND,
     DEFAULT_MEMBER_FLEXURAL_CAPACITY_CLAIM_KIND,
     DEFAULT_WELD_UTILIZATION_CLAIM_KIND,
     BearingRatingLifeModel,
     BoltLoadFactorModel,
     EulerBucklingLoadModel,
+    FatigueGoodmanFactorOfSafetyModel,
+    LeadscrewTorqueRaiseModel,
     MemberAxialCapacityModel,
     MemberFlexuralCapacityModel,
     WeldUtilizationModel,
@@ -190,4 +194,60 @@ def test_bearing_rating_life_matches_hand_computed() -> None:
     prediction = model.estimate(request).danger_ok
 
     assert prediction.value == pytest.approx(3175.93, rel=1e-4)
+    assert prediction.in_domain
+
+
+# ---------------------------------------------------------------------------
+# FatigueGoodmanFactorOfSafetyModel -- Shigley 11e eq. 6-46
+# (WO-24 remainder dispatch, deliverable 4)
+# ---------------------------------------------------------------------------
+
+
+def test_fatigue_goodman_factor_of_safety_matches_hand_computed() -> None:
+    """Se=218.8e6, Sut=630e6, sigma_a=sigma_m=73.6e6 -> nf~2.207
+    (docs/benchmarks-memo.md sec. 14.4, the same worked axially-loaded
+    fatigue example `tests/unit/test_library_fatigue.py` pins)."""
+    model = FatigueGoodmanFactorOfSafetyModel()
+    request = DischargeRequest(
+        claim_kind=DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND,
+        limit=1.0,
+        inputs={
+            "mech.fatigue.goodman.se": _pinned(218.8e6),
+            "mech.fatigue.goodman.sut": _pinned(630.0e6),
+            "mech.fatigue.goodman.sigma_a": _pinned(73.6e6),
+            "mech.fatigue.goodman.sigma_m": _pinned(73.6e6),
+        },
+    )
+
+    prediction = model.estimate(request).danger_ok
+
+    assert prediction.value == pytest.approx(2.207, rel=1e-3)
+    assert prediction.in_domain
+
+
+# ---------------------------------------------------------------------------
+# LeadscrewTorqueRaiseModel -- Shigley 11e ch. 8 sec. 8-2
+# (WO-24 remainder dispatch, deliverable 7 leadscrew half)
+# ---------------------------------------------------------------------------
+
+
+def test_leadscrew_torque_raise_matches_hand_computed() -> None:
+    """F=1000 N, dm=0.010 m, lead=0.002 m, f=0.15 -> TR ~ 1.07861 N*m
+    (docs/benchmarks-memo.md sec. 15, the same worked case
+    `tests/unit/test_library_leadscrew.py` pins)."""
+    model = LeadscrewTorqueRaiseModel()
+    request = DischargeRequest(
+        claim_kind=DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND,
+        limit=5.0,
+        inputs={
+            "mech.drive.leadscrew.force": _pinned(1000.0),
+            "mech.drive.leadscrew.dm": _pinned(0.010),
+            "mech.drive.leadscrew.lead": _pinned(0.002),
+            "mech.drive.leadscrew.friction": _pinned(0.15),
+        },
+    )
+
+    prediction = model.estimate(request).danger_ok
+
+    assert prediction.value == pytest.approx(1.07861, rel=1e-4)
     assert prediction.in_domain

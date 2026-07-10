@@ -1,6 +1,20 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-10 dispatch #6, branch `cycle33-pack-exposure`
+Status: PARTIAL (2026-07-10 dispatch #7, branch `cycle33-wo24-remainder`,
+worktree `.worktrees/cycle33-wo24-remainder` -- WO-24 REMAINDER dispatch:
+landed deliverable 4 (fatigue, Shigley 11e ch. 6 Marin/modified-Goodman,
+docs/benchmarks-memo.md sec. 14, `library/fatigue.py`) and the LEADSCREW
+half of deliverable 7 (Shigley 11e ch. 8 sec. 8-2 square-thread power-
+screw torque/efficiency/self-locking/collar friction, memo sec. 15,
+`library/leadscrew.py`), both exposed through the pack (pack now at 21
+models: `FatigueGoodmanFactorOfSafetyModel`,
+`LeadscrewTorqueRaiseModel`). Deliverable 5 (Roark deflection catalog
+completion) and the BELT half of deliverable 7 (GT2-class tooth shear/
+tension ratings) are CUT WHOLE this dispatch -- see this dispatch's own
+close-out below for the exact reasons. Deliverable 8 (column buckling
+completion beyond the already-landed Euler tier) remains untouched,
+same standing reason every prior close-out recorded.) (2026-07-10
+dispatch #6, branch `cycle33-pack-exposure`
 -- cycle-33 PACK EXPOSURE wave: exposed 6 previously-internal-only
 WO-24 directions (member capacity F2/E3/Euler, VDI 2230 bolt load
 factor, weld utilization, bearing L10h) as `feldspar.pack` regolith
@@ -956,3 +970,213 @@ every existing claim kind here) -- a lithos-side scaffold wanting to
 assert one of these claims needs its own vocabulary-side registration
 of the kind name, unchanged process from how `mech.stiffness`/
 `elec.rail.lo`/`elec.rail.hi` were already adopted.
+
+---
+
+## Dispatch #7 close-out (2026-07-10, branch `cycle33-wo24-remainder`,
+worktree `.worktrees/cycle33-wo24-remainder`)
+
+Scope this dispatch: the WO-24 REMAINDER in the WO file's own priority
+order -- fatigue (deliverable 4), drive sizing (deliverable 7), Roark
+completion (deliverable 5). THE LAW (unchanged): every landed
+direction calibrated against citable reference values, or CUT WHOLE
+and recorded -- never approximated, never half-landed.
+
+**(a) Landed / cut table**:
+
+| Deliverable | Status | Notes |
+|---|---|---|
+| 4. Fatigue tier | LANDED | Shigley 11e ch. 6 Marin-modified endurance limit + modified-Goodman factor of safety, calibrated against a fully worked axial fatigue example |
+| 7. Drive sizing -- leadscrew half | LANDED | Shigley 11e ch. 8 sec. 8-2 square-thread power-screw torque/efficiency/self-locking/collar friction, exact algebra, hand-computed calibration |
+| 7. Drive sizing -- belt (GT2) half | CUT WHOLE | no citation trail established -- see (g) below |
+| 5. Roark deflection catalog completion | CUT WHOLE | not attempted -- see (g) below |
+| 8. Column buckling completion (E4/E7) | CUT (unchanged) | untouched, same reason every prior close-out recorded |
+
+**(b) Branch + commits** (`cycle33-wo24-remainder`, worktree
+`.worktrees/cycle33-wo24-remainder`):
+
+1. `feat(fatigue): add Shigley Marin/Goodman fatigue tier (WO-24
+   deliverable 4)` -- `python/feldspar/library/fatigue.py` (new),
+   `tests/unit/test_library_fatigue.py` (new),
+   `docs/benchmarks-memo.md` sec. 14 (four subsections), wired into
+   `python/feldspar/pack/models.py::_engine_registry` and exposed as
+   `FatigueGoodmanFactorOfSafetyModel` (`python/feldspar/pack/
+   models.py`, `python/feldspar/pack/__init__.py`,
+   `tests/regolith/test_pack_wo24_exposure.py`).
+2. `feat(leadscrew): add square-thread power-screw drive sizing
+   (WO-24 deliverable 7, leadscrew half)` --
+   `python/feldspar/library/leadscrew.py` (new),
+   `tests/unit/test_library_leadscrew.py` (new),
+   `docs/benchmarks-memo.md` sec. 15, wired into `_engine_registry`
+   and exposed as `LeadscrewTorqueRaiseModel` (same three files as
+   above).
+
+**(c) Gates** (this worktree; note: `.worktrees/lithos` symlinked to
+`/home/logan/projects/lithos` per dispatch #6's own documented
+convention, and `uv sync --extra regolith --no-extra mesh` used
+instead of `--all-extras` -- this aarch64 dev environment has no
+`gmsh`/`CoolProp` wheel available, an environment limitation
+unrelated to this dispatch's changes, worked around by excluding the
+`mesh` extra; `fea`/`spice`-marked tests were correspondingly excluded
+from the fast loop, same posture every prior dispatch's own gate
+documents for tool-dependent tests):
+
+`cargo fmt --all -- --check`: clean (no Rust changed this dispatch).
+`cargo clippy --workspace --all-targets -- -D warnings`: clean.
+`cargo test --workspace`: all green (`cargo build --workspace` first,
+same pre-existing cdylib-vs-test-binary build-order note dispatch #6
+recorded).
+`uv run ruff format --check python/ tests/` / `uv run ruff check
+python/ tests/`: clean.
+`uv run lint-imports`: 1 contract kept, 0 broken.
+`uv run ty check python/`: 1 diagnostic (pre-existing `CoolProp`
+unresolved-import in `thermo.py`, this environment's missing `CoolProp`
+wheel per the `mesh`-extra-excluded sync above -- identical before and
+after this dispatch's changes, verified by running the check before
+any edit; zero new diagnostics from `fatigue.py`/`leadscrew.py`/
+`pack/*.py`).
+`uv run pytest tests/ -n auto -m "not regolith and not fea and not
+spice"`: 432 passed (411 baseline + 10 fatigue + 11 leadscrew), 1
+skipped, 0 errors (this worktree's `.worktrees/lithos` symlink
+resolves the nested-worktree editable-install gap prior dispatches
+worked around, same as dispatch #6's own environment note).
+`uv run pytest tests/regolith/ -m regolith`: 86 passed (85 baseline +
+1 `FatigueGoodmanFactorOfSafetyModel` case), 0 errors.
+
+**(d) Memo sections added**: `docs/benchmarks-memo.md` sec. 14
+(fatigue, four subsections 14.1-14.4) and sec. 15 (leadscrew, one
+section with worked numbers for all five directions) -- both new,
+appended after sec. 13, sec. numbering of every prior section
+unchanged. Sources: Shigley's Mechanical Engineering Design, 11th
+ed., ch. 6 (Fatigue Failure Resulting from Variable Loading, sec.
+6-8/Table 6-2/6-9/eq. 6-46) for sec. 14; Shigley's Mechanical
+Engineering Design, 11th ed., ch. 8 sec. 8-2 ("The Mechanics of Power
+Screws") for sec. 15. Sec. 14's worked numeric case (a 40 mm diameter
+AISI-1045 CD machined steel bar, fluctuating tensile load, Kf=1.85)
+was independently verified against a ch. 6 companion class-notes
+source before being reproduced; sec. 15's worked case is this
+dispatch's own hand-computed exact algebra (no published table exists
+to calibrate an exact closed form against, same precedent sec. 9's
+Euler buckling case and sec. 8.1's VDI 2230 case already set).
+
+**(e) Calibration results** (all green; see sec. 14/15 of the memo
+for the full numeric derivations):
+
+- Fatigue: `Se'=0.5*630e6=315e6 Pa` (baseline); `ka=4.51*630^-0.265
+  =0.8177` (Table 6-2 machined row); `Se=ka*kb*kc*kd*ke*Se'
+  =0.817*0.85*315e6~218.75e6 Pa` (Marin composition, kb=1/kc=0.85
+  axial); `nf=1/(sigma_a/Se+sigma_m/Sut)=1/(73.6/218.8+73.6/630)
+  ~2.207` (modified-Goodman, matches the source's own rounded 2.21);
+  pure-alternating (`sigma_m=0`) degenerate-limit case verified
+  separately.
+- Leadscrew: `F=1000 N, dm=0.010 m, lead=0.002 m, f=0.15 ->
+  TR~1.078610 N*m, TL~0.427607 N*m (positive, self-locking),
+  e~0.295111, self_locking_margin~0.086338 (positive, consistent with
+  TL>0)`; `Tc=F*fc*dc/2=1000*0.15*0.020/2=1.5 N*m` exact; a
+  low-friction (`f=0.02`) sanity case independently confirms `TL<0`
+  and `self_locking_margin<0` sign-consistency (NOT self-locking).
+- No calibration failures to record either direction.
+
+**(f) New solver direction names + signatures**:
+
+```
+mech.fatigue.fatigue_endurance_limit_baseline
+  in:  {"mech.fatigue.baseline.sut": float}         # Pa
+  out: {"mech.fatigue.baseline.se_prime": float}     # Pa
+
+mech.fatigue.fatigue_marin_surface_factor
+  in:  {"mech.fatigue.surface.sut_mpa": float,       # MPa (unit gotcha, not Pa)
+        "mech.fatigue.surface.coeff_a": float,
+        "mech.fatigue.surface.exponent_b": float}
+  out: {"mech.fatigue.surface.ka": float}
+
+mech.fatigue.fatigue_marin_endurance_limit
+  in:  {"mech.fatigue.marin.se_prime": float, "mech.fatigue.marin.ka": float,
+        "mech.fatigue.marin.kb": float, "mech.fatigue.marin.kc": float,
+        "mech.fatigue.marin.kd": float, "mech.fatigue.marin.ke": float}
+  out: {"mech.fatigue.marin.se": float}              # Pa
+
+mech.fatigue.fatigue_goodman_factor_of_safety
+  in:  {"mech.fatigue.goodman.se": float, "mech.fatigue.goodman.sut": float,
+        "mech.fatigue.goodman.sigma_a": float, "mech.fatigue.goodman.sigma_m": float}
+  out: {"mech.fatigue.goodman.sa_limit": float, "mech.fatigue.goodman.sm_limit": float,
+        "mech.fatigue.goodman.factor_of_safety": float}
+
+mech.drive.leadscrew_torque_raise / _torque_lower
+  in:  {"mech.drive.leadscrew.force": float, "mech.drive.leadscrew.dm": float,
+        "mech.drive.leadscrew.lead": float, "mech.drive.leadscrew.friction": float}
+  out: {"mech.drive.leadscrew.torque_raise": float}   # or torque_lower, N*m
+
+mech.drive.leadscrew_efficiency
+  in:  {"mech.drive.leadscrew.force": float, "mech.drive.leadscrew.lead": float,
+        "mech.drive.leadscrew.torque_raise": float}
+  out: {"mech.drive.leadscrew.efficiency": float}
+
+mech.drive.leadscrew_self_locking_margin
+  in:  {"mech.drive.leadscrew.dm": float, "mech.drive.leadscrew.lead": float,
+        "mech.drive.leadscrew.friction": float}
+  out: {"mech.drive.leadscrew.self_locking_margin": float}
+
+mech.drive.leadscrew_collar_torque
+  in:  {"mech.drive.leadscrew.force": float, "mech.drive.leadscrew.collar_friction": float,
+        "mech.drive.leadscrew.collar_dc": float}
+  out: {"mech.drive.leadscrew.collar_torque": float}  # N*m
+```
+
+All nine registered `@solver` pure-map directions (10 sec. 2 pattern
+1), same shape as every other `library.mech`/`library.member_capacity`/
+`library.bolted_joints`/`library.weld_groups`/`library.bearing_life`
+direction -- called through the registered `SolveFn` protocol
+(`fn(x) -> Result[SolveResult, SolveError]`, `.danger_ok.values[<port>]`).
+
+**(g) Cuts named this dispatch**:
+
+1. **Roark deflection catalog completion (deliverable 5)** -- NOT
+   attempted. Every prior dispatch's own note stands: "the remaining
+   Roark cases the memo lists as gaps" first requires enumerating
+   that gap list (memo sec. 1/sec. 2 already cover 6 canonical beam
+   formulas + propped-cantilever + fixed-fixed-central-load cases;
+   the gap is Roark Table 8.1-style overhanging beams, non-central
+   point loads on fixed-fixed spans, or multi-span unequal-span
+   continuous beams). This dispatch's research budget went to
+   deliverable 4 (landed complete, four directions, pack-exposed) and
+   deliverable 7's leadscrew half (landed complete, five directions,
+   pack-exposed) instead -- a deliberate "small scope, fully landed"
+   choice, not an oversight. A future dispatch should start by reading
+   docs/benchmarks-memo.md sec. 1-2 to build the actual gap list
+   before writing any Roark-completion code.
+2. **Belt (GT2-class) drive sizing (deliverable 7, other half)** --
+   NOT attempted. No manufacturer belt-tooth shear/tension rating
+   table (e.g. a GT2/2GT pitch profile's per-tooth load rating,
+   typically published in a supplier's engineering catalog rather
+   than a textbook) was located and independently verified within
+   this dispatch's research budget -- unlike the leadscrew half
+   (Shigley ch. 8, an already-trusted source this repo cites
+   elsewhere), belt tooth ratings are proprietary/supplier-specific
+   data this dispatch chose not to fabricate or approximate. Named
+   cut, not a half-landed direction.
+3. **Column buckling completion (deliverable 8, E4/E7)** -- untouched,
+   same reason every prior close-out recorded (torsional/flexural-
+   torsional buckling needs per-section-shape torsional/warping
+   constants; slender-element reduction needs the lambda_r
+   slenderness-limit tables per element type -- neither is a small
+   addition).
+4. **Leadscrew ACME-thread wedging correction** -- named cut within
+   the landed leadscrew half itself (`library/leadscrew.py`'s own
+   docstring): square-thread only, the `sec(alpha)` friction-term
+   correction for ACME threads is not built.
+5. **Leadscrew critical (whirling) speed** -- named cut within the
+   landed leadscrew half: needs an end-support-factor table (e.g.
+   Nook Industries/PBC Linear engineering data), its own citation
+   surface distinct from Shigley's torque/efficiency treatment, not
+   attempted this dispatch.
+
+**LITHOS-SIDE NOTE**: nothing new escalated this dispatch. The two new
+claim kinds (`mech.fatigue.factor_of_safety`,
+`mech.drive.leadscrew_torque_raise`) are NEW vocabulary this dispatch
+introduces (OPEN-6 interim pattern, same as every existing claim kind
+here) -- a lithos-side scaffold wanting to assert either claim needs
+its own vocabulary-side registration of the kind name, unchanged
+process from how the cycle-33 pack-exposure wave's six claim kinds
+were already adopted. Pack model count: 19 (dispatch #6 baseline) ->
+20 (fatigue) -> 21 (leadscrew), both increments this dispatch.

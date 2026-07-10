@@ -171,3 +171,12 @@ diagnostics in this worktree for the same reason (verified via `git
 stash` against the unmodified branch tip, which has 10 -- one fewer
 after this change, not more); `python/feldspar/library/struct.py`
 itself contributes zero typecheck diagnostics.
+
+**WO-23 cross-note (2026-07-09)**: the two named residuals this
+close-out flagged as "a follow-up WO should pick up" -- tributary/
+`on [...]` load-path resolution (cut named inline in
+`solve_frame_payload`'s `frame_load_untargeted`-shaped error) and a
+first `civil.utilization` numeric slice -- were picked up by WO-23
+(its own close-out has the full accounting). Cut 1 (section/
+material CAPACITY resolution) is UNCHANGED and remains the largest
+open blocker for both WOs alike.

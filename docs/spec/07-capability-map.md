@@ -429,6 +429,15 @@ is committed scope now (WO-05).
   `mech.deflection` / drift / modal claim kinds calcite lowers, and
   the geotech-record consumers its retaining-wall corpus names.
   Gated on lithos WO-48 producing frames in the wild; WO-21 here.
+  WO-23 (2026-07-09) added tributary load-path resolution
+  (`Bearing(tributary=width|area)` transfers -> member UDLs,
+  `resolve_tributary_loads`), a demand-extraction reduction
+  (`extract_member_demands`), and a SCOPED `civil.utilization`
+  numeric half (`civil_utilization_h1`: AISC 360-16 H1-1 combined
+  axial-flexure only) over caller-resolved capacities -- see its
+  close-out for the full accounting; buckling/LTB/connection checks,
+  section-capacity resolution, and the lithos corpus conformance run
+  itself (lithos WO-65) remain named residuals.
 - **Unphased catalog** (`materials`, `mfg`, `aero`, `chem`,
   `vehicle`; `mech.struct` graduated to Phase 6): committed scope,
   scheduled when a lithos consumer or an owner decision pulls them

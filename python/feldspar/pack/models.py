@@ -105,6 +105,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     # `estimate()` actually runs).
     from feldspar.fea import payload_steps
     from feldspar.fea.solver import register as register_fea
+    from feldspar.library.bolted_joints import register as register_bolted_joints
     from feldspar.library.fluids import register as register_fluids
     from feldspar.library.fluids import register_network as register_fluids_network
     from feldspar.library.heat import register as register_heat
@@ -117,6 +118,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     registry = SolverRegistry()
     register_mech(registry)
     register_member_capacity(registry)
+    register_bolted_joints(registry)
     register_fluids(registry)
     register_heat(registry)
     register_thermo(registry)

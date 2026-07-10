@@ -83,10 +83,26 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
+
+# Declared accuracy bands, DISTINCT from EXACT (04-routing/06 "accuracy
+# declares the honest known error"): a curve-fit/approximate closed
+# form states its own citable error band instead of pretending
+# `Accuracy(0.0, 0.0)`.
+#: Wadell 1991's own quoted 2% accuracy for the Hammerstad-Jensen
+#: microstrip form (this module's docstring: Burkhardt 1999 confirms
+#: agreement within ~1.5% at every tabulated width).
+_MICROSTRIP_ACCURACY = Accuracy(eps_abs=0.0, eps_rel=0.02)
+#: The AC-shunt capacitor heuristic's own wide, honestly-declared
+#: spread (Johnson & Graham's quoted tr/5..tr/2 range around the tr/4
+#: midpoint this direction bakes -- see `ac_shunt_sizing_c`'s
+#: docstring): +100%/-20% relative to the chosen value, declared as a
+#: symmetric 100% band (the wider, more conservative side) rather than
+#: a false tight number.
+_AC_SHUNT_C_ACCURACY = Accuracy(eps_abs=0.0, eps_rel=1.0)
 
 _log = get_logger(__name__)
 
@@ -173,7 +189,7 @@ _MICROSTRIP_ER_RANGE = Interval(2.0, 12.0)
         tags={"tem", "surface_microstrip", "hammerstad_jensen"},
     ),
     cost=1e-7,
-    accuracy=EXACT,
+    accuracy=_MICROSTRIP_ACCURACY,
     citations=_MICROSTRIP_CITATIONS,
     version="1",
 )
@@ -542,7 +558,7 @@ def ac_shunt_sizing_r(x):
         tags={"ac_shunt", "quarter_rise_time_heuristic"},
     ),
     cost=1e-7,
-    accuracy=EXACT,
+    accuracy=_AC_SHUNT_C_ACCURACY,
     citations=_AC_SHUNT_C_CITATIONS,
     version="1",
 )

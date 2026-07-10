@@ -118,6 +118,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.heat import register as register_heat
     from feldspar.library.mech import register as register_mech
     from feldspar.library.member_capacity import register as register_member_capacity
+    from feldspar.library.signal_integrity import register as register_signal_integrity
     from feldspar.library.thermal_transient import register as register_thermal
     from feldspar.library.thermo import register as register_thermo
     from feldspar.library.weld_groups import register as register_weld_groups
@@ -130,6 +131,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_bolted_joints(registry)
     register_weld_groups(registry)
     register_bearing_life(registry)
+    register_signal_integrity(registry)
     register_fluids(registry)
     register_heat(registry)
     register_thermal(registry)

@@ -43,14 +43,29 @@ close-out for the complete cut list):
   empty releases/fixity make a case indeterminate, that is the correct
   answer"), so an empty support fixity list makes the solve honestly
   `SolveError.OutOfDomain`, naming the unresolved support.
-- Output claim kinds: only `mech.deflection` (joint displacements) and
-  bare reactions/member-end-forces are produced, as one `frame_result`
-  payload. `civil.utilization` (needs resolved section CAPACITY, not
-  just EA/EI), `story_drift`/`bearing_pressure`/`first_mode`, member
-  design checks (AISC/Eurocode interaction, buckling, connections),
-  geotech records, and classical indeterminate calibration tiers
-  (slope-deflection/moment-distribution) are NOT built this slice --
-  named cuts, WO-21 close-out."""
+- Output claim kinds: `mech.deflection` (joint displacements), bare
+  reactions/member-end-forces, `extract_member_demands`'s per-member
+  axial/shear/moment envelope, and a SCOPED `civil.utilization`
+  numeric half (`civil_utilization_h1`: AISC 360-16 eq. H1-1a/H1-1b
+  combined axial-flexure interaction ONLY, over caller-supplied
+  ALREADY-RESOLVED capacities -- same "out-of-band resolved numbers"
+  seam as `ea`/`ei`) are produced this slice (WO-23). `story_drift`/
+  `bearing_pressure`/`first_mode`, lateral-torsional/plate buckling
+  curves, connection checks (bolt/weld/block-shear), geotech records,
+  and classical indeterminate calibration tiers (slope-deflection/
+  moment-distribution) are NOT built -- named cuts, WO-21/WO-23
+  close-outs.
+- Tributary load paths (WO-23 deliverable 1): `resolve_tributary_
+  loads` turns a `Bearing(tributary=width|area)` transfer (calcite/02
+  sec. 5-6 `std.civil` vocabulary -- NOT part of the `FramePayload`
+  schema itself; a companion input the caller assembles from the
+  `structure ... transfers:` declaration) into an ordinary
+  `distributed`-kind `FrameLoad` merged into the existing load list;
+  `solve_frame_payload`'s optional `transfers`/`source_intensities`
+  parameters wire it in. A `Bearing` transfer with no declared
+  `tributary` contributes NOTHING (the `frame_load_untargeted`
+  posture, WO-48 close-out) -- deterministic from declared geometry
+  only, never an inferred width/area."""
 
 import json
 from typing import Sequence
@@ -69,7 +84,10 @@ _log = get_logger(__name__)
 __all__ = [
     "FRAME_PORT",
     "FRAME_RESULT_PORT",
+    "civil_utilization_h1",
+    "extract_member_demands",
     "register",
+    "resolve_tributary_loads",
     "solve_frame_payload",
 ]
 
@@ -267,6 +285,8 @@ def solve_frame_payload(
     payload: dict,
     section_material: dict,
     load_case: str,
+    transfers: Sequence[dict] = (),
+    source_intensities: dict | None = None,
 ):
     """Solves one `frame` payload's `load_case` by 2D direct stiffness.
 
@@ -280,15 +300,44 @@ def solve_frame_payload(
     is a discrete axis this function does not itself iterate -- one
     call per case/combination corner).
 
+    `transfers`/`source_intensities` (WO-23 deliverable 1, both
+    optional, default empty): fed straight to
+    `resolve_tributary_loads` -- any `Bearing(tributary=...)` transfer
+    resolves to an extra distributed load MERGED into `loads` before
+    the existing load-application loop runs (no second load-path, the
+    same list the direct `on [...]`-targeted loads already flow
+    through). The result's `load_path` key carries the cited evidence
+    (which transfers, which sources, per member) when any resolved.
+
     Returns `Ok(dict)` (the `frame_result` payload body: `displacements`,
-    `reactions`, `member_end_forces`, `assumptions`) or `Err(SolveError)`
-    naming the first honest gap encountered (unresolved support fixity,
-    an unsupported orientation, a missing section/material entry, or an
-    unsupported load kind/direction)."""
+    `reactions`, `member_end_forces`, `assumptions`, `load_path`) or
+    `Err(SolveError)` naming the first honest gap encountered (unresolved
+    support fixity, an unsupported orientation, a missing section/
+    material entry, an unsupported load kind/direction, or an
+    unresolvable tributary transfer)."""
     joints = payload["joints"]
     members = payload["members"]
     supports = payload["supports"]
-    loads = payload["loads"]
+    loads = list(payload["loads"])
+    load_path_evidence: list[dict] = []
+
+    if transfers:
+        member_lengths_m: dict[str, float] = {}
+        for m in members:
+            length_si = _length_to_si_m(m["length"], f"member {m['id']!r} length")
+            if length_si.is_err:
+                return length_si
+            member_lengths_m[m["id"]] = length_si.danger_ok
+        trib_result = resolve_tributary_loads(
+            transfers,
+            source_intensities or {},
+            load_case,
+            member_lengths_m,
+        )
+        if trib_result.is_err:
+            return trib_result
+        derived_loads, load_path_evidence = trib_result.danger_ok
+        loads.extend(derived_loads)
 
     joint_index = {j["id"]: idx for idx, j in enumerate(joints)}
     n_nodes = len(joints)
@@ -450,9 +499,7 @@ def solve_frame_payload(
             )
             return Err(
                 SolveError.OutOfDomain(
-                    violation=(
-                        f"support joint {s['joint']!r} matches no joint id"
-                    )
+                    violation=(f"support joint {s['joint']!r} matches no joint id")
                 )
             )
         node = joint_index[s["joint"]]
@@ -550,8 +597,263 @@ def solve_frame_payload(
             },
             "member_end_forces": dict(zip(member_ids, member_end_forces, strict=True)),
             "assumptions": assumptions,
+            "load_path": load_path_evidence,
         }
     )
+
+
+_TRANSFER_CITATION = Citation(
+    kind="handbook",
+    ref=(
+        "Hibbeler, Structural Analysis, latest ed., ch. 2 (tributary "
+        "area/width load distribution: a receiving member's UDL is the "
+        "declared tributary measure x the source surface's load "
+        "intensity, spread over the receiving member's own length)"
+    ),
+)
+
+#: Transfer connection kinds this module treats as a real load-transfer
+#: path for tributary resolution (calcite/02 sec. 5's `std.civil`
+#: classes). `Pinned`/`Moment`/`Roller`/`BasePlate` transfer FORCES but
+#: never carry a `tributary=` declaration in calcite's vocabulary (only
+#: `Bearing` does, calcite/02 sec. 6) -- a transfer of any other kind
+#: with a `tributary` field set would be a payload-contract violation,
+#: not a silently-accepted alternate spelling.
+_TRIBUTARY_TRANSFER_KIND = "Bearing"
+
+
+def resolve_tributary_loads(
+    transfers: Sequence[dict],
+    source_intensities: dict,
+    load_case: str,
+    member_lengths_m: dict,
+):
+    """WO-23 deliverable 1: turns declared `Bearing(tributary=...)`
+    transfer records into member-distributed (`kind: "distributed"`)
+    `FrameLoad`-shaped entries the existing `solve_frame_payload` load
+    loop already understands -- no new load-application code path, only
+    a load-list PRODUCER feeding the one that exists.
+
+    `transfers` is a sequence of `{"id", "kind", "from", "to",
+    "tributary": {"kind": "width"|"area", "value": ScalarInterval} |
+    None}` records (calcite/02 sec. 5-6 `std.civil` transfer classes,
+    lithos WO-48's `structure ... transfers:` block -- NOT part of the
+    `FramePayload` schema itself, calcite/03 sec. 4, which carries no
+    transfer list; a companion input the caller assembles from the
+    `structure` declaration, matching the `section_material` seam's own
+    "documented, out-of-band" shape).
+
+    `source_intensities` maps `(from_member_id, load_case) ->
+    ScalarInterval` -- the SOURCE surface/member's own already-resolved
+    load intensity for `load_case` -- force/area (a pressure: roof
+    snow/dead psf-shaped) in BOTH `tributary.kind` cases (calcite/03
+    sec. 4 loads are area-sourced; a `width` tributary already yields a
+    line load directly -- pressure x width = force/length -- while an
+    `area` tributary yields a resultant total force this function then
+    spreads over the receiving member's own length); a source
+    with no intensity entry for this case is skipped, not zero-filled,
+    since "no declared source load this case" is a different fact than
+    "zero load").
+
+    Deterministic, no inferred geometry (feldspar standing law): ONLY
+    a `Bearing` transfer carrying an explicit `tributary` declaration
+    resolves. Any other transfer kind, or a `Bearing` with no
+    `tributary` set, is skipped -- its receiving member's demand stays
+    the existing `frame_load_untargeted` honest deferral (WO-48
+    close-out), never a guessed tributary width/area.
+
+    Returns `Ok((derived_loads, evidence))`:
+    - `derived_loads`: list of `FrameLoad`-shaped dicts (`case`,
+      `target`, `kind="distributed"`, `value`, `direction="gravity"`)
+      ready to merge into a `FramePayload["loads"]` list.
+    - `evidence`: list of `{"transfer": id, "from": .., "to": ..,
+      "tributary_kind": .., "tributary_value_si": .., "intensity_si":
+      .., "derived_udl_si": ..}` -- the cited load-path walk (WO-23
+      deliverable 1's "which transfers, which sources, per member").
+
+    `Err(SolveError.OutOfDomain)` if a `Bearing(tributary=...)`
+    transfer's `to` member has no `length` supplied via
+    `member_lengths_m` -- the UDL-spreading arithmetic needs it and a
+    receiving member with unknown length cannot honestly produce one
+    (this module refuses to guess a length any more than it guesses a
+    tributary width)."""
+    derived_loads: list[dict] = []
+    evidence: list[dict] = []
+    for t in transfers:
+        if t["kind"] != _TRIBUTARY_TRANSFER_KIND:
+            continue
+        trib = t.get("tributary")
+        if trib is None:
+            _log.info(
+                "struct.frame: transfer %r (%s -> %s) carries no "
+                "tributary declaration -- receiving member's demand "
+                "stays the honest frame_load_untargeted deferral",
+                t["id"],
+                t["from"],
+                t["to"],
+            )
+            continue
+        src, dst = t["from"], t["to"]
+        intensity_interval = source_intensities.get((src, load_case))
+        if intensity_interval is None:
+            continue
+        intensity_si = _scalar_to_si(
+            intensity_interval,
+            "hi",
+            f"transfer {t['id']!r} source {src!r} load intensity (case {load_case!r})",
+        )
+        if intensity_si.is_err:
+            return intensity_si
+        intensity = intensity_si.danger_ok
+
+        trib_si = _scalar_to_si(
+            trib["value"],
+            "hi",
+            f"transfer {t['id']!r} tributary {trib['kind']} value",
+        )
+        if trib_si.is_err:
+            return trib_si
+        trib_value = trib_si.danger_ok
+
+        if trib["kind"] == "width":
+            # force/length x length(width) is already a resultant
+            # per-unit-length UDL on the receiving member -- no
+            # spreading over the receiving member's own length.
+            udl = intensity * trib_value
+        elif trib["kind"] == "area":
+            if dst not in member_lengths_m:
+                return Err(
+                    SolveError.OutOfDomain(
+                        violation=(
+                            f"transfer {t['id']!r}: receiving member "
+                            f"{dst!r} has no resolved length to spread "
+                            "an area-tributary resultant force into a "
+                            "UDL -- refusing to guess"
+                        )
+                    )
+                )
+            total_force = intensity * trib_value
+            udl = total_force / member_lengths_m[dst]
+        else:
+            return Err(
+                SolveError.OutOfDomain(
+                    violation=(
+                        f"transfer {t['id']!r}: tributary kind "
+                        f"{trib['kind']!r} is outside the supported "
+                        "'width'/'area' vocabulary (calcite/02 sec. 6)"
+                    )
+                )
+            )
+
+        derived_loads.append(
+            {
+                "case": load_case,
+                "target": dst,
+                "kind": "distributed",
+                "value": {"lo": udl, "hi": udl, "unit": "1"},
+                "direction": "gravity",
+            }
+        )
+        evidence.append(
+            {
+                "transfer": t["id"],
+                "from": src,
+                "to": dst,
+                "tributary_kind": trib["kind"],
+                "tributary_value_si": trib_value,
+                "intensity_si": intensity,
+                "derived_udl_si": udl,
+                "citation": _TRANSFER_CITATION.ref,
+            }
+        )
+        _log.info(
+            "struct.frame: tributary transfer %r resolved %r -> %r: "
+            "udl=%.6g N/m (%s tributary=%.6g, intensity=%.6g)",
+            t["id"],
+            src,
+            dst,
+            udl,
+            trib["kind"],
+            trib_value,
+            intensity,
+        )
+    return Ok((derived_loads, evidence))
+
+
+def extract_member_demands(result: dict) -> dict:
+    """WO-23 deliverable 2: reduces `solve_frame_payload`'s
+    `member_end_forces` (local `[n1, v1, m1, n2, v2, m2]` per member,
+    `crates/feldspar-library/src/mech/frame.rs`'s documented local DOF
+    order) to the per-member envelope `civil.utilization`/
+    `mech.deflection` checks need: worst-case absolute axial, shear,
+    and moment demand across both member ends (a single load case's
+    envelope -- sweeping combinations is the caller's discrete axis,
+    same posture as `solve_frame_payload` itself, 09 sec. 4 "structured
+    Coverage")."""
+    demands: dict[str, dict[str, float]] = {}
+    for mid, ef in result["member_end_forces"].items():
+        n1, v1, m1, n2, v2, m2 = ef
+        demands[mid] = {
+            "axial": max(abs(n1), abs(n2)),
+            "shear": max(abs(v1), abs(v2)),
+            "moment": max(abs(m1), abs(m2)),
+        }
+    return demands
+
+
+#: AISC 360-16 Chapter H interaction-check citation (deliverable 3:
+#: combined axial-flexure `civil.utilization`).
+_H1_CITATION = Citation(
+    kind="handbook",
+    ref=(
+        "AISC 360-16 Specification for Structural Steel Buildings, "
+        "Ch. H sec. H1.1, eq. H1-1a/H1-1b (combined axial and flexural "
+        "interaction, doubly/singly symmetric members)"
+    ),
+)
+
+
+def civil_utilization_h1(
+    axial_demand: float,
+    moment_demand: float,
+    axial_capacity: float,
+    moment_capacity: float,
+):
+    """Deliverable 3 (scoped): the AISC 360-16 H1-1 combined axial-
+    flexure interaction ratio for one member -- NOT the full
+    `civil.utilization` code-pack surface (buckling curves, LTB,
+    connection checks are named residuals below, not guessed).
+
+    `axial_capacity`/`moment_capacity` are the member's ALREADY-
+    RESOLVED design capacities (`phi*Pn`, `phi*Mn` -- LRFD, or the
+    ASD-equivalent the caller normalizes to; this function does not
+    itself apply a phi/omega factor, matching `solve_frame_payload`'s
+    "caller supplies resolved numbers" seam). Both must be strictly
+    positive (a zero/negative capacity is a resolution bug upstream,
+    not a solvable case here).
+
+    Returns `Ok((ratio, "Valid"|"Violated"))` per AISC 360-16 eq.
+    H1-1a (`Pr/Pc >= 0.2`) or H1-1b (`Pr/Pc < 0.2`); `ratio <= 1.0` is
+    `Valid`. `Err(SolveError.OutOfDomain)` for a non-positive
+    capacity -- refuses to divide into a fabricated verdict."""
+    if axial_capacity <= 0.0 or moment_capacity <= 0.0:
+        return Err(
+            SolveError.OutOfDomain(
+                violation=(
+                    "civil.utilization H1: non-positive capacity "
+                    f"(axial={axial_capacity!r}, moment={moment_capacity!r}) "
+                    "-- cannot form an interaction ratio"
+                )
+            )
+        )
+    pr_pc = abs(axial_demand) / axial_capacity
+    mr_mc = abs(moment_demand) / moment_capacity
+    if pr_pc >= 0.2:
+        ratio = pr_pc + (8.0 / 9.0) * mr_mc  # eq. H1-1a
+    else:
+        ratio = pr_pc / 2.0 + mr_mc  # eq. H1-1b
+    verdict = "Valid" if ratio <= 1.0 else "Violated"
+    return Ok((ratio, verdict))
 
 
 def _make_frame_direction(resolver: PayloadResolver):

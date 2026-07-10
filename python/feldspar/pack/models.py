@@ -112,6 +112,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.mech import register as register_mech
     from feldspar.library.member_capacity import register as register_member_capacity
     from feldspar.library.thermo import register as register_thermo
+    from feldspar.library.weld_groups import register as register_weld_groups
 
     engine_resolver = resolver if resolver is not None else NoStoreResolver()
 
@@ -119,6 +120,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_mech(registry)
     register_member_capacity(registry)
     register_bolted_joints(registry)
+    register_weld_groups(registry)
     register_fluids(registry)
     register_heat(registry)
     register_thermo(registry)

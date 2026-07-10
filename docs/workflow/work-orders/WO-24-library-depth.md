@@ -1,16 +1,18 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-10 dispatch #3, branch `wo24-joints`,
-worktree `.claude/worktrees/wo24-joints`) -- landed deliverable 0
+Status: PARTIAL (2026-07-10 dispatch #4, branch `wo24-welds`,
+worktree `.claude/worktrees/wo24-welds`) -- landed deliverable 0
 (dispatch #1, member capacity forms), deliverable -1 (dispatch #2,
-`docs/benchmarks-memo.md` consolidation), deliverable 1 (this
-dispatch: bolted joints, VDI 2230 + Shigley/AISC elastic bolt-group
-distribution), and deliverable 8 (this dispatch: Euler elastic
-column buckling, the narrow slice of the column-buckling residual
-this dispatch scoped itself to -- see Close-out below). Deliverables
-2-7 RECORDED and CUT AGAIN this dispatch (not started; out of this
-dispatch's exactly-two-deliverable scope, per dispatch instruction).
-Deliverable 9 (ledger) done for the landed slices.
+`docs/benchmarks-memo.md` consolidation), deliverable 1 (dispatch
+#3, bolted joints, VDI 2230 + Shigley/AISC elastic bolt-group
+distribution), deliverable 8 (dispatch #3, Euler elastic column
+buckling, narrow slice), deliverable 2 (this dispatch: fillet weld
+groups, Shigley/Blodgett elastic line method), and deliverable 3
+(this dispatch: bearing life, ISO 281:2007 basic L10/L10h over
+`std.bearings`-shaped rating records). Deliverables 4-7 RECORDED and
+CUT AGAIN this dispatch (not started; out of this dispatch's
+exactly-two-deliverable scope, per dispatch instruction). Deliverable
+9 (ledger) done for the landed slices.
 Depends: WO-21/23 (struct tier), WO-20 (thermal-fluids wave),
 WO-11/22 (symbolic core -- validity-domain predicates for every new
 model), the benchmarks memo (every calibration case cites it or a
@@ -494,3 +496,178 @@ remains the standing largest blocker for `mech.struct`/`mech.member`
 (named in every WO-21/23/24 close-out, this dispatch's two landed
 directions both take fully caller-resolved numeric inputs, same
 seam).
+
+---
+
+## Dispatch #4 close-out (2026-07-10, branch `wo24-welds`, worktree
+`.claude/worktrees/wo24-welds`)
+
+Scope this dispatch: EXACTLY deliverable 2 (weld groups) and
+deliverable 3 (bearing life), per explicit dispatch instruction
+("small scope, fully landed, beats wide and cut") -- deliverables
+4-7 out of scope, not attempted, cuts unchanged from dispatch #2/#3's
+own text.
+
+**(a) Landed / cut table**:
+
+| Deliverable | Status | Notes |
+|---|---|---|
+| 2. Weld groups | LANDED | Shigley 11e ch. 9 / Blodgett elastic line method: in-plane shear+torsion, out-of-plane bending, vector-summed peak line force vs caller-supplied allowable |
+| 3. Bearing life | LANDED | ISO 281:2007 basic L10 (ball p=3, roller p=10/3) + L10->L10h at constant speed, over `std.bearings`-shaped C/P inputs |
+| 4-7 | CUT (unchanged) | out of this dispatch's scope; see dispatch #2/#3 close-outs above |
+
+**(b) Branch + commits** (`wo24-welds`, worktree
+`.claude/worktrees/wo24-welds`):
+
+1. `docs(memo): add fillet weld group and ISO 281 bearing life
+   sections` -- `docs/benchmarks-memo.md` sec. 10 (weld groups,
+   subsecs 10.1-10.3) and sec. 11 (bearing life, subsecs 11.1-11.3),
+   appended after the existing sec. 9 Euler column buckling section
+   without renumbering it (the memo's own append-only rule).
+2. `feat(weld): add fillet weld group elastic line directions
+   (WO-24 deliverable 2)` -- `python/feldspar/library/weld_groups.py`
+   (new), `tests/unit/test_library_weld_groups.py` (new), wired into
+   `python/feldspar/pack/models.py::_engine_registry`.
+3. `feat(bearing): add ISO 281 basic dynamic rating life directions
+   (WO-24 deliverable 3)` -- `python/feldspar/library/bearing_life.py`
+   (new), `tests/unit/test_library_bearing_life.py` (new), wired into
+   `python/feldspar/pack/models.py::_engine_registry`.
+
+**(c) Gates** (this worktree):
+`cargo fmt --all -- --check`: no Rust changed this dispatch.
+`uv run ruff format --check .` / `uv run ruff check .`: the changed
+files (`weld_groups.py`, `bearing_life.py`, `models.py`,
+`test_library_weld_groups.py`, `test_library_bearing_life.py`) are
+clean; the tool reports pre-existing failures in the SAME unrelated
+files dispatch #1/#2/#3 already documented (`examples/*.py`,
+`examples/solvers/*.py`, `scripts/*.py`,
+`tests/unit/test_plan_over_library.py`), unchanged, not a
+regression.
+`uv run lint-imports`: 1 contract kept, 0 broken (unchanged).
+`uv run ty check`: 230 diagnostics, same count as dispatch #1/#2/#3's
+recorded baseline (all pre-existing `regolith.*`-unresolved-import
+findings from the nested-worktree relative-path gap); zero new
+diagnostics from this dispatch's Python (an initial `bearing_life.py`
+draft's multi-line `# ty: ignore` comment placement broke after a
+`ruff format` reflow and produced 2 spurious diagnostics -- fixed by
+restructuring `register()` to bind `.solver_direction` to a local
+name per direction, same single-line-ignore shape `bolted_joints.py`/
+`weld_groups.py` already use, before the final count was taken).
+`uv run pytest tests/ -n auto -m "not regolith and not fea and not
+spice"`: 381 passed, 1 skipped, 7 errors -- the same 7 pre-existing
+`tests/regolith/*` collection failures (count unchanged); 18 new
+tests this dispatch (9 weld-group tests + 9 bearing-life tests) over
+the 363-passed baseline dispatch #3 recorded (363 + 18 = 381,
+consistent).
+
+**(d) Memo sections added**: `docs/benchmarks-memo.md` sec. 10
+(three subsections, 10.1-10.3) and sec. 11 (three subsections,
+11.1-11.3) -- both new, appended after sec. 9, sec. numbering of
+every prior section unchanged. Sources: Shigley's Mechanical
+Engineering Design 11th ed. ch. 9 sec. 9-5/9-6 (weld-line unit
+section properties, in-plane and bending); Blodgett, Design of
+Weldments, sec. 4.3-4.4 (same elastic-line treatment); AWS D1.1/
+D1.1M Structural Welding Code -- Steel and AISC 360-16 sec. J2.4
+(0.707*leg-size effective throat convention) for sec. 10.3's
+utilization check; ISO 281:2007, Rolling bearings -- Dynamic load
+ratings and rating life, sec. 6.2 eq. 4/eq. 5, for sec. 11.
+
+**(e) Calibration results** (all green, hand-computed exact algebra,
+tolerance rel=1e-6..1e-9 -- pure closed-form, no empirical fit):
+
+- `test_weld_group_inplane_shear_torsion_matches_hand_computed`:
+  Aw=0.20 m, Jw=0.0136 m^3, critical point (0.05, 0.03), Vx=1000,
+  Vy=0, T=50 -> |f|=4893.16 N/m.
+- `test_weld_group_outofplane_bending_matches_hand_computed`:
+  M=600 N*m, Iw=0.0024 m^3, c=0.06 m -> f=15,000.0 N/m.
+- `test_weld_group_utilization_matches_hand_computed`:
+  f_inplane=4893.16 N/m, f_bending=15,000.0 N/m, leg=0.008 m,
+  allowable=145e6 Pa -> stress=2,789,591 Pa, ratio=0.01924 (Valid).
+- `test_weld_group_utilization_over_allowable_reports_ratio_above_one`:
+  honest ratio > 1.0 case, not a raised error.
+- `test_l10_ball_matches_hand_computed`: C=14,000 N (a 6205-class
+  `std.bearings` record's `dynamic_load_kn=14.0`), P=2,000 N ->
+  L10=343.0 million revolutions.
+- `test_l10_roller_matches_hand_computed`: C=50,000 N, P=10,000 N ->
+  L10=5^(10/3)=213.7470 million revolutions.
+- `test_l10h_matches_hand_computed`: L10=343.0, n=1,800 rpm ->
+  L10h=3,175.93 hours.
+- `test_l10_then_l10h_composed_matches_hand_computed`: chains the
+  ball-L10 direction's output into the L10h direction through two
+  separate `SolveFn` calls, confirming the caller-composition seam
+  works end to end.
+- Non-positive/degenerate-input `OutOfDomain` cases for all six new
+  directions (honest refusal, not a fabricated verdict).
+- No calibration failures to record (one arithmetic slip caught
+  during drafting: an initial hand-computed weld in-plane resultant
+  and roller-bearing `L10` exponent value were wrong by
+  transcription error, not a formula error -- both corrected in the
+  module docstring, memo sections, and tests together before this
+  close-out, verified via `python3 -c` cross-check against the
+  registered solver's own output).
+
+**(f) New solver direction names + signatures**:
+
+```
+mech.weld.weld_group_inplane_shear_torsion
+  in:  {"mech.weld.group.vx": float, "mech.weld.group.vy": float,
+        "mech.weld.group.torque": float, "mech.weld.group.aw": float,
+        "mech.weld.group.jw": float, "mech.weld.group.xi": float,
+        "mech.weld.group.yi": float}
+  out: {"mech.weld.group.inplane_line_force": float}   # N/m
+
+mech.weld.weld_group_outofplane_bending
+  in:  {"mech.weld.group.moment": float, "mech.weld.group.iw": float,
+        "mech.weld.group.c": float}
+  out: {"mech.weld.group.bending_line_force": float}   # N/m
+
+mech.weld.weld_group_utilization
+  in:  {"mech.weld.group.inplane_line_force": float,
+        "mech.weld.group.bending_line_force": float,
+        "mech.weld.group.leg_size": float,
+        "mech.weld.group.allowable_stress": float}
+  out: {"mech.weld.group.peak_stress": float,          # Pa
+        "mech.weld.group.utilization_ratio": float}    # dimensionless
+
+mech.bearing.bearing_basic_rating_life_l10_ball
+mech.bearing.bearing_basic_rating_life_l10_roller
+  in:  {"mech.bearing.dynamic_rating": float,   # N (C)
+        "mech.bearing.equivalent_load": float}  # N (P)
+  out: {"mech.bearing.l10": float}   # millions of revolutions
+
+mech.bearing.bearing_basic_rating_life_l10h
+  in:  {"mech.bearing.l10": float, "mech.bearing.speed_rpm": float}
+  out: {"mech.bearing.l10h": float}   # hours
+```
+
+All six registered `@solver` pure-map directions (10 sec. 2 pattern
+1), same shape as every other `library.mech`/`library.member_capacity`/
+`library.bolted_joints` direction -- called through the registered
+`SolveFn` protocol (`fn(x) -> Result[SolveResult, SolveError]`,
+`.danger_ok.values[<port>]`).
+
+**Cuts named this dispatch** (unchanged scope decisions, not new
+findings): weld-line unit section properties (`Aw`/`Jw`/`Iw`) for
+standard weld patterns (rectangular, circular, C-shaped groups --
+Blodgett Table 4 / Shigley Table 9-1/9-2) are NOT transcribed --
+CALLER-SUPPLIED, same "caller-resolved aggregate" seam
+`bolt_group_shear_torsion`'s `j_polar` uses. The allowable weld
+stress (AWS D1.1 electrode-classification table) is NOT derived --
+CALLER-SUPPLIED. The ISO 281 sec. 6.1 combined-load `P = X*Fr+Y*Fa`
+equivalent-load reduction and the sec. 6.3 `a1`/`aISO` life-
+modification factors are NOT built -- `P` is CALLER-SUPPLIED, basic
+(unmodified) `L10`/`L10h` only. Static-load safety (`C0/P0`, ISO 76)
+is NOT evaluated. Deliverables 4-7 (fatigue tier, deflection catalog
+completion, thermal transient, drive sizing) untouched, same reasons
+dispatch #2 recorded.
+
+**LITHOS-SIDE NOTE**: unchanged -- nothing new escalated this
+dispatch; the section/material CAPACITY-resolution registry channel
+remains the standing largest blocker for `mech.struct`/`mech.member`
+(named in every WO-21/23/24 close-out). The `std.bearings` record
+shape (`dynamic_load_kn`/`static_load_kn`) read this dispatch as a
+reference (lithos:stdlib/std.bearings/records/deep_groove_ball.toml,
+read-only) confirms the same "caller-resolved numeric input, no
+registry-digest-resolution channel" seam applies to bearing C/C0
+values exactly like it does to AISC section properties -- consistent
+with, not a new instance of, the standing blocker.

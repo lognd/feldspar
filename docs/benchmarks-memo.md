@@ -709,3 +709,147 @@ branch to select).
 Case count, section 9: 1 closed-form Euler column case.
 
 ---
+
+## 10. Fillet weld groups, elastic line method (feldspar WO-24
+   deliverable 2)
+
+New section (append-only) -- these three cases back the
+`mech.weld.*` directions in `python/feldspar/library/weld_groups.py`.
+All are pure algebraic closed-form identities (no empirical curve-
+fit), tagged `[exact]`.
+
+### 10.1 Elastic-line in-plane shear + torsion  [exact]
+
+Shigley's Mechanical Engineering Design, 11th ed., ch. 9 sec. 9-5/
+9-6 (fillet welds treated as a line, unit second-moment-of-area
+method); Blodgett, Design of Weldments, sec. 4.3-4.4 (the same
+elastic-line torsion/shear treatment). A weld line of total length
+(unit area) `Aw`, with unit polar second moment `Jw` about its
+centroid, under a centroidal shear `(Vx, Vy)` and centroidal torque
+`T`, develops at a point `(x_i, y_i)` on the line:
+
+    f_direct  = (Vx/Aw, Vy/Aw)                (equal-per-length split)
+    f_torsion = (-T*yi/Jw, T*xi/Jw)
+    f_i       = f_direct + f_torsion  (vector sum, N/m)
+
+Worked case (hand-computed, exact algebra): Aw = 0.20 m,
+Jw = 0.0136 m^3, critical point (x_i, y_i) = (0.05, 0.03),
+Vx = 1000 N, Vy = 0 N, T = 50 N*m.
+
+    f_direct  = (1000/0.20, 0) = (5000.0, 0.0) N/m
+    f_torsion = (-50*0.03/0.0136, 50*0.05/0.0136)
+              = (-110.294, 183.824) N/m
+    f_i       = (4889.706, 183.824) N/m
+    |f_i|     = sqrt(4889.706^2 + 183.824^2) = 4893.16 N/m
+
+Tolerance: exact (rel 1e-6), pure arithmetic.
+
+### 10.2 Elastic-line out-of-plane bending  [exact]
+
+Shigley ch. 9 sec. 9-5 (fillet weld groups loaded in bending, unit
+second moment of area treated exactly like a bending-stress section
+modulus): `f_bending = M*c/Iw` (N/m), `Iw` the unit second moment of
+the weld line about the bending neutral axis, `c` the extreme-fiber
+distance.
+
+Worked case (hand-computed, exact algebra): M = 600 N*m,
+Iw = 0.0024 m^3, c = 0.06 m.
+
+    f_bending = 600 * 0.06 / 0.0024 = 15,000.0 N/m
+
+Tolerance: exact (rel 1e-9), pure arithmetic.
+
+### 10.3 Vector-summed peak line force vs allowable  [exact]
+
+AWS D1.1/D1.1M Structural Welding Code -- Steel, and AISC 360-16 sec.
+J2.4 (effective throat of a fillet weld = 0.707*leg size `h`): the
+in-plane (shear-plane) and out-of-plane (bending-plane) unit line
+forces act on mutually perpendicular components of the weld throat,
+so the peak unit line force is their vector sum; dividing by the
+effective throat area converts to an actual stress, compared against
+a caller-supplied allowable (e.g. AWS D1.1 table 2.3's `0.30*F_EXX`
+for fillet-weld shear -- not derived here, caller-supplied by
+design, a named cut).
+
+    f_peak  = sqrt(f_inplane^2 + f_bending^2)
+    stress  = f_peak / (0.707*h)
+    ratio   = stress / allowable
+
+Worked case (hand-computed, exact algebra): f_inplane = 4893.16 N/m
+(sec. 10.1's case), f_bending = 15,000.0 N/m (sec. 10.2's case),
+h = 0.008 m, allowable = 145e6 Pa (E70 electrode, illustrative,
+`0.30*482e6 ~ 145e6`).
+
+    f_peak  = sqrt(4893.16^2 + 15000.0^2) = 15,777.9 N/m
+    throat  = 0.707*0.008 = 0.005656 m
+    stress  = 15777.9 / 0.005656 = 2,789,591 Pa (approx)
+    ratio   = 2,789,591 / 145e6 = 0.01924   (Valid, ratio <= 1.0)
+
+Tolerance: exact (rel 1e-9), pure arithmetic.
+
+Case count, section 10: 3 closed-form weld-group cases.
+
+---
+
+## 11. Rolling-bearing basic dynamic rating life, ISO 281:2007
+   (feldspar WO-24 deliverable 3)
+
+New section (append-only) -- these three cases back the
+`mech.bearing.*` directions in
+`python/feldspar/library/bearing_life.py`. Rating-record shape (`C`
+basic dynamic load rating, `C0` basic static load rating) mirrors
+lithos:stdlib/std.bearings/records/deep_groove_ball.toml's
+`dynamic_load_kn`/`static_load_kn` fields (read-only reference, not
+duplicated here). All cases are pure algebraic closed-form
+identities, tagged `[exact]`.
+
+ISO 281:2007, Rolling bearings -- Dynamic load ratings and rating
+life, sec. 6.2 eq. 4 (basic rating life, millions of revolutions):
+
+    L10 = (C/P)^p
+
+`p = 3` for ball bearings, `p = 10/3` for roller bearings (the
+standard's own fixed load-life exponents). `P` is the equivalent
+dynamic bearing load -- CALLER-SUPPLIED (the sec. 6.1 `P = X*Fr +
+Y*Fa` combined-load reduction needs bearing-geometry-specific X/Y
+tables, not transcribed here; a named cut). Sec. 6.2 eq. 5 converts
+to hours at a constant speed `n` (rev/min):
+
+    L10h = L10 * 1e6 / (60*n)
+
+No sec. 6.3 life-modification factor (`a1` reliability, `aISO`
+systems approach) is applied -- basic (unmodified, 90%-reliability)
+L10/L10h only, a named cut for v1.
+
+### 11.1 Basic L10, ball bearing (p=3)  [exact]
+
+Worked case: a 6205-class record (lithos std.bearings:
+`dynamic_load_kn = 14.0` -> C = 14,000 N), equivalent load
+P = 2,000 N.
+
+    L10 = (14000/2000)^3 = 7.0^3 = 343.0 million revolutions
+
+Tolerance: exact (rel 1e-9), pure arithmetic (integer exponent).
+
+### 11.2 Basic L10, roller bearing (p=10/3)  [exact]
+
+Worked case: C = 50,000 N, P = 10,000 N.
+
+    L10 = (50000/10000)^(10/3) = 5^(10/3) = 213.747... million
+          revolutions
+
+Tolerance: exact (rel 1e-6), closed-form (fractional exponent
+evaluated in floating point, no series truncation).
+
+### 11.3 L10 -> L10h at constant speed  [exact]
+
+Worked case: L10 = 343.0 million revolutions (sec. 11.1's case),
+n = 1,800 rpm.
+
+    L10h = 343.0e6 / (60*1800) = 343.0e6 / 108000 = 3,175.93 hours
+
+Tolerance: exact (rel 1e-9), pure arithmetic.
+
+Case count, section 11: 3 closed-form bearing-life cases.
+
+---

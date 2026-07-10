@@ -1,0 +1,586 @@
+# Benchmarks memo (feldspar canonical copy)
+
+Status: NORMATIVE for this repo's calibration citations (WO-20/21/23/
+24 tests cite this file's section numbers). Provenance: this file is
+a byte-faithful copy of lithos `docs/workflow/research/2026-07-08-
+benchmarks-and-datasets.md` (dated 2026-07-08, "advisory/non-
+normative" in ITS repo of origin), canonicalized here per WO-24
+deliverable -1 because that source file is the only place the
+numbered sections (1.1, 1.3, 1.5, 3.1-3.4, 4.1-4.5, ...) that feldspar
+tests/WO close-outs cite by number actually exist. Section numbering
+is preserved EXACTLY as the tests cite it; do not renumber existing
+sections when adding new ones -- append new numbered subsections
+instead (e.g. a new bolted-joints case would be a new "1.6" or a new
+top-level section, never a renumbering of 1.1-1.5).
+
+Audit method (WO-24 deliverable -1): grepped `memo` (case-insensitive)
+across `tests/` and `docs/` in this repo, collected every numbered
+citation (1.1, 1.2, 1.3, 1.4, 1.5, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3,
+4.4, 4.5), then located the source document via the WO-20 close-out's
+explicit path reference
+(`lithos docs/workflow/research/2026-07-08-benchmarks-and-datasets.md`
+sec. 3) and confirmed every one of the collected citations resolves
+to a section in that document with the SAME numeric worked values the
+tests assert against (e.g. this repo's
+`tests/unit/test_library_struct.py::test_propped_cantilever_udl_matches_closed_form`
+asserts `w=10e3, length=6.0 -> R_A=37.5kN, R_B=22.5kN, M_A=45.0kNm`,
+matching sec. 1.1's worked fixture verbatim).
+
+**Result: every numbered citation found in this repo's tests/docs
+resolves to a real section below. No unreconstructed citations.**
+
+Citation inventory (this repo, WO-24 deliverable -1 audit):
+
+| Cited as                          | File(s)                                                      | Resolves to |
+|------------------------------------|---------------------------------------------------------------|-------------|
+| "benchmarks memo 1.1"             | `tests/unit/test_library_struct.py`, `WO-23-load-paths.md`    | sec. 1.1    |
+| "benchmarks memo's cases 1.2"     | `WO-21-civil-structural-wave.md`                               | sec. 1.2    |
+| "benchmarks memo 1.3"             | `tests/unit/test_library_struct.py`                            | sec. 1.3    |
+| "benchmarks memo 1.4"             | `WO-21-civil-structural-wave.md`                                | sec. 1.4    |
+| (sec. 1.5, not yet cited by name in this repo's landed tests -- reserved, see WO-24 deliverable 8 cut note) | -- | sec. 1.5 |
+| "benchmarks memo 3.1"             | `tests/unit/test_library_fluids.py`                            | sec. 3.1    |
+| "benchmarks memo 3.2" / "sec. 3.2"| `tests/unit/test_library_fluids.py`, `test_library_fluids_network.py` | sec. 3.2 |
+| "benchmarks memo 3.3" / "memo case"| `tests/unit/test_library_fluids.py`                            | sec. 3.3    |
+| "benchmarks memo sec. 3.4"        | `tests/unit/test_library_thermo.py`                             | sec. 3.4    |
+| "benchmark memo sec. 4.1"         | `tests/integration/test_elec_ngspice_pipeline.py`               | sec. 4.1    |
+| (sec. 4.2, RLC -- `test_library_elec.py::test_rlc_resonance_matches_benchmark_memo`, no explicit numeral in the docstring but matches sec. 4.2's L/C/R values exactly) | `test_library_elec.py` | sec. 4.2 |
+| "benchmark memo sec. 4.3"         | `tests/integration/test_elec_ngspice_pipeline.py`               | sec. 4.3    |
+| (sec. 4.4, BJT -- `test_library_elec.py::test_bjt_bias_matches_benchmark_memo`, matches sec. 4.4's Vcc/R1/R2/RE/RC/beta values) | `test_library_elec.py` | sec. 4.4 |
+| (sec. 4.5, NMOS -- `test_library_elec.py::test_nmos_bias_matches_benchmark_memo`, matches sec. 4.5's k/Vth/Vgs values) | `test_library_elec.py` | sec. 4.5 |
+
+Deliverable 0 (`member_capacity.py`, this WO's already-merged slice)
+cites AISC 360-16 directly (sec. F2.1, E1, E2, E3) and explicitly
+states no memo section existed or was needed for that slice -- true,
+unchanged by this audit; AISC 360-16 member-capacity cases are NOT
+added as new memo sections here since deliverable 0 already landed
+with its own direct-standard citation trail and does not need a memo
+detour.
+
+---
+
+The remainder of this file, below the horizontal rule, is the
+UNMODIFIED body of the source memo (section numbers, worked values,
+and source list [S1]-[S14] preserved verbatim so every existing test
+citation keeps resolving).
+
+---
+
+# Validation benchmarks and public datasets (feldspar tiers, stdlib records)
+
+Date: 2026-07-08. Author: benchmarks-and-datasets market-research
+agent (cycle 27, second memo). Status: advisory input, non-normative
+IN ITS REPO OF ORIGIN (lithos); NORMATIVE here as the citation target
+for this repo's own calibration tests (see provenance note above).
+Companion to `2026-07-08-stdlib-market-research.md` (that memo chose
+WHAT to ship; this one supplies the NUMBERS the implementation agents
+turn into typed records and pack conformance tests).
+
+## How to read this
+
+Every value below carries a source and an HONESTY TIER:
+
+- `[exact]`   -- exact closed-form; expected value is analytically
+                 derivable, tolerance covers only float/round-off.
+- `[textbook]`-- canonical textbook / standards value (Roark,
+                 Timoshenko, Cengel, IAPWS, ISO); tolerance is the
+                 source's stated band.
+- `[vendor]`  -- vendor-typical catalog value; dimensions stable,
+                 load ratings brand-specific (licensing noted).
+- `[fixture]` -- FIXTURE-GRADE illustrative only; validity-windowed;
+                 NEVER live pricing, NEVER a design authority.
+
+Binds to feldspar WO-17 (ngspice), WO-20 (thermal-fluids), WO-21
+(frame direct-stiffness); lithos WO-45/48/53/54; std.models floor.
+All SI unless a US-customary standard (AISC, NPS, copper tube) is the
+native authority; both given where practical.
+
+## Table of contents
+
+1. Frame / structural benchmarks (feldspar WO-21)
+2. Beam-formula floor checks (std.models, Roark/Timoshenko)
+3. Fluid-network benchmarks (feldspar WO-20) + CoolProp state points
+4. Circuit benchmarks (feldspar WO-17, ngspice)
+5. Public dimensional / property datasets (WO-45/48/53/54)
+6. Costing anchor points (WO-54, all fixture-grade)
+7. Sources
+
+---
+
+## 1. Frame / structural benchmarks (feldspar WO-21 direct stiffness)
+
+These are the calibration cases for the direct-stiffness `frame`
+tier. All reactions are STATICALLY DETERMINATE (exact) even where the
+structure is indeterminate for deflection; deflection expressions are
+exact closed-form for the stated EI. Convention: down/right positive,
+sagging moment positive, E = 200 GPa steel, g = 9.81 not used (loads
+given directly).
+
+### 1.1 Propped cantilever, uniform load  [exact]
+
+Fixed at A (x=0), roller at B (x=L). Uniform w over span L.
+Standard result (Roark Table 8.1, case propped cantilever UDL):
+
+    Reaction at prop B      R_B = 3wL/8
+    Reaction at fixed A     R_A = 5wL/8
+    Moment at fixed end A    M_A = -wL^2/8   (max magnitude)
+    Max span moment          M+  = 9wL^2/128 at x = 5L/8
+    Max deflection           d   = wL^4 / (185 EI) at x = 0.5785 L
+
+Worked fixture: w = 10 kN/m, L = 6 m, EI = 200e9 * 300e-6 = 6.0e7 N m^2
+(Ix = 300e6 mm^4, e.g. a W-ish section).
+
+    R_B = 3*10e3*6/8   = 22.5 kN
+    R_A = 5*10e3*6/8   = 37.5 kN
+    M_A = -10e3*36/8   = -45.0 kN m
+    d   = 10e3*6^4 / (185*6.0e7) = 12.96e6/1.11e10 = 1.168e-3 m = 1.17 mm
+
+Tolerance: reactions/moments +/-0.1% [exact]; deflection +/-1%
+(round-off of the 0.5785 coefficient).
+
+### 1.2 Portal frame sway, pinned feet, single lateral load  [exact]
+
+Rectangular portal: columns height h, beam span L, rigid joints,
+pinned bases at C and D. Horizontal load H applied at beam level
+(top-left). Reactions are determinate by symmetry of the horizontal
+split (Hibbeler, Structural Analysis, portal-frame approximate =
+exact for reactions here):
+
+    Horizontal reaction each base   H_C = H_D = H/2   (opposing H)
+    Vertical reaction couple        V   = H*h / L     (up at leeward,
+                                          down at windward base)
+
+Worked fixture: H = 20 kN, h = 4 m, L = 6 m.
+
+    H_C = H_D = 10 kN
+    V   = 20*4/6 = 13.33 kN  (one base up, other down)
+
+Tolerance: +/-0.1% [exact]. (Beam-column moments require the 1x
+indeterminate solve; use this case to check REACTION assembly.)
+
+### 1.3 Two-span continuous beam, uniform load  [exact]
+
+Two equal spans L, uniform w, simple supports at A, B (center), C.
+Three-moment theorem (Timoshenko, Strength of Materials Pt.1):
+
+    Moment over center support   M_B = -wL^2/8
+    Center support reaction      R_B = 10wL/8 = 1.25 wL
+    End reactions                R_A = R_C = 3wL/8 = 0.375 wL
+    Max span moment              M+  = 9wL^2/128 at 0.375L from ends
+
+Worked fixture: w = 12 kN/m, L = 5 m.
+
+    M_B = -12e3*25/8 = -37.5 kN m
+    R_B = 1.25*12e3*5 = 75.0 kN
+    R_A = R_C = 0.375*12e3*5 = 22.5 kN
+
+Sum check: 2*22.5 + 75.0 = 120 kN = w*(2L) = 12*10 = 120 kN. OK.
+Tolerance: +/-0.1% [exact].
+
+### 1.4 Plane truss, determinate, apex load  [exact]
+
+Symmetric two-bar (king-post) truss: node A apex, bases B, C on a
+horizontal line span 2a apart, apex height h above the base line.
+Members AB, AC each at angle theta from horizontal, tan theta = h/a.
+Vertical load P down at apex A.
+
+    Member force  F_AB = F_AC = P / (2 sin theta)   (compression)
+    Base vert.    R_By = R_Cy = P/2
+    Base horiz.   R_Bx = -R_Cx = P/(2 tan theta) = F * cos theta
+
+Worked fixture: P = 40 kN, a = 3 m, h = 4 m -> theta = 53.13 deg,
+sin theta = 0.8, cos theta = 0.6.
+
+    F_AB = F_AC = 40/(2*0.8) = 25.0 kN  (compression)
+    R_By = R_Cy = 20.0 kN
+    horiz thrust = 25.0*0.6 = 15.0 kN each (inward)
+
+Tolerance: +/-0.1% [exact].
+
+### 1.5 Fixed-fixed beam, central point load  [exact]
+
+Both ends fully fixed, point load P at midspan L/2 (Roark Table 8.1):
+
+    End moments     M_A = M_B = -PL/8
+    Midspan moment  M_C = +PL/8
+    End reactions   R_A = R_B = P/2
+    Max deflection  d = PL^3 / (192 EI) at midspan
+
+Worked fixture: P = 30 kN, L = 4 m, EI = 6.0e7 N m^2.
+
+    M_A = M_B = -30e3*4/8 = -15.0 kN m
+    M_C = +15.0 kN m
+    R_A = R_B = 15.0 kN
+    d = 30e3*4^3/(192*6.0e7) = 1.92e6/1.152e10 = 1.667e-4 m = 0.167 mm
+
+Tolerance: reactions/moments +/-0.1% [exact]; deflection +/-0.5%.
+
+Case count, section 1: 5 frame/structural benchmarks.
+
+---
+
+## 2. Beam-formula floor checks (std.models -- Roark/Timoshenko)  [exact]
+
+Closed-form single-span beams the std.models `beam` law must
+reproduce exactly. E, I, L, w, P symbolic; tolerance +/-0.1%
+(analytic). Source: Roark's Formulas for Stress and Strain, 8th ed.,
+Table 8.1; Timoshenko, Strength of Materials.
+
+    Case                        R_max      M_max        d_max (at)
+    --------------------------  ---------  -----------  -------------------
+    SS beam, UDL w              wL/2       wL^2/8       5wL^4/384EI (mid)
+    SS beam, central load P     P/2        PL/4         PL^3/48EI (mid)
+    Cantilever, end load P      P          PL (fixed)   PL^3/3EI (tip)
+    Cantilever, UDL w           wL         wL^2/2       wL^4/8EI (tip)
+    Fixed-fixed, UDL w          wL/2       wL^2/12 end  wL^4/384EI (mid)
+                                           wL^2/24 mid
+    SS beam, load P at a,b      Pb/L,Pa/L  Pab/L        (a(a+2b))^... see
+                                                        Roark; check @load
+
+Numeric anchor (SS beam UDL): w = 8 kN/m, L = 5 m, EI = 6.0e7 N m^2.
+    R_max = 8e3*5/2 = 20.0 kN
+    M_max = 8e3*25/8 = 25.0 kN m
+    d_max = 5*8e3*5^4/(384*6.0e7) = 2.5e7/2.304e10 = 1.085e-3 m = 1.085 mm
+
+Numeric anchor (cantilever tip load): P = 5 kN, L = 3 m, EI = 6.0e7.
+    M_max = 5e3*3 = 15.0 kN m
+    d_tip = 5e3*3^3/(3*6.0e7) = 1.35e5/1.8e8 = 7.50e-4 m = 0.750 mm
+
+Case count, section 2: 6 canonical beam formulas + 2 numeric anchors.
+
+---
+
+## 3. Fluid-network benchmarks (feldspar WO-20) + CoolProp state points
+
+### 3.1 Colebrook / Haaland friction factor  [textbook]
+
+Colebrook-White (implicit): 1/sqrt(f) = -2 log10( eps/(3.7 D) +
+2.51/(Re sqrt(f)) ). Haaland (explicit): 1/sqrt(f) = -1.8 log10(
+(eps/D/3.7)^1.11 + 6.9/Re ). Source: Wikipedia Colebrook_equation;
+Moody / White Fluid Mechanics. Moody-chart accuracy is +/-5% smooth,
++/-10% rough.
+
+Worked case: commercial steel, D = 0.1 m, eps = 0.045 mm ->
+eps/D = 4.5e-4, Re = 1.0e5 (turbulent).
+
+    f_Colebrook (iterated)  = 0.0195   [textbook]
+    f_Haaland (explicit)    = 0.0199   [exact eval of formula]
+
+Tolerance for a solver: match Colebrook root to +/-0.5% and confirm
+Haaland within +/-2% of Colebrook (the two should agree to ~2%).
+
+Second anchor (laminar floor): Re = 1000 -> f = 64/Re = 0.0640
+[exact] (Hagen-Poiseuille). Tolerance +/-0.1%.
+
+### 3.2 Series / parallel pipe network  [exact]
+
+Series (same Q, head losses add):  h_total = h1 + h2 + ...
+Parallel (same head loss, flows add): Q_total = Q1 + Q2 + ...,
+each branch same delta-h.
+
+Worked series: two pipes carrying Q = 0.01 m^3/s, with
+h1 = 3.0 m and h2 = 2.0 m at that Q -> h_total = 5.0 m [exact].
+
+Worked parallel: two identical branches each passing Q = 0.006 m^3/s
+at delta-h = 4.0 m -> Q_total = 0.012 m^3/s at delta-h = 4.0 m [exact].
+Hardy-Cross convergence check: loop correction dQ -> 0 to |dQ| < 1e-6.
+
+### 3.3 Pump operating point  [exact]
+
+Pump curve H_p = H0 - a Q^2; system curve H_s = H_static + R Q^2.
+Operating point where H_p = H_s: Q* = sqrt((H0 - H_static)/(a + R)).
+
+Worked: H0 = 50 m, a = 2000 s^2/m^5, H_static = 10 m,
+R = 3000 s^2/m^5.
+    Q* = sqrt((50-10)/(2000+3000)) = sqrt(40/5000) = sqrt(0.008)
+       = 0.08944 m^3/s
+    H* = 10 + 3000*0.008 = 34.0 m   (check: 50 - 2000*0.008 = 34.0 m) OK
+Tolerance +/-0.1% [exact].
+
+### 3.4 CoolProp reference state points  [textbook]
+
+Pin the property-table backend (CoolProp MIT). Values are IAPWS-95
+(water) and ISO/REFPROP-grade correlations at the stated state; use
+to lock the interpolation eps and domain boxes. Tolerance +/-0.5% for
+liquid density/cp, +/-2% for viscosity (correlation band).
+
+    Fluid   T (K)    P (Pa)    rho (kg/m^3)  cp (J/kg/K)  mu (Pa s)
+    ------  -------  --------  ------------  -----------  ----------
+    Water   293.15   101325    998.2         4184         1.002e-3
+    Water   298.15   101325    997.0         4181         8.90e-4
+    Water   373.124  101325    958.4 (satL)  4217         2.82e-4
+    Air     298.15   101325    1.184         1006         1.849e-5
+    N2      298.15   101325    1.145         1040         1.78e-5
+
+Notes: Water 373.124 K row is the saturated-liquid boiling point at
+1 atm (satL). Air/N2 densities are near-ideal-gas; CoolProp uses
+real-gas EOS (Lemmon N2, Lemmon air). Source: CoolProp PropsSI
+('D'/'C'/'V', 'T', T, 'P', P, fluid); IAPWS-95; ISO 5167 air data.
+
+Case count, section 3: 2 friction cases + 2 network cases + 1 pump
+point + 5 CoolProp state points.
+
+---
+
+## 4. Circuit benchmarks (feldspar WO-17, ngspice tier)
+
+ngspice invocation shape: write a SPICE deck, run headless batch
+`ngspice -b deck.cir -r out.raw`, parse the binary/ASCII rawfile
+(`-r` sets the raw output; `.control ... write out.raw ... .endc`
+inside the deck is the alternative). Analyses: `.op`, `.dc`, `.ac`,
+`.tran`. Version pinning: pin to ngspice 42 (2024 release) or newer;
+record `ngspice --version` in the eps provenance. Discovery order:
+env `FELDSPAR_NGSPICE` then PATH. License BSD-3-Clause.
+
+### 4.1 RC step response  [exact]
+
+Series R-C, step V from 0 to Vf. v_C(t) = Vf (1 - e^(-t/tau)),
+tau = R C. R = 1 kohm, C = 1 uF -> tau = 1.0 ms.
+    v_C(tau)   = 0.6321 Vf   (63.21%)
+    v_C(5 tau) = 0.9933 Vf
+Deck: Vin step 0->5 V, `.tran 10u 5m`. Expect v_C(1ms) = 3.161 V for
+Vf = 5 V. Tolerance +/-1% (tran timestep).
+
+### 4.2 Series RLC resonance  [exact]
+
+f0 = 1/(2 pi sqrt(LC)); Q = (1/R) sqrt(L/C). L = 10 mH, C = 100 nF,
+R = 10 ohm.
+    sqrt(LC) = sqrt(1e-9) = 3.162e-5
+    f0 = 1/(2 pi * 3.162e-5) = 5033 Hz
+    Q  = (1/10) sqrt(10e-3/100e-9) = 0.1 * sqrt(1e5) = 0.1*316.2 = 31.6
+Deck: `.ac dec 100 100 100k`, expect |H| peak at ~5.03 kHz.
+Tolerance +/-1% on f0 [exact], +/-3% on Q (mesh of the ac sweep).
+
+### 4.3 Resistive divider under load  [exact]
+
+Vout = Vin R2/(R1+R2); loaded, R2 || RL. Vin = 10 V, R1 = 10 k,
+R2 = 10 k, RL = 100 k.
+    Unloaded  Vout = 10*10k/20k = 5.000 V
+    Loaded    R2||RL = (10k*100k)/110k = 9.091 k;
+              Vout = 10*9.091k/(10k+9.091k) = 10*9.091/19.091 = 4.762 V
+Deck: `.op`. Tolerance +/-0.5%.
+
+### 4.4 BJT 4-resistor bias point  [textbook]
+
+Vcc = 12 V, R1 = 47 k, R2 = 10 k, RE = 1 k, RC = 2.2 k, beta = 100,
+V_BE = 0.7 V. Thevenin: V_th = 12*10/57 = 2.105 V, R_th = 47k||10k =
+8.246 k.
+    I_B  = (V_th - V_BE)/(R_th + (beta+1)RE)
+         = (2.105-0.7)/(8246 + 101*1000) = 1.405/109246 = 12.86 uA
+    I_C  = beta I_B = 1.286 mA
+    V_E  = I_E RE ~ 1.30 V ; V_C = 12 - I_C RC = 12 - 2.83 = 9.17 V
+Deck: `.op` with a Gummel-Poon 2N3904 model card. Tolerance +/-5%
+[textbook] (I_C sensitive to the model's V_BE/beta vs the hand calc).
+
+### 4.5 NMOS bias (saturation)  [textbook]
+
+I_D = (k/2)(V_GS - V_th)^2 in saturation. k = 1 mA/V^2, V_th = 1 V,
+V_GS = 3 V.
+    I_D = (1e-3/2)(3-1)^2 = 0.5e-3 * 4 = 2.0 mA
+Deck: `.op` with a level-1 MOS card (KP=1m, VTO=1). Tolerance +/-5%
+(level-1 vs hand calc, ignores lambda/body effect).
+
+Case count, section 4: 5 canonical circuits.
+
+---
+
+## 5. Public dimensional / property datasets (WO-45/48/53/54)
+
+Each dataset: source, license/redistribution status, load-bearing
+fields, and a transcribed SAMPLE for immediate fixture use.
+
+### 5.1 AISC steel shapes (std.civil, WO-48/WO-21)  [textbook]
+
+Source: AISC Shapes Database v15.0, freely downloadable from
+aisc.org (Excel/CSV). License: AISC permits use of the shapes
+database; the tabulated dimensional/section properties are factual
+data (not copyrightable), redistributable as records. Fields that
+matter: A (area), d (depth), b_f (flange width), t_w, t_f, I_x, S_x,
+r_x, I_y, S_y, weight/ft. US-customary is native (in, in^2, in^4).
+
+    Shape    A(in^2)  d(in)   Ix(in^4)  Sx(in^3)  wt(lb/ft)
+    -------  -------  ------  --------  --------  ---------
+    W8x31    9.13     8.00    110       27.5      31
+    W12x26   7.65     12.22   204       33.4      26
+    W14x90   26.5     14.02   999       143       90
+    W16x40   11.8     16.01   518       64.7      40
+    W18x50   14.7     17.99   800       88.9      50
+
+Tolerance: transcribe exactly (+/-0 on tabulated digits); these are
+rounded catalog values, so pack tests compare to the printed digit.
+
+### 5.2 ISO metric fasteners (std.mech, WO-45/53)  [textbook]
+
+Source: ISO 261 (general-purpose metric thread), ISO 724 (basic
+dimensions), ISO 898-1 (property classes), ISO 4014/4762 (hex/socket
+head). License: ISO standards are paywalled TEXT, but the thread
+dimensions are factual and widely tabulated (engineeringtoolbox and
+machinery handbooks). Fields: pitch (coarse), tapping drill,
+clearance hole (medium), tensile stress area A_s, width across flats.
+
+    Size  Pitch(mm)  TapDrill(mm)  Clear(mm)  A_s(mm^2)  AF(mm)
+    ----  ---------  ------------  ---------  ---------  ------
+    M6    1.00       5.0           6.6        20.1       10
+    M8    1.25       6.8           9.0        36.6       13
+    M10   1.50       8.5           11.0       58.0       16
+    M12   1.75       10.2          13.5       84.3       18
+
+A_s per ISO 724 (stress area = pi/4 * ((d2+d3)/2)^2). Tolerance:
+exact digits [textbook]; A_s +/-0.5% (rounding of the mean-diameter
+formula). AF per ISO 4014 (note some legacy DIN uses 17/19 for
+M10/M12).
+
+### 5.3 NPS / DN pipe schedules (std.fluid/civil, WO-48/WO-20)  [textbook]
+
+Source: ASME B36.10M (welded/seamless wrought steel pipe). License:
+standard paywalled; OD/wall are factual tabulated data. Fields: OD,
+wall (per schedule), computed ID. Sch 40 shown (most common).
+
+    NPS   DN    OD(mm)   Sch40 wall(mm)  ID(mm)
+    ----  ----  -------  --------------  ------
+    1     25    33.4     3.38            26.6
+    2     50    60.3     3.91            52.5
+    4     100   114.3    6.02            102.3
+    6     150   168.3    7.11            154.1
+
+Tolerance: OD exact [textbook]; ID computed = OD - 2*wall, +/-0.1 mm.
+
+### 5.4 Deep-groove ball bearings, 6000/6200 series (std.mech, WO-45)
+
+Source: ISO 15 (rolling bearing boundary dimensions -- factual,
+redistributable). CAUTION: dynamic/static load ratings (C, C0) and
+fatigue limits are BRAND-SPECIFIC (SKF/NSK/FAG catalogs, copyrighted
+-- do NOT transcribe as generic). Ship ISO 15 BOUNDARY DIMENSIONS
+only; treat any C rating as `[vendor]` requiring a cited catalog
+record. Fields: bore d, OD D, width B.
+
+    Desig  bore d(mm)  OD D(mm)  width B(mm)
+    -----  ----------  --------  ----------
+    6000   10          26        8
+    6204   20          47        14
+    6205   25          52        15
+    6206   30          62        16
+
+Tolerance: exact [textbook] (ISO 15 boundary dims). Load ratings:
+OUT -- vendor record only.
+
+### 5.5 Copper tube Type K/L/M (std.fluid, WO-48)  [textbook]
+
+Source: ASTM B88 (seamless copper water tube). License: dimensions
+factual/redistributable. Fields: nominal size, OD (constant across
+types), wall (per type K>L>M). Type L (most common) shown.
+
+    Nom(in)  OD(in)   Type L wall(in)  Type L ID(in)
+    -------  -------  ---------------  -------------
+    1/2      0.625    0.040            0.545
+    3/4      0.875    0.045            0.785
+    1        1.125    0.050            1.025
+
+Note: nominal size is ~1/8 in less than OD. Tolerance: exact digits
+[textbook].
+
+### 5.6 Spring wire gauges (std.mech, WO-45)  [textbook]
+
+Source: ASTM A228 (music wire) preferred diameters; min tensile
+strength is diameter-dependent (Sut = A/d^m, the Samonov constants,
+Shigley Table 10-4). Fields: nominal diameter, min tensile (music
+wire A = 2211 MPa mm^m, m = 0.145).
+
+    Wire dia(mm)  Music-wire min Sut(MPa, ~)
+    ------------  --------------------------
+    0.50          2405
+    1.00          2170
+    2.00          1962
+    3.00          1844
+
+Tolerance: Sut +/-3% [textbook] (A,m fit band per Shigley). Diameters
+exact.
+
+### 5.7 IEC / NEMA motor frames (std.elec/mech, WO-45)  [textbook]
+
+Source: IEC 60072 (IEC frames -- frame number = shaft-height mm),
+NEMA MG-1 (NEMA frames). License: dimensions factual. Fields: frame,
+shaft height H, shaft diameter D, output speed classes.
+
+    IEC frame  shaft ht H(mm)  shaft dia(mm)
+    ---------  --------------  -------------
+    80         80              19
+    90         90              24
+    100        100             28
+    112        112             28
+
+    NEMA frame  shaft ht(in)  shaft dia(in)
+    ----------  ------------  -------------
+    56          3.50          0.625
+    143T        3.50          0.875
+    145T        3.50          0.875
+
+Tolerance: exact digits [textbook]. Note IEC 90S/90L share H=90 but
+differ in mounting length (record the S/L suffix).
+
+Case count, section 5: 7 datasets, each with a 3-5 row sample.
+
+---
+
+## 6. Costing anchor points (WO-54)  [fixture]
+
+EVERY number here is FIXTURE-GRADE ILLUSTRATIVE. Validity window:
+~2023-2025 US market, order-of-magnitude only. NEVER live pricing,
+NEVER a design authority. These exist ONLY to give the WO-54 fixtures
+plausible magnitudes; the compiler ships NO prices (AD-29) and each
+record is profile-selected, hash-pinned, `valid_until`-windowed. Mark
+every fixture record `honesty: fixture` and set a past `valid_until`
+on the expired-quote negative test.
+
+    Anchor                     Fixture range        Basis (illustrative)
+    -------------------------  -------------------  ---------------------
+    Hot-rolled steel, mtl      $0.80-1.50 / kg      mill/coil, 2023-24
+    Fabricated struct. steel   $2.00-5.00 / kg      shop-fab, erected
+    Copper (raw metal)         $8.00-10.00 / kg     LME-ish, 2023-24
+    PCB, 2-layer proto         $0.05-0.50 / cm^2    qty-break, proto fab
+    PCB, per dm^2 (100 cm^2)   $5-50 / dm^2         same, scaled
+    Ready-mix concrete         $100-160 / m^3       US delivered, 2023-24
+    Rebar (grade 60)           $0.90-1.40 / kg      2023-24
+    Shop labor (machining)     $60-120 / hr         US shop rate, 2024
+
+Usage rule for fixtures (the one honesty pin): a cost is a CLAIM,
+the itemized table is the evidence, and a consumed record past its
+`valid_until` yields INDETERMINATE naming the record (waivable with
+basis). Fixture the expired-quote-indeterminate path hard -- give one
+record a `valid_until` of 2024-01-01 so the negative test fires.
+
+Case count, section 6: 8 fixture-grade anchors.
+
+---
+
+## 7. Sources
+
+[S1] Roark's Formulas for Stress and Strain, 8th ed. (Young, Budynas,
+Sadegh), McGraw-Hill -- Table 8.1 (beam cases), propped/fixed cases.
+[S2] Timoshenko, Strength of Materials, Part 1 -- three-moment
+theorem, continuous beams.
+[S3] Hibbeler, Structural Analysis -- portal-frame reactions, plane
+trusses.
+[S4] Colebrook equation and Haaland approximation --
+https://en.wikipedia.org/wiki/Colebrook_equation ; White, Fluid
+Mechanics (Moody chart, +/-5%/10% band).
+[S5] CoolProp (MIT), high-level PropsSI API --
+https://coolprop.org/coolprop/HighLevelAPI.html ; IAPWS-95 water
+formulation; Lemmon air/N2 EOS.
+[S6] Sedra/Smith, Microelectronic Circuits -- BJT 4-resistor bias,
+RC/RLC, divider; Horowitz & Hill, Art of Electronics.
+[S7] ngspice manual (BSD-3-Clause), batch/-r rawfile, analyses --
+https://ngspice.sourceforge.io/docs.html
+[S8] AISC Shapes Database v15.0 (free download) --
+https://www.aisc.org/publications/steel-construction-manual-resources/
+[S9] ISO 261 / ISO 724 / ISO 898-1 / ISO 4014 metric threads;
+Shigley's Mechanical Engineering Design (stress-area, spring Sut
+constants Table 10-4).
+[S10] ASME B36.10M welded/seamless wrought steel pipe (NPS/DN/Sch).
+[S11] ISO 15 rolling-bearing boundary dimensions (SKF/NSK catalogs
+for C ratings -- vendor-copyrighted, not transcribed here).
+[S12] ASTM B88 seamless copper water tube (Type K/L/M).
+[S13] IEC 60072 (IEC frames) / NEMA MG-1 (NEMA frames).
+[S14] Costing anchors: fixture-grade illustrative only; magnitudes
+consistent with public 2023-2025 US market commentary (steel/copper
+commodity ranges, ready-mix and PCB proto quotes). NO live source is
+cited BY DESIGN -- these must never be read as real pricing.

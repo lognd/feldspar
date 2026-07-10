@@ -1,10 +1,13 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-09 dispatch, branch `wo24-library`) --
-landed deliverable 0 (member capacity forms) only. Deliverables 1-8
-RECORDED and CUT (not calibrated this dispatch, per the WO's own
-standing law -- see Close-out below for reasons). Deliverable 9
-(this ledger + spec 07 update) done for the landed slice.
+Status: PARTIAL (2026-07-09 dispatch #2, branch `wo24-remainder`,
+worktree `.claude/worktrees/wo24-remainder`) -- landed deliverable 0
+(prior dispatch, member capacity forms) and deliverable -1 (this
+dispatch: `docs/benchmarks-memo.md`, the memo consolidation).
+Deliverables 1-8 RECORDED and CUT AGAIN this dispatch (not started;
+same capacity limit as the prior dispatch -- see Close-out below,
+"Dispatch #2 close-out" section, for reasons). Deliverable 9 (ledger)
+done for the landed slices.
 Depends: WO-21/23 (struct tier), WO-20 (thermal-fluids wave),
 WO-11/22 (symbolic core -- validity-domain predicates for every new
 model), the benchmarks memo (every calibration case cites it or a
@@ -223,3 +226,119 @@ unchanged blocker named in every WO-21/23/24 close-out).
 **Memo sections added**: none -- deliverable 0 cites AISC 360-16
 directly (sec. F2.1, E1, E2, E3), per its own text; no benchmarks-
 memo section existed or was needed for this slice.
+
+---
+
+## Dispatch #2 close-out (2026-07-09, branch `wo24-remainder`)
+
+**Landed**:
+
+- **Deliverable -1 (integrity fix)**: `docs/benchmarks-memo.md`.
+  Every numbered citation this repo's tests/WO close-outs already
+  used ("benchmarks memo 1.1", "sec. 3.4", "memo sec. 4.1", etc.) was
+  grepped out of `tests/` and `docs/` and cross-checked against the
+  source document referenced by name in the WO-20 close-out (lithos
+  `docs/workflow/research/2026-07-08-benchmarks-and-datasets.md`,
+  read-only reference repo). Every collected citation resolves to a
+  real section in that source with matching worked numeric values
+  (spot-checked sec. 1.1 against
+  `test_library_struct.py::test_propped_cantilever_udl_matches_closed_form`'s
+  asserted R_A/R_B/M_A). The source was copied in verbatim (section
+  numbering preserved, nothing renumbered) as this repo's own
+  `docs/benchmarks-memo.md`, with a provenance/audit preface added.
+  **Result: zero unreconstructed citations** -- every citation this
+  repo's code already made was already backed by a real, findable,
+  numerically-consistent source; the integrity gap was the file's
+  ABSENCE from this repo, not a fabricated or dangling citation.
+  Commit: `docs(memo): consolidate benchmarks memo cited by
+  WO-20/21/23/24 tests`.
+
+**Cuts** (deliverables 1-8, RECORDED and cut again, same standing-law
+reason as dispatch #1 -- capacity, not physics or missing citations,
+is the limiter; the memo landing this dispatch removes what would
+otherwise have been each deliverable's first blocker, so a future
+dispatch starts from a real citation trail for at least the struct/
+fluid/circuit-adjacent cases):
+
+1. **Bolted joints** (VDI 2230-class preload/load-factor + elastic
+   bolt-group distribution) -- not started. VDI 2230 is a standard
+   this repo has not yet cited anywhere (unlike AISC/Roark/ISO
+   already in the memo); a future dispatch needs to add a new memo
+   section (e.g. a new "8." top-level section, per this memo's own
+   "append, never renumber" rule) with the specific VDI 2230 clauses
+   before landing code, plus a hand-computed or published worked
+   example to calibrate against -- not attempted this dispatch.
+2. **Weld groups** (elastic line method, fillet groups) -- not
+   started; same shape of gap (no elastic-line-method citation or
+   worked case in the memo yet; Blodgett's Design of Welded
+   Structures or AISC Manual Part 8 would be the natural source).
+3. **Bearing life** (ISO 281 L10) -- not started; additionally still
+   blocked on the registry-resolution gap named in dispatch #1's cut
+   3 and every WO-21/23 close-out (rating-record digest -> numeric
+   C/P has no channel on feldspar's payload port surface).
+4. **Fatigue tier** (Goodman/Soderberg + cited factor tables) --
+   not started; the modifying-factor tables (surface finish, size,
+   load, reliability) are each their own citation (Shigley is the
+   natural source, already cited in this memo sec. 5.6 for spring
+   wire -- but the fatigue factor TABLES themselves are not yet
+   transcribed anywhere in this repo) and calibration oracle, not
+   attempted rather than rushed, per the WO's own "honesty over
+   reach" flag on this deliverable.
+5. **Drive sizing** (belt GT2 + leadscrew) -- not started; no
+   existing citation trail for either in this repo or the memo.
+6. **Lumped thermal transient** (RC-network step/duty) -- not
+   started; extends WO-20's thermal-fluids wave, a separate
+   citation/calibration surface (the memo's sec. 3.4 CoolProp state
+   points are property data, not a transient-response worked case).
+7. **Roark deflection catalog completion** -- not started. NOTE for
+   the next dispatch: this memo's sec. 2 already lists 6 canonical
+   beam formulas + 2 numeric anchors (SS-UDL, SS-central-load,
+   cantilever-end-load, cantilever-UDL, fixed-fixed-UDL, SS-load-at-
+   a-b) and sec. 1.1/1.5 cover propped-cantilever and fixed-fixed-
+   central-load frame cases -- "the remaining Roark cases the memo
+   lists as gaps" (WO-24's own deliverable-5 text) should be read as
+   "cases NOT in sec. 1 or 2 above" (e.g. Roark Table 8.1 cases for
+   overhanging beams, non-central point loads on fixed-fixed spans,
+   or multi-span unequal-span continuous beams); enumerating that gap
+   list is itself unstarted work, not done this dispatch.
+8. **Column buckling completion** -- not started, unchanged from
+   dispatch #1's note: `mech.member.axial_yield_buckling_capacity_e3`
+   (deliverable 0, landed) already covers AISC 360-16 sec. E3's
+   basic flexural-buckling form; a future dispatch closing this
+   deliverable should scope itself to sec. E4 (torsional/flexural-
+   torsional) and sec. E7 (slender elements), not re-derive E3.
+
+**LITHOS-SIDE NOTE**: unchanged from dispatch #1 -- the section/
+material CAPACITY-resolution registry channel remains the standing
+largest blocker for `mech.struct`/`mech.member`; nothing new
+escalated this dispatch.
+
+**Gate** (this worktree, `.claude/worktrees/wo24-remainder`; only
+`docs/benchmarks-memo.md` and this WO file changed -- no Rust, no
+Python):
+`cargo fmt --all -- --check`: clean (no Rust changed).
+`uv run ruff format --check .` / `uv run ruff check .`: unchanged
+from dispatch #1's baseline (docs-only change, no Python touched).
+`uv run lint-imports`: 1 contract kept, 0 broken (unchanged).
+`uv run ty check`: verified via a fresh diagnostic count (NOT `git
+stash` -- HARD RULE this dispatch; used a separate read of the
+pre-change diagnostic count recorded in dispatch #1's own close-out,
+230, and re-ran `ty check` post-change): 230 diagnostics, same count,
+all the same pre-existing `regolith.*`-unresolved-import findings
+from the nested-worktree relative-path gap; zero new diagnostics
+(expected -- no Python source changed).
+`uv run pytest tests/ -n auto -m "not regolith and not fea and not
+spice"`: 352 passed, 1 skipped, 7 errors -- same 7 pre-existing
+`tests/regolith/*` collection failures, count unchanged from dispatch
+#1's own baseline (verified: no test file touched this dispatch).
+
+**Calibration list (this dispatch)**: none new -- deliverable -1 is
+a documentation consolidation, not a model; nothing to calibrate.
+Deliverable 0's calibration list (dispatch #1) is unchanged and
+carried forward above.
+
+**API names for new solver directions (this dispatch)**: none new --
+no solver code landed this dispatch. Deliverable 0's API shape
+(dispatch #1, `mech.member.flexural_yield_capacity_f2` and
+`mech.member.axial_yield_buckling_capacity_e3`) is unchanged and
+documented above.

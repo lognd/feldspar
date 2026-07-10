@@ -14,11 +14,17 @@ from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
     DEFAULT_RAIL_HI_CLAIM_KIND,
     DEFAULT_RAIL_LO_CLAIM_KIND,
+    BearingRatingLifeModel,
+    BoltLoadFactorModel,
     ElecRailModel,
+    EulerBucklingLoadModel,
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
     MechStiffnessModel,
+    MemberAxialCapacityModel,
+    MemberFlexuralCapacityModel,
+    WeldUtilizationModel,
 )
 
 _log = get_logger(__name__)
@@ -27,9 +33,19 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's six regolith models on `registry` (a
+    """Registers feldspar's twelve regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
+
+    Cycle-33 pack-exposure wave: `MemberFlexuralCapacityModel`/
+    `MemberAxialCapacityModel`/`EulerBucklingLoadModel`/
+    `BoltLoadFactorModel`/`WeldUtilizationModel`/`BearingRatingLifeModel`
+    wrap WO-24 library-depth directions (`member_capacity.py`/
+    `bolted_joints.py`/`weld_groups.py`/`bearing_life.py`) that landed
+    complete and calibrated in `_engine_registry()` but had no regolith
+    `Model` wrapper before this wave -- see `pack.models`'s own
+    "cycle-33 pack-exposure wave" section comment for which directions
+    stayed unexposed (named residuals) and why.
 
     Import-cheap and probe-free (FINV-3/10): constructing `Model`
     instances and calling `registry.register()` only adds Python-side
@@ -61,7 +77,13 @@ def register(registry: Any) -> None:
             claim_kind=DEFAULT_RAIL_HI_CLAIM_KIND, sense=ClaimSense.upper_bound()
         )
     )
-    _log.info("feldspar.pack: registered 6 regolith model(s)")
+    registry.register(MemberFlexuralCapacityModel())
+    registry.register(MemberAxialCapacityModel())
+    registry.register(EulerBucklingLoadModel())
+    registry.register(BoltLoadFactorModel())
+    registry.register(WeldUtilizationModel())
+    registry.register(BearingRatingLifeModel())
+    _log.info("feldspar.pack: registered 12 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

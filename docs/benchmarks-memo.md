@@ -103,6 +103,9 @@ native authority; both given where practical.
 5. Public dimensional / property datasets (WO-45/48/53/54)
 6. Costing anchor points (WO-54, all fixture-grade)
 7. Sources
+8. Bolted joints (feldspar WO-24 deliverable 1, VDI 2230 + Shigley/
+   AISC elastic bolt-group distribution)
+9. Classical Euler column buckling (feldspar WO-24 deliverable 8)
 
 ---
 
@@ -584,3 +587,125 @@ for C ratings -- vendor-copyrighted, not transcribed here).
 consistent with public 2023-2025 US market commentary (steel/copper
 commodity ranges, ready-mix and PCB proto quotes). NO live source is
 cited BY DESIGN -- these must never be read as real pricing.
+
+
+## 8. Bolted joints (feldspar WO-24 deliverable 1, VDI 2230 elastic
+   tier + Shigley/AISC elastic bolt-group distribution)
+
+New section (append-only, per this memo's own rule) -- these three
+cases back the `mech.joint.*` directions in
+`python/feldspar/library/bolted_joints.py`. All three are pure
+algebraic closed-form identities (no empirical curve-fit, no FEA
+cross-check needed), so all are tagged `[exact]` like sec. 4.1-4.3.
+
+### 8.1 Single-bolt VDI 2230 load factor + working load  [exact]
+
+VDI 2230 Part 1:2015, "Systematic calculation of highly stressed
+bolted joints", the simplified two-body elastic model: a bolt of
+stiffness `c_B` clamping parts of stiffness `c_P`, preloaded to `F_V`,
+then loaded by an external concentric axial force `F_A`. The load
+factor (VDI 2230's `Phi_en` for a concentric, unthrottled joint,
+reduced here to the two-body case) is
+
+    phi = c_B / (c_B + c_P)
+
+The bolt's additional working load and the clamped parts' residual
+clamp load are
+
+    F_S  = F_V + phi * F_A       (bolt total load)
+    F_KR = F_V - (1 - phi) * F_A (residual clamp load; F_KR <= 0 means
+                                   the joint has separated)
+
+Worked case (hand-computed, exact algebra): c_B = 200e6 N/m,
+c_P = 800e6 N/m, F_V = 10,000 N, F_A = 5,000 N.
+
+    phi  = 200e6 / (200e6 + 800e6) = 0.20
+    F_S  = 10,000 + 0.20*5,000 = 11,000 N
+    F_KR = 10,000 - 0.80*5,000 = 6,000 N   (positive -> no separation)
+
+Tolerance: exact (rel 1e-9), pure arithmetic.
+
+### 8.2 Elastic bolt-group, in-plane shear + torsion about centroid
+   [exact]
+
+Shigley's Mechanical Engineering Design, 11th ed., ch. 8 sec. 8-11
+("Shear Joints Under Eccentric Loading"), the elastic (superposition)
+method: a bolt at position `(x_i, y_i)` relative to the group
+centroid, under a centroidal shear `(V_x, V_y)` and an in-plane
+torque `T` about the centroid (CCW positive), carries
+
+    F_direct  = (V_x/n, V_y/n)                     (equal split)
+    F_torsion = (-T*y_i/J, T*x_i/J)                 (J = sum r_i^2)
+    F_i       = F_direct + F_torsion  (vector sum)
+
+Worked case (hand-computed, exact algebra): 4-bolt rectangular
+pattern, half-width a=0.05 m, half-height b=0.03 m (all 4 bolts at
+`r_i = sqrt(a^2+b^2) = 0.058310` m, `J = 4*r_i^2 = 0.013600` m^2).
+Critical bolt at `(x_i, y_i) = (0.05, 0.03)`. `V_x=1000 N, V_y=0 N,
+T=50 N*m`.
+
+    F_direct  = (1000/4, 0) = (250.0, 0.0) N
+    F_torsion = (-50*0.03/0.0136, 50*0.05/0.0136) = (-110.294, 183.824) N
+    F_i       = (139.706, 183.824) N
+    |F_i|     = sqrt(139.706^2 + 183.824^2) = 230.94 N
+
+Tolerance: exact (rel 1e-6), pure arithmetic (float rounding only).
+
+### 8.3 Elastic bolt-group, tension from moment about the neutral
+   axis  [exact]
+
+AISC Manual of Steel Construction, Part 7 (elastic/vector analysis
+method for eccentrically loaded fastener groups) and Shigley ch. 8
+sec. 8-12 (bolted joints loaded in bending): a bolt group loaded by
+a moment `M` about its neutral axis (the axis through the centroid
+perpendicular to the moment vector) develops a LINEAR tension
+distribution analogous to bending stress, `F_ti = M*y_i / sum(y_j^2)`,
+`y_i` the bolt's signed distance from the neutral axis.
+
+Worked case (hand-computed, exact algebra): 4-bolt pattern, two rows
+at `y = +0.04 m` and `y = -0.04 m` (2 bolts per row) -> `sum(y_j^2) =
+4*0.04^2 = 0.0064 m^2`. `M = 800 N*m`. Critical (extreme-tension) bolt
+at `y_i = 0.04 m`:
+
+    F_t = 800 * 0.04 / 0.0064 = 5,000 N
+
+Tolerance: exact (rel 1e-9), pure arithmetic.
+
+Case count, section 8: 3 closed-form bolted-joint cases.
+
+---
+
+## 9. Classical Euler column buckling (feldspar WO-24 deliverable 8)
+
+New section -- backs `mech.member.euler_critical_buckling_load` in
+`python/feldspar/library/member_capacity.py`. Euler's classical
+elastic buckling formula (Timoshenko, Theory of Elastic Stability,
+2nd ed., ch. 2; also Shigley 11e ch. 4 sec. 4-14 eq. 4-42), for a
+pin-ended (or effective-length-adjusted) prismatic column:
+
+    Pcr = pi^2 * E * I / (K*L)^2
+
+`K` the effective-length factor (AISC 360-16 commentary Table C-A-7.1
+gives standard K values: 1.0 pinned-pinned, 0.5 fixed-fixed, 0.7
+fixed-pinned, 2.0 fixed-free), `L` the unbraced length, `I` the
+second moment of area about the buckling axis, `E` Young's modulus.
+This is the SAME physics as sec. E3's `Fe = pi^2*E/(KL/r)^2`
+(`Pcr = Fe*Ag` since `I = Ag*r^2`) presented as its own direction over
+caller-supplied `E, I, K, L` directly (no `Ag`/`r` needed
+separately) -- a narrower, more fundamental elastic-only tier with no
+yield-strength input and no inelastic (eq. E3-2) branch.
+
+Worked case (hand-computed, exact algebra): E = 200e9 Pa,
+I = 8.0e-6 m^4, K = 1.0 (pinned-pinned), L = 3.0 m.
+
+    Pcr = pi^2 * 200e9 * 8.0e-6 / (1.0*3.0)^2
+        = pi^2 * 1.6e6 / 9.0
+        = 15.7914e6 / 9.0
+        = 1,754,600 N  (approx, pi^2=9.8696044...)
+
+Tolerance: exact (rel 1e-6), pure closed-form (no material-yield
+branch to select).
+
+Case count, section 9: 1 closed-form Euler column case.
+
+---

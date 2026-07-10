@@ -43,9 +43,7 @@ def test_cantilever_tip_deflection_solves():
         "mech.material.youngs_modulus": Interval(youngs_modulus, youngs_modulus),
         "mech.section.second_moment": Interval(second_moment, second_moment),
     }
-    result = solve(
-        registry, known, _MECH_TAGS, "mech.deflection.tip", _GENEROUS_EPS
-    )
+    result = solve(registry, known, _MECH_TAGS, "mech.deflection.tip", _GENEROUS_EPS)
     assert result.is_ok, result.err
     expected = force * length**3 / (3.0 * youngs_modulus * second_moment)
     solution = result.danger_ok
@@ -93,9 +91,7 @@ def test_chained_route_through_rect_second_moment_and_cantilever():
         "mech.geom.cantilever.length": Interval(length, length),
         "mech.material.youngs_modulus": Interval(youngs_modulus, youngs_modulus),
     }
-    result = solve(
-        registry, known, _MECH_TAGS, "mech.deflection.tip", _GENEROUS_EPS
-    )
+    result = solve(registry, known, _MECH_TAGS, "mech.deflection.tip", _GENEROUS_EPS)
     assert result.is_ok, result.err
     solution = result.danger_ok
     assert len(solution.route.steps) == 2

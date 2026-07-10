@@ -22,8 +22,23 @@ yield-limit-state forms only.
   user-note KL/r <= 4.71*sqrt(E/Fy) (equivalently Fy/Fe <= 2.25)
   boundary. Torsional/flexural-torsional buckling (sec. E4) and
   slender-element reduction (sec. E7) are NOT built -- named cuts.
+- `euler_critical_buckling_load` (WO-24 deliverable 8, docs/
+  benchmarks-memo.md sec. 9) is the classical Euler elastic column
+  buckling formula, `Pcr = pi^2*E*I/(K*L)^2` (Timoshenko, Theory of
+  Elastic Stability, ch. 2; Shigley 11e ch. 4 sec. 4-14 eq. 4-42) --
+  the SAME physics as `axial_yield_buckling_capacity_e3`'s `Fe`
+  (`Pcr = Fe*Ag` since `I = Ag*r^2`), but as its own direction over
+  caller-supplied `E, I, K, L` directly, with no yield-strength input
+  and no inelastic (eq. E3-2) branch to select -- a narrower, purely
+  elastic tier for callers who have `I` and not `r`/`Ag` separately
+  (e.g. a non-steel or non-AISC-catalog column, or a bare elastic-
+  stability check upstream of a yield check). `K` (effective-length
+  factor) is CALLER-SUPPLIED, per AISC 360-16 commentary Table
+  C-A-7.1 standard values (1.0 pinned-pinned, 0.5 fixed-fixed, 0.7
+  fixed-pinned, 2.0 fixed-free) -- this direction does not derive `K`
+  from end-condition tags, it only consumes the numeric value.
 
-Both apply the standard LRFD resistance factors (phi_b = 0.90, sec.
+Both F2/E3 apply the standard LRFD resistance factors (phi_b = 0.90, sec.
 F1; phi_c = 0.90, sec. E1) as CODE CONSTANTS, not solver inputs (an
 engineering code coefficient, not a measured physical quantity --
 matching how other library modules bake fixed physical constants into
@@ -199,10 +214,98 @@ def axial_yield_buckling_capacity_e3(x):
     return Ok({"mech.member.axial.capacity": _PHI_C * pn})
 
 
+# ---------------------------------------------------------------------------
+# Euler elastic column buckling: Pcr = pi^2*E*I/(K*L)^2 (WO-24 deliverable 8)
+# ---------------------------------------------------------------------------
+
+_EULER_CITATIONS = (
+    Citation(
+        kind="handbook",
+        ref=(
+            "Timoshenko, Theory of Elastic Stability, 2nd ed., ch. 2 "
+            "(the classical pin-ended elastic column, Pcr = "
+            "pi^2*E*I/L^2, generalized to Pcr = pi^2*E*I/(K*L)^2 via "
+            "the effective-length factor K); also Shigley's Mechanical "
+            "Engineering Design, 11th ed., ch. 4 sec. 4-14 eq. 4-42 "
+            "(docs/benchmarks-memo.md sec. 9)"
+        ),
+        note=(
+            "Standard K values (AISC 360-16 commentary Table C-A-7.1): "
+            "1.0 pinned-pinned, 0.5 fixed-fixed, 0.7 fixed-pinned, 2.0 "
+            "fixed-free -- CALLER-SUPPLIED, not derived from end-"
+            "condition tags. Same physics as "
+            "`axial_yield_buckling_capacity_e3`'s Fe (Pcr = Fe*Ag since "
+            "I = Ag*r^2); this direction takes E/I/K/L directly with "
+            "no yield-strength input and no inelastic branch (WO-24 "
+            "deliverable 8, honest completion of the WO-21/23/24 "
+            "column-buckling residual: E4 torsional/flexural-torsional "
+            "buckling and E7 slender-element reduction remain NOT "
+            "built, named cuts)."
+        ),
+    ),
+)
+
+
+@solver(
+    namespace="mech.member",
+    inputs=(
+        "mech.member.euler.e",
+        "mech.member.euler.i",
+        "mech.member.euler.k",
+        "mech.member.euler.length",
+    ),
+    outputs=("mech.member.euler.pcr",),
+    domain=Domain(
+        box={
+            # Young's modulus, Pa (wide band -- not steel-specific,
+            # unlike the E3 direction above).
+            "mech.member.euler.e": Interval(1.0e9, 5.0e11),
+            # Second moment of area about the buckling axis, m^4.
+            "mech.member.euler.i": Interval(1.0e-10, 1.0),
+            # Effective-length factor, dimensionless (AISC Table
+            # C-A-7.1 standard range 0.5..2.0, widened slightly for
+            # caller-computed intermediate K values).
+            "mech.member.euler.k": Interval(0.3, 2.5),
+            # Unbraced length, m.
+            "mech.member.euler.length": Interval(1.0e-3, 100.0),
+        },
+        tags={"elastic", "prismatic", "no_slender_elements"},
+    ),
+    cost=1e-7,
+    accuracy=EXACT,
+    citations=_EULER_CITATIONS,
+    version="1",
+)
+def euler_critical_buckling_load(x):
+    """Classical Euler elastic buckling: `Pcr = pi^2*E*I/(K*L)^2`,
+    no yield-strength check (pairs with
+    `axial_yield_buckling_capacity_e3` for the inelastic/yield
+    side)."""
+    e = x["mech.member.euler.e"]
+    i = x["mech.member.euler.i"]
+    k = x["mech.member.euler.k"]
+    length = x["mech.member.euler.length"]
+    if e <= 0.0 or i <= 0.0 or k <= 0.0 or length <= 0.0:
+        return Err(
+            SolveError.OutOfDomain(
+                violation=(
+                    f"Euler: non-positive e={e!r}, i={i!r}, k={k!r}, or "
+                    f"length={length!r} -- cannot form a critical buckling load"
+                )
+            )
+        )
+    pcr = (math.pi**2) * e * i / ((k * length) ** 2)
+    return Ok({"mech.member.euler.pcr": pcr})
+
+
 def register(registry: SolverRegistry) -> None:
-    """Registers both F2/E3 capacity directions (WO-24 deliverable 0)."""
+    """Registers all three member-capacity directions (WO-24
+    deliverables 0 + 8: F2 flexural yield, E3 axial yield/buckling,
+    Euler elastic column buckling)."""
     result_a = registry.register(*flexural_yield_capacity_f2.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*axial_yield_buckling_capacity_e3.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_b.danger_ok
-    _log.info("member_capacity: registered %d solver directions", 2)
+    result_c = registry.register(*euler_critical_buckling_load.solver_direction)  # ty: ignore[unresolved-attribute]
+    _ = result_c.danger_ok
+    _log.info("member_capacity: registered %d solver directions", 3)

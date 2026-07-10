@@ -137,7 +137,74 @@ def test_axial_capacity_e3_nonpositive_is_honest_indeterminate():
     assert result.err.kind == "OutOfDomain"
 
 
+def test_euler_critical_buckling_load_matches_hand_computed():
+    """Memo sec. 9: E=200e9 Pa, I=8.0e-6 m^4, K=1.0 (pinned-pinned),
+    L=3.0 m -> Pcr = pi^2*E*I/(K*L)^2 ~ 1,754,600 N (exact algebra)."""
+    _info, fn = _solvers()["mech.member.euler_critical_buckling_load"]
+    e = 200.0e9
+    i = 8.0e-6
+    k = 1.0
+    length = 3.0
+    expected = (math.pi**2) * e * i / ((k * length) ** 2)
+    assert expected == pytest.approx(1_754_600.0, rel=1e-3)
+
+    result = fn(
+        {
+            "mech.member.euler.e": e,
+            "mech.member.euler.i": i,
+            "mech.member.euler.k": k,
+            "mech.member.euler.length": length,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values["mech.member.euler.pcr"] == pytest.approx(
+        expected, rel=1e-9
+    )
+
+
+def test_euler_critical_buckling_load_consistent_with_e3_fe():
+    """Pcr = Fe*Ag since I = Ag*r^2 -- cross-check the Euler direction
+    against the E3 direction's Fe for the same KL/r, confirming both
+    forms encode the same physics (memo sec. 9's own claim)."""
+    e = 200.0e9
+    ag = 0.01
+    r = 0.05
+    i = ag * r * r
+    kl_r = 80.0
+    length = kl_r * r  # K=1.0
+
+    _info_euler, fn_euler = _solvers()["mech.member.euler_critical_buckling_load"]
+    result_euler = fn_euler(
+        {
+            "mech.member.euler.e": e,
+            "mech.member.euler.i": i,
+            "mech.member.euler.k": 1.0,
+            "mech.member.euler.length": length,
+        }
+    )
+    assert result_euler.is_ok
+    pcr = result_euler.danger_ok.values["mech.member.euler.pcr"]
+
+    fe = (math.pi**2) * e / (kl_r**2)
+    assert pcr == pytest.approx(fe * ag, rel=1e-6)
+
+
+def test_euler_critical_buckling_load_nonpositive_is_honest_indeterminate():
+    _info, fn = _solvers()["mech.member.euler_critical_buckling_load"]
+    result = fn(
+        {
+            "mech.member.euler.e": 200.0e9,
+            "mech.member.euler.i": 0.0,
+            "mech.member.euler.k": 1.0,
+            "mech.member.euler.length": 3.0,
+        }
+    )
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+
+
 def test_solver_ids_registered_under_mech_member_namespace():
     solvers = _solvers()
     assert "mech.member.flexural_yield_capacity_f2" in solvers
+    assert "mech.member.euler_critical_buckling_load" in solvers
     assert "mech.member.axial_yield_buckling_capacity_e3" in solvers

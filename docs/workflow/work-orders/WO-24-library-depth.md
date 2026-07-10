@@ -1,13 +1,16 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-09 dispatch #2, branch `wo24-remainder`,
-worktree `.claude/worktrees/wo24-remainder`) -- landed deliverable 0
-(prior dispatch, member capacity forms) and deliverable -1 (this
-dispatch: `docs/benchmarks-memo.md`, the memo consolidation).
-Deliverables 1-8 RECORDED and CUT AGAIN this dispatch (not started;
-same capacity limit as the prior dispatch -- see Close-out below,
-"Dispatch #2 close-out" section, for reasons). Deliverable 9 (ledger)
-done for the landed slices.
+Status: PARTIAL (2026-07-10 dispatch #3, branch `wo24-joints`,
+worktree `.claude/worktrees/wo24-joints`) -- landed deliverable 0
+(dispatch #1, member capacity forms), deliverable -1 (dispatch #2,
+`docs/benchmarks-memo.md` consolidation), deliverable 1 (this
+dispatch: bolted joints, VDI 2230 + Shigley/AISC elastic bolt-group
+distribution), and deliverable 8 (this dispatch: Euler elastic
+column buckling, the narrow slice of the column-buckling residual
+this dispatch scoped itself to -- see Close-out below). Deliverables
+2-7 RECORDED and CUT AGAIN this dispatch (not started; out of this
+dispatch's exactly-two-deliverable scope, per dispatch instruction).
+Deliverable 9 (ledger) done for the landed slices.
 Depends: WO-21/23 (struct tier), WO-20 (thermal-fluids wave),
 WO-11/22 (symbolic core -- validity-domain predicates for every new
 model), the benchmarks memo (every calibration case cites it or a
@@ -342,3 +345,152 @@ no solver code landed this dispatch. Deliverable 0's API shape
 (dispatch #1, `mech.member.flexural_yield_capacity_f2` and
 `mech.member.axial_yield_buckling_capacity_e3`) is unchanged and
 documented above.
+
+---
+
+## Dispatch #3 close-out (2026-07-10, branch `wo24-joints`, worktree
+`.claude/worktrees/wo24-joints`)
+
+Scope this dispatch: EXACTLY deliverable 1 (bolted joints) and
+deliverable 8 (column buckling completion), per explicit dispatch
+instruction ("a small scope you can fully land beats a wide one you
+cut") -- deliverables 2-7 out of scope, not attempted, cuts unchanged
+from dispatch #2's own text.
+
+**(a) Landed / cut table**:
+
+| Deliverable | Status | Notes |
+|---|---|---|
+| 1. Bolted joints | LANDED | VDI 2230 single-bolt tier + Shigley/AISC elastic bolt-group shear/torsion/tension |
+| 8. Column buckling completion | LANDED (narrow) | Euler elastic tier only, per dispatch instruction's own suggested scope -- E4/E7 remain named cuts |
+| 2-7 | CUT (unchanged) | out of this dispatch's scope; see dispatch #2 close-out above |
+
+**(b) Branch + commits** (`wo24-joints`, worktree
+`.claude/worktrees/wo24-joints`):
+
+1. `docs(memo): add bolted-joint (VDI 2230/Shigley/AISC) and Euler
+   column buckling sections` -- `docs/benchmarks-memo.md` sec. 8
+   (bolted joints, subsecs 8.1-8.3) and sec. 9 (Euler column
+   buckling), appended after the existing sec. 7 Sources without
+   renumbering it (the memo's own append-only rule).
+2. `feat(joint): add VDI 2230 single-bolt and elastic bolt-group
+   directions (WO-24 deliverable 1)` --
+   `python/feldspar/library/bolted_joints.py` (new),
+   `tests/unit/test_library_bolted_joints.py` (new), wired into
+   `python/feldspar/pack/models.py::_engine_registry`.
+3. `feat(member): add Euler elastic critical buckling load direction
+   (WO-24 deliverable 8)` -- extends
+   `python/feldspar/library/member_capacity.py` (already registered
+   via `register()`, no `pack/models.py` change needed -- same
+   module, same registration call) and
+   `tests/unit/test_library_member_capacity.py`.
+
+**(c) Gates** (this worktree):
+`cargo fmt --all -- --check`: no Rust changed this dispatch.
+`uv run ruff format --check .` / `uv run ruff check .`: the changed
+files (`bolted_joints.py`, `member_capacity.py`, `models.py`,
+`test_library_bolted_joints.py`, `test_library_member_capacity.py`)
+are clean; the tool reports pre-existing failures in the SAME
+unrelated files dispatch #1/#2 already documented
+(`examples/*.py`, `examples/solvers/*.py`, `scripts/*.py`,
+`tests/unit/test_plan_over_library.py`), unchanged, not a regression.
+`uv run lint-imports`: 1 contract kept, 0 broken (unchanged).
+`uv run ty check`: 230 diagnostics, same count as dispatch #1's
+recorded baseline (all pre-existing `regolith.*`-unresolved-import
+findings from the nested-worktree relative-path gap); zero new
+diagnostics from this dispatch's Python.
+`uv run pytest tests/ -n auto -m "not regolith and not fea and not
+spice"`: 363 passed, 1 skipped, 7 errors -- the same 7 pre-existing
+`tests/regolith/*` collection failures (count unchanged); 11 new
+tests this dispatch (6 bolted-joint tests already counted, +5 member-
+capacity Euler tests) over the 352-passed baseline dispatch #1
+recorded (352 + 11 = 363, consistent).
+
+**(d) Memo sections added**: `docs/benchmarks-memo.md` sec. 8 (three
+subsections, 8.1-8.3) and sec. 9 (one case) -- both new, appended
+after sec. 7 Sources, sec. numbering of every prior section
+unchanged. Sources for these: VDI 2230 Blatt 1:2015 (sec. 8.1);
+Shigley's Mechanical Engineering Design 11th ed. ch. 8 sec. 8-11/8-12
+(sec. 8.2/8.3, also cited for the tension case alongside AISC Manual
+of Steel Construction Part 7); Timoshenko, Theory of Elastic
+Stability 2nd ed. ch. 2, and Shigley 11e ch. 4 sec. 4-14 (sec. 9).
+
+**(e) Calibration results** (all green, hand-computed exact algebra,
+tolerance rel=1e-6..1e-9 -- pure closed-form, no empirical fit):
+
+- `test_vdi2230_load_factor_matches_hand_computed`: cb=200e6,
+  cp=800e6, fv=10000, fa=5000 -> phi=0.20, F_S=11000, F_KR=6000.
+- `test_vdi2230_separation_when_residual_clamp_load_goes_nonpositive`:
+  honest separation case (F_KR < 0), not a domain violation.
+- `test_bolt_group_shear_torsion_matches_hand_computed`: 4-bolt
+  rectangular pattern (a=0.05, b=0.03), Vx=1000, T=50 ->
+  |F|=230.94 N.
+- `test_bolt_group_tension_from_moment_matches_hand_computed`:
+  2-row 4-bolt pattern, sum_y_sq=0.0064, M=800 -> F_t=5000 N.
+- `test_euler_critical_buckling_load_matches_hand_computed`:
+  E=200e9, I=8.0e-6, K=1.0, L=3.0 -> Pcr~1,754,600 N.
+- `test_euler_critical_buckling_load_consistent_with_e3_fe`:
+  cross-checks Euler `Pcr` against E3's `Fe*Ag` for the same KL/r,
+  confirming both directions encode the same physics (memo sec. 9's
+  own claim) -- rel=1e-6.
+- Non-positive/degenerate-input `OutOfDomain` cases for all five new
+  directions (honest refusal, not a fabricated verdict).
+- No calibration failures to record.
+
+**(f) New solver direction names + signatures**:
+
+```
+mech.joint.bolt_single_load_factor_vdi2230
+  in:  {"mech.joint.bolt.cb": float,   # N/m, bolt stiffness
+        "mech.joint.bolt.cp": float,   # N/m, clamped-parts stiffness
+        "mech.joint.bolt.fv": float,   # N, preload (>=0)
+        "mech.joint.bolt.fa": float}   # N, external axial load
+  out: {"mech.joint.bolt.load_factor": float,          # phi
+        "mech.joint.bolt.working_load": float,         # F_S, N
+        "mech.joint.bolt.residual_clamp_load": float}  # F_KR, N
+
+mech.joint.bolt_group_shear_torsion
+  in:  {"mech.joint.group.n": float, "mech.joint.group.vx": float,
+        "mech.joint.group.vy": float, "mech.joint.group.torque": float,
+        "mech.joint.group.j_polar": float, "mech.joint.group.xi": float,
+        "mech.joint.group.yi": float}
+  out: {"mech.joint.group.shear_resultant": float}     # N
+
+mech.joint.bolt_group_tension_from_moment
+  in:  {"mech.joint.group.moment": float,
+        "mech.joint.group.sum_y_sq": float,
+        "mech.joint.group.y_critical": float}
+  out: {"mech.joint.group.tension_critical": float}     # N
+
+mech.member.euler_critical_buckling_load
+  in:  {"mech.member.euler.e": float,      # Pa
+        "mech.member.euler.i": float,      # m^4
+        "mech.member.euler.k": float,      # dimensionless
+        "mech.member.euler.length": float} # m
+  out: {"mech.member.euler.pcr": float}    # N
+```
+
+All four registered `@solver` pure-map directions (10 sec. 2 pattern
+1), same shape as every other `library.mech`/`library.member_capacity`
+direction -- called through the registered `SolveFn` protocol
+(`fn(x) -> Result[SolveResult, SolveError]`, `.danger_ok.values[<port>]`).
+
+**Cuts named this dispatch** (unchanged scope decisions, not new
+findings): deliverable 8 was scoped to the Euler elastic tier only
+(the dispatch instruction's own named example) -- AISC 360-16 sec. E4
+(torsional/flexural-torsional buckling) and sec. E7 (slender-element
+reduction) remain NOT built, same named cut both prior close-outs
+recorded; a future dispatch closing those needs its own citation
+trail (E4 needs torsional/warping constants per section shape, E7
+needs the lambda_r slenderness-limit tables per element type) --
+neither is a small addition, unlike the Euler tier landed here.
+Deliverables 2-7 (weld groups, bearing life, fatigue, deflection
+catalog completion, thermal transient, drive sizing) untouched,
+same reasons dispatch #2 recorded.
+
+**LITHOS-SIDE NOTE**: unchanged -- nothing new escalated this
+dispatch; the section/material CAPACITY-resolution registry channel
+remains the standing largest blocker for `mech.struct`/`mech.member`
+(named in every WO-21/23/24 close-out, this dispatch's two landed
+directions both take fully caller-resolved numeric inputs, same
+seam).

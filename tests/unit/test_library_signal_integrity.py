@@ -6,7 +6,6 @@ integrity directions (`python/feldspar/library/signal_integrity.py`),
 called THROUGH the `SolverRegistry`/`SolveFn` protocol (ports, domain
 guards, marshalling exercised, not just the raw formula)."""
 
-import math
 
 import pytest
 
@@ -41,9 +40,7 @@ def _solvers() -> dict:
         (3300.0, 30.09, 0.01),
     ],
 )
-def test_microstrip_z0_matches_burkhardt_1999_table1(
-    w_um, expected_numerical, rel_tol
-):
+def test_microstrip_z0_matches_burkhardt_1999_table1(w_um, expected_numerical, rel_tol):
     """Hammerstad-Jensen (Wadell 1991 eq. 2) reproduces Burkhardt 1999
     Table 1's field-solver column within ~1.5% at every tabulated
     width (well inside Wadell's own quoted 2% accuracy)."""
@@ -139,7 +136,11 @@ def test_stripline_z0_monotonically_decreases_with_width():
 def test_stripline_z0_nonpositive_is_honest_indeterminate():
     _info, fn = _solvers()["elec.si.stripline_z0"]
     result = fn(
-        {"elec.si.stripline.w": 1e-4, "elec.si.stripline.b": 0.0, "elec.si.stripline.er": 4.2}
+        {
+            "elec.si.stripline.w": 1e-4,
+            "elec.si.stripline.b": 0.0,
+            "elec.si.stripline.er": 4.2,
+        }
     )
     assert result.is_err
     assert result.err.kind == "OutOfDomain"

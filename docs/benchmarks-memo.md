@@ -106,6 +106,12 @@ native authority; both given where practical.
 8. Bolted joints (feldspar WO-24 deliverable 1, VDI 2230 + Shigley/
    AISC elastic bolt-group distribution)
 9. Classical Euler column buckling (feldspar WO-24 deliverable 8)
+10. Fillet weld groups, elastic line method (feldspar WO-24)
+11. Rolling-bearing basic dynamic rating life, ISO 281:2007 (feldspar
+    WO-24)
+12. Lumped-capacitance thermal transient (feldspar WO-24 deliverable 6)
+13. Signal-integrity: microstrip/stripline impedance + termination
+    sizing (feldspar WO-25)
 
 ---
 
@@ -929,5 +935,97 @@ honesty -- verified by direct substitution, not merely claimed):
 
 Case count, section 12: 3 closed-form thermal-transient cases (+2
 limiting-case derivation checks, not independent fixtures).
+
+## 13. Signal-integrity: microstrip/stripline impedance + termination
+sizing (feldspar WO-25, `python/feldspar/library/signal_integrity.py`)
+
+These cases back the `elec.si.*` directions (lithos design-log
+2026-07-10-cycle-32 D186). Source: Burkhardt, A.J., Gregg, C.S. &
+Staniforth, J.A., "Calculation of PCB Track Impedance", IPC Printed
+Circuit Expo 1999 ("Burkhardt 1999" below), which reproduces both the
+IPC-2141 microstrip eq. (1), the Wadell/Hammerstad-Jensen microstrip
+eq. (2)/(3a)/(3b), and Cohn's 1954 exact stripline eq. (4)/(5a)/(5b)
+verbatim, with a published Table 1 comparing eq. (1)/eq. (2) against a
+boundary-element field-solver ("Numerical Method") ground truth.
+
+### 13.1 microstrip_z0 (Hammerstad-Jensen, Wadell 1991 eq. (2))  [2%
+quoted accuracy]
+
+Fixture: `t = 35e-6 m`, `h = 794e-6 m`, `er = 4.2` (Burkhardt 1999
+Table 1's own popular 1oz-copper-on-1/32in-substrate case). This
+implementation's thickness correction `dw = (t/pi)*(1+ln(2h/t))`
+(Hammerstad 1975) is the one intermediate term Burkhardt 1999 cites
+but does not transcribe -- calibration below is therefore against the
+FULL formula's agreement with the field-solver ground truth, not a
+verbatim digit-for-digit reproduction of Burkhardt 1999's own eq. (2)
+column.
+
+    w=450e-6 m  -> Z0 = 88.70224843... ohm (Numerical Method: 89.63,
+                   -1.04%)
+    w=1500e-6 m -> Z0 = 50.24391978... ohm (Numerical Method: 50.63,
+                   -0.77%)
+    w=3300e-6 m -> Z0 = 29.81945882... ohm (Numerical Method: 30.09,
+                   -0.90%)
+
+Tolerance: all three within ~1.3% of the field-solver ground truth,
+inside Wadell's own quoted 2% accuracy band.
+`tests/unit/test_library_signal_integrity.py::
+test_microstrip_z0_matches_burkhardt_1999_table1` pins the tolerance
+check; `test_microstrip_z0_hand_computed_exact_value` pins this
+implementation's own exact output as a regression guard.
+
+### 13.2 stripline_z0 (Cohn 1954 exact, eq. (4)/(5a)/(5b))  [exact
+analytic result]
+
+Not a numeric-table fit -- Cohn's formula is EXACT (zero-thickness,
+centred track), same calibration tier as sec. 9's Euler buckling
+load. The complete-elliptic-integral ratio `K(k)/K(k')` is evaluated
+via Hilberg's 1969 closed-form approximation, which Burkhardt 1999
+states is "accurate to 10-12" relative to the true ratio.
+
+    w=0.382e-3 m, b=1e-3 m, er=3.66 -> Z0 = 60.34290501... ohm
+    (k=sech(pi*w/2b)=0.8435..., branch k > 1/sqrt(2))
+
+Monotonicity (Burkhardt 1999 Figure 4's own qualitative shape, not a
+numeric fixture): fixing `b=3e-3 m, er=4.2`, Z0 strictly decreases as
+`w` sweeps `{0.1, 0.3, 0.6, 1.0, 2.0}e-3 m` -- a wider centred track
+always has a lower stripline Z0.
+`tests/unit/test_library_signal_integrity.py::
+test_stripline_z0_hand_computed_exact_value` and
+`test_stripline_z0_monotonically_decreases_with_width` pin these.
+
+### 13.3 Termination sizing (Johnson & Graham 1993 ch. 4)  [exact
+algebra, except 13.3.3]
+
+**13.3.1 series_termination**: `Z0=50, Ro=15 -> Rs=35 ohm` (exact,
+`Rs=Z0-Ro`).
+
+**13.3.2 thevenin_termination (r1/r2)**: `Z0=50, Vcc=5.0V,
+Vbias=1.5V -> R1=166.66666... ohm, R2=71.42857142... ohm` (exact,
+solved from `R1||R2=Z0` and the divider condition
+`R2/(R1+R2)=Vbias/Vcc`); the Kirchhoff check `(R1*R2)/(R1+R2)=50.0`
+exactly recombines to Z0, verified in
+`test_thevenin_termination_matches_hand_computed_and_recombines_to_z0`.
+
+**13.3.3 ac_shunt_sizing (r/c)**: `R=Z0` exact (matched shunt);
+`C=tr/(4R)` is a NAMED HEURISTIC (Johnson & Graham's own quoted
+tr/5..tr/2 range around the tr/4 midpoint this direction bakes, +100%/
+-20% relative to the chosen value) -- `tr=1e-9 s, R=50 ohm ->
+C=5e-12 F` is this implementation's pinned exact output for that
+formula, NOT an independently verified "correct" capacitor value (no
+single correct value exists for a heuristic).
+
+### NAMED CUT: diff_pair_z (edge-coupled differential impedance)
+
+No independently verifiable published numeric impedance table for an
+edge-coupled differential closed form could be confirmed against a
+primary source within the WO-25 dispatch's research budget. See
+`python/feldspar/library/signal_integrity.py`'s module docstring for
+the full reasoning and reopen criteria.
+
+Case count, section 13: 3 microstrip cases (table calibration) + 1
+stripline exact case + 1 monotonicity sanity sweep + 4 termination
+cases (3 exact, 1 heuristic-pinned) = 9 numeric fixtures, plus the
+`diff_pair_z` named cut.
 
 ---

@@ -24,7 +24,7 @@ is CUT WHOLE and recorded, never approximated silently):
   1999 Table 1's field-solver ("Numerical Method") column: t=35um,
   h=794um, er=4.2, three widths (450/1500/3300um) -- this
   implementation reproduces the numerical-method Z0 to within ~1.3%
-  at every tabulated width (see `docs/benchmarks-memo.md` sec. 12),
+  at every tabulated width (see `docs/benchmarks-memo.md` sec. 13),
   well inside Wadell's own 2% claim. The zero-thickness track-width
   correction dw = (t/pi)*(1+ln(2h/t)) (Hammerstad 1975, the standard
   form quoted across the microstrip CAD literature, e.g. Pozar,
@@ -110,17 +110,17 @@ __all__ = ["register"]
 
 _WADELL = "Wadell, B.C., Transmission Line Design Handbook, Artech House, 1991"
 _BURKHARDT_1999 = (
-    "Burkhardt, A.J., Gregg, C.S. & Staniforth, J.A., \"Calculation of PCB "
-    "Track Impedance\", IPC Printed Circuit Expo 1999 (eq. (1)/(2)/(3)/(4)/"
+    'Burkhardt, A.J., Gregg, C.S. & Staniforth, J.A., "Calculation of PCB '
+    'Track Impedance", IPC Printed Circuit Expo 1999 (eq. (1)/(2)/(3)/(4)/'
     "(5), Table 1)"
 )
 _COHN_1954 = (
-    "Cohn, S.B., \"Characteristic Impedance of the Shielded-Strip "
-    "Transmission Line\", IRE Trans. MTT-2, July 1954, pp52-57"
+    'Cohn, S.B., "Characteristic Impedance of the Shielded-Strip '
+    'Transmission Line", IRE Trans. MTT-2, July 1954, pp52-57'
 )
 _HILBERG_1969 = (
-    "Hilberg, W., \"From Approximations to Exact Relations for "
-    "Characteristic Impedances\", IEEE Trans. MTT-17 No 5, May 1969, "
+    'Hilberg, W., "From Approximations to Exact Relations for '
+    'Characteristic Impedances", IEEE Trans. MTT-17 No 5, May 1969, '
     "pp259-265"
 )
 _JOHNSON_GRAHAM_1993 = (
@@ -135,7 +135,7 @@ _ETA0 = 376.7
 # microstrip_z0 -- Hammerstad-Jensen (Wadell 1991 eq. (2)/(3a)/(3b), quoted
 # verbatim from Burkhardt 1999 eq. (2)/(3a)/(3b)); calibrated against
 # Burkhardt 1999 Table 1's numerical-method column (docs/benchmarks-memo.md
-# sec. 12).
+# sec. 13).
 # ---------------------------------------------------------------------------
 
 _MICROSTRIP_CITATIONS = (
@@ -148,7 +148,7 @@ _MICROSTRIP_CITATIONS = (
             "implementation's own agreement against Burkhardt 1999 Table "
             "1's field-solver ('Numerical Method') column, t=35um, "
             "h=794um, er=4.2: w=450um -> -1.04%, w=1500um -> -0.77%, "
-            "w=3300um -> -0.90% (see docs/benchmarks-memo.md sec. 12, and "
+            "w=3300um -> -0.90% (see docs/benchmarks-memo.md sec. 13, and "
             "tests/unit/test_library_signal_integrity.py). The thickness "
             "correction dw=(t/pi)*(1+ln(2h/t)) (Hammerstad 1975, "
             "reproduced in Pozar, Microwave Engineering, sec. 3.8) fills "
@@ -327,7 +327,7 @@ def stripline_z0(x):
 _SERIES_TERM_CITATIONS = (
     Citation(
         kind="handbook",
-        ref=f"{_JOHNSON_GRAHAM_1993}, \"Source (Series) Termination\"",
+        ref=f'{_JOHNSON_GRAHAM_1993}, "Source (Series) Termination"',
         note=(
             "Exact algebra (Rs=Z0-Ro), calibrated by hand-derivation "
             "(matched-line condition Ro+Rs=Z0), same tier as "
@@ -367,8 +367,7 @@ def series_termination(x):
         return Err(
             SolveError.OutOfDomain(
                 violation=(
-                    f"series_termination: non-positive z0={z0!r} or "
-                    f"negative ro={ro!r}"
+                    f"series_termination: non-positive z0={z0!r} or negative ro={ro!r}"
                 )
             )
         )
@@ -388,7 +387,7 @@ def series_termination(x):
 _THEVENIN_CITATIONS = (
     Citation(
         kind="handbook",
-        ref=f"{_JOHNSON_GRAHAM_1993}, \"Thevenin (Parallel) Termination\"",
+        ref=f'{_JOHNSON_GRAHAM_1993}, "Thevenin (Parallel) Termination"',
         note=(
             "Exact algebra from Kirchhoff's current law at the Thevenin "
             "node: R1=Z0*Vcc/Vbias, R2=Z0*Vcc/(Vcc-Vbias) (solved from "
@@ -499,7 +498,7 @@ def thevenin_termination_r2(x):
 _AC_SHUNT_R_CITATIONS = (
     Citation(
         kind="handbook",
-        ref=f"{_JOHNSON_GRAHAM_1993}, \"AC (RC) Termination\"",
+        ref=f'{_JOHNSON_GRAHAM_1993}, "AC (RC) Termination"',
         note="R sized to Z0 (the matched-shunt condition), exact algebra.",
     ),
 )
@@ -507,7 +506,7 @@ _AC_SHUNT_R_CITATIONS = (
 _AC_SHUNT_C_CITATIONS = (
     Citation(
         kind="handbook",
-        ref=f"{_JOHNSON_GRAHAM_1993}, \"AC (RC) Termination\"",
+        ref=f'{_JOHNSON_GRAHAM_1993}, "AC (RC) Termination"',
         note=(
             "NAMED HEURISTIC, not an exact law: Johnson & Graham "
             "describe keeping the RC time constant well under the "
@@ -572,8 +571,7 @@ def ac_shunt_sizing_c(x):
         return Err(
             SolveError.OutOfDomain(
                 violation=(
-                    f"ac_shunt_sizing_c: non-positive rise_time={tr!r} or "
-                    f"r={r!r}"
+                    f"ac_shunt_sizing_c: non-positive rise_time={tr!r} or r={r!r}"
                 )
             )
         )

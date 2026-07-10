@@ -1,18 +1,22 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-10 dispatch #4, branch `wo24-welds`,
-worktree `.claude/worktrees/wo24-welds`) -- landed deliverable 0
+Status: PARTIAL (2026-07-10 dispatch #5, branch `wo24-thermal`,
+worktree `.claude/worktrees/wo24-thermal`) -- landed deliverable 0
 (dispatch #1, member capacity forms), deliverable -1 (dispatch #2,
 `docs/benchmarks-memo.md` consolidation), deliverable 1 (dispatch
 #3, bolted joints, VDI 2230 + Shigley/AISC elastic bolt-group
 distribution), deliverable 8 (dispatch #3, Euler elastic column
-buckling, narrow slice), deliverable 2 (this dispatch: fillet weld
-groups, Shigley/Blodgett elastic line method), and deliverable 3
-(this dispatch: bearing life, ISO 281:2007 basic L10/L10h over
-`std.bearings`-shaped rating records). Deliverables 4-7 RECORDED and
-CUT AGAIN this dispatch (not started; out of this dispatch's
-exactly-two-deliverable scope, per dispatch instruction). Deliverable
-9 (ledger) done for the landed slices.
+buckling, narrow slice), deliverable 2 (dispatch #4, fillet weld
+groups, Shigley/Blodgett elastic line method), deliverable 3
+(dispatch #4, bearing life, ISO 281:2007 basic L10/L10h over
+`std.bearings`-shaped rating records), and deliverable 6 (this
+dispatch: lumped-capacitance thermal transient tier -- step
+response, time-to-threshold, and periodic duty-cycle peak
+temperature, Incropera ch. 5, with an in-function Bi < 0.1 honesty
+gate). Deliverables 4-5, 7 RECORDED and CUT AGAIN this dispatch (not
+started; out of this dispatch's exactly-one-deliverable scope, per
+dispatch instruction). Deliverable 9 (ledger) done for the landed
+slices.
 Depends: WO-21/23 (struct tier), WO-20 (thermal-fluids wave),
 WO-11/22 (symbolic core -- validity-domain predicates for every new
 model), the benchmarks memo (every calibration case cites it or a
@@ -671,3 +675,136 @@ read-only) confirms the same "caller-resolved numeric input, no
 registry-digest-resolution channel" seam applies to bearing C/C0
 values exactly like it does to AISC section properties -- consistent
 with, not a new instance of, the standing blocker.
+
+---
+
+## Dispatch #5 close-out (2026-07-10, branch `wo24-thermal`, worktree
+`.claude/worktrees/wo24-thermal`)
+
+**Landed** (`python/feldspar/library/thermal_transient.py`,
+`tests/unit/test_library_thermal_transient.py`, wired into
+`python/feldspar/pack/models.py::_engine_registry`, memo sec. 12):
+
+- `heat.transient.biot_number_from_convection`: `Bi = h*Lc/k`
+  (Incropera & DeWitt, Fundamentals of Heat and Mass Transfer, 7th
+  ed., ch. 5 sec. 5.1 eq. 5.10) -- a small convenience direction, no
+  criterion applied itself.
+- `heat.transient.step_temperature`: single-node lumped-capacitance
+  step response, `T(t) = T_amb + P*R_th*(1 - exp(-t/tau))`, `tau =
+  R_th*C_th` (Incropera ch. 5 sec. 5.2, same governing ODE as memo
+  sec. 4.1's electrical RC step response).
+- `heat.transient.time_to_threshold`: algebraic inversion of the
+  step response for elapsed time, `t = -tau*ln(1 -
+  (T_thresh-T_amb)/(P*R_th))`; `OutOfDomain` (honest refusal, not a
+  fabricated time) when the asymptotic steady rise never reaches the
+  threshold.
+- `heat.transient.duty_cycle_peak_temperature`: the VRM case --
+  periodic square-wave power (dissipation `P` at duty `t_on/(t_on+
+  t_off)`), closed-form periodic-steady-state PEAK temperature,
+  `T_peak = T_amb + P*R_th*(1-a)/(1-a*b)`, `a=exp(-t_on/tau)`,
+  `b=exp(-t_off/tau)`, derived by direct superposition/fixed-point
+  solution of the SAME lumped ODE (not a separate empirical
+  correlation) -- lets a caller check "does T_j stay below a limit"
+  under duty-cycled dissipation.
+
+**Validity predicate (the honesty core, per dispatch instruction)**:
+every direction above takes a CALLER-ASSERTED `biot_number` port and
+`OutOfDomain`-rejects at/above `Bi = 0.1` (Incropera ch. 5 sec. 5.1
+eq. 5.10, the lumped-capacitance criterion), enforced IN-FUNCTION
+(`_reject_biot`, one shared home, NO DUPLICATION) rather than only as
+a domain `tags` label -- a numeric Bi value is available to check,
+unlike `member_capacity.py`'s boolean compact/braced preconditions.
+This module does not derive `h`/`Lc`/`k` itself (a second citation
+surface for convection correlations, out of scope); a caller either
+asserts a known/measured Bi directly, or computes it via
+`biot_number_from_convection` first. Constant properties and
+single-node lumping are the other two Incropera ch. 5 sec. 5.1
+preconditions, recorded as named cuts (not separately gated at
+runtime beyond Bi, matching the WO's "validity predicates narrow"
+instruction -- Bi is the ONE checkable numeric gate; constant
+properties has no numeric signal to check against without a second
+temperature-dependence model, which would be new physics, not a
+predicate).
+
+**Named cuts** (module docstring, verbatim reasons):
+
+1. Multi-node (Cauer/Foster RC-ladder) thermal networks are OUT --
+   every direction is SINGLE-NODE (one `R_th`, one `C_th`, one
+   ambient). A die-to-case-to-heatsink-to-ambient stack with
+   materially different per-stage time constants needs a coupled
+   multi-node solve; applying this module's forms to such a stack
+   would UNDER-predict peak temperature (falsely fast equilibration).
+   Not attempted this dispatch.
+2. `C_th` (thermal capacitance, `rho*V*c`) has no PRODUCER direction
+   in this repo -- CALLER-SUPPLIED, same seam shape as
+   `member_capacity.py`'s caller-supplied `Zx`/`Ag`/`r` (unlike
+   `R_th`, which `heat.py` can already produce from conduction/
+   convection geometry -- these transient directions COMPOSE with
+   `heat.py`'s existing resistance outputs through the plan graph,
+   they do not recompute them).
+3. Temperature-dependent properties are NOT modeled -- constant
+   `R_th`/`C_th`/(convective `h` feeding Bi) is a standing lumped-
+   capacitance precondition (Incropera's own assumption set), named
+   but not separately runtime-gated beyond the Bi check.
+
+**Claim-kind naming rationale** (read lithos `python/regolith/
+harness/signature.py` and `python/regolith/harness/models/
+lumped_thermal.py` read-only, per dispatch instruction): lithos
+already registers `thermo.junction_temperature` (WO-26 D105b) for
+the STEADY form, `T_j = T_amb + P*R_theta`, an upper-bound
+`ClaimSense`. This module's `step_temperature` is that SAME physics'
+transient generalization (the steady form is its `t -> infinity`
+limit). So a future lithos-side model pack should register a
+transient junction-temperature claim under names that PARALLEL,
+never collide with, the existing steady kind:
+`thermo.junction_temperature_transient` (step/threshold forms) and
+`thermo.junction_temperature_duty_cycle` (the periodic peak form,
+the VRM case) -- both upper-bound claims, both needing their own
+`NumericReducedTierModel` subclass on the lithos side (out of this
+feldspar-only dispatch's scope; named here so the naming decision
+predates that pack rather than being invented ad hoc when it lands).
+This closes the WO's "name your directions so a thermal claim can
+actually route" instruction: the feldspar-side port names
+(`heat.transient.*`) and the lithos-side claim-kind names above are
+now BOTH decided and cross-referenced in each other's docstrings.
+
+**Calibration** (`docs/benchmarks-memo.md` sec. 12, all green):
+
+- 12.1 step response at `t=tau` (63.2% mark) and `t=5*tau` (99.3%
+  mark): exact closed-form (`exp`), tol rel 1e-9.
+- 12.2 time-to-threshold: threshold set to the exact 12.1 one-tau
+  rise so the inverted time recovers `tau` itself as a self-check;
+  tol rel 1e-9.
+- 12.3 duty-cycle peak temperature (`t_on=2.0s`, `t_off=8.0s`,
+  `tau=40.0s`): tol rel 1e-9. Two limiting-case derivation checks
+  verified by direct substitution: `t_off -> 0` recovers the 12.1
+  step-response asymptote (`P*R_th`) exactly; switching period `<<
+  tau` recovers the standard average-power duty-derating heuristic
+  (`P*d*R_th`) to 5 significant figures.
+- Honest-indeterminate cases: non-positive `R_th`/`C_th`/`power`,
+  unreachable threshold, high Biot (>= 0.1) on every direction,
+  degenerate zero-length duty cycle.
+
+**Gate** (this worktree, `.claude/worktrees/wo24-thermal`):
+`uv run ruff format --check .` / `uv run ruff check .`: the three
+new/changed files (`thermal_transient.py`,
+`test_library_thermal_transient.py`, `pack/models.py`) are clean;
+pre-existing failures in unrelated files (`examples/*.py`,
+`scripts/*.py`, `tests/unit/test_plan_over_library.py`) identical
+before and after this change. `uv run lint-imports`: 1 contract
+kept, 0 broken. `uv run ty check`: 230 diagnostics, unchanged from
+the documented dispatch #1 baseline (same nested-worktree
+`regolith.*`-unresolved-import gap; `thermal_transient.py`
+contributes zero new diagnostics). `uv run pytest tests/ -n auto -m
+"not regolith and not fea and not spice"`: 395 passed (14 of them
+this dispatch's new thermal-transient tests; the remainder reflects
+cumulative suite growth across dispatches #1-4), 1 skipped, 7 errors
+-- the 7 errors are the same documented pre-existing `tests/
+regolith/*` collection failures (`ModuleNotFoundError: No module
+named 'regolith'`), count unchanged.
+
+**LITHOS-SIDE NOTE**: nothing new escalated beyond the naming
+rationale above (which is a recorded DECISION, not an escalation --
+no lithos-side ambiguity was found, `signature.py`'s `ClaimSense`/
+`ModelSignature` shape already supports the parallel naming directly,
+no new harness mechanism needed).

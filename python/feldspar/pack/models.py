@@ -46,6 +46,12 @@ __all__ = [
     "FeaStaticDeflectionFromGeometryModel",
     "MechStiffnessModel",
     "ElecRailModel",
+    "MemberFlexuralCapacityModel",
+    "MemberAxialCapacityModel",
+    "EulerBucklingLoadModel",
+    "BoltLoadFactorModel",
+    "WeldUtilizationModel",
+    "BearingRatingLifeModel",
 ]
 
 # Vocabulary-owned default claim kinds (06 "Models", DECIDED D94/WO-30
@@ -179,11 +185,24 @@ class _FeaModel(Model):
         target: str,
         inputs: "tuple[str, ...]",
         required_regimes: "tuple[str, ...]" = (),
+        engine_tags: "frozenset[str] | None" = None,
     ) -> None:
         """Bind this model instance to `claim_kind` (OPEN-6 interim
         override), the engine port it solves for, and the signature
         input ports it declares (== the engine's port names, 06
         "signature.inputs are the scalar ports").
+
+        `engine_tags` (cycle-33 pack-exposure generalization) is the
+        offered tag set `plan()` matches against a solver direction's
+        own `Domain.tags` (04-routing: a route is admissible only if
+        its tags are covered by the offered set). Defaults to `None`,
+        which keeps the original FEA-only behavior of always offering
+        `{"linear_elastic", "small_deflection"}` (the WO-27 obligations'
+        own tag set, unchanged for `FeaStaticStressModel`/
+        `FeaStaticDeflectionModel`/`FeaStaticDeflectionFromGeometryModel`).
+        A non-FEA closed-form direction (WO-24 library depth wave) wired
+        through this same base passes its OWN solver's declared tags
+        here instead -- see `_ClosedFormEngineModel` below.
 
         `required_regimes` (A-10/D97) defaults to `()`, the v1 degenerate
         case 06 "Regime tags" keeps valid: these two claim kinds ARE
@@ -198,6 +217,11 @@ class _FeaModel(Model):
         self._target = target
         self._inputs = inputs
         self._required_regimes = required_regimes
+        self._engine_tags = (
+            engine_tags
+            if engine_tags is not None
+            else frozenset({"linear_elastic", "small_deflection"})
+        )
 
     @property
     def version(self) -> str:
@@ -253,14 +277,16 @@ class _FeaModel(Model):
         }
         sense = ClaimSenses.UPPER if self.signature.sense.upper else ClaimSenses.LOWER
         registry = _engine_registry()
-        # Both the closed-form and FEA directions this pack wraps declare
-        # `linear_elastic`/`small_deflection` domain tags (06's regime
-        # note: the WO-27 claim kinds ARE linear-elastic small-deflection
-        # statics by construction) -- offering the full tag set here lets
-        # `plan()` route to whichever direction's declared tags subset it
-        # (a direction with a narrower tag requirement, e.g. the cylinder
-        # family's `linear_elastic`-only box, still matches).
-        tags = frozenset({"linear_elastic", "small_deflection"})
+        # The FEA directions this pack wraps declare `linear_elastic`/
+        # `small_deflection` domain tags (06's regime note: the WO-27
+        # claim kinds ARE linear-elastic small-deflection statics by
+        # construction) -- offering that tag set lets `plan()` route to
+        # whichever direction's declared tags subset it (a direction
+        # with a narrower tag requirement, e.g. the cylinder family's
+        # `linear_elastic`-only box, still matches). A non-FEA subclass
+        # (`_ClosedFormEngineModel`) offers its own target direction's
+        # declared tags instead via `self._engine_tags`.
+        tags = self._engine_tags
 
         budget = _EPS_BUDGET
         solution = None
@@ -366,7 +392,6 @@ class _FeaModel(Model):
                 _MAX_MARGIN_ATTEMPTS,
             )
 
-        solver_version = f"feldspar {__version__} / ccx unknown / gmsh unknown"
         return Ok(
             Prediction(
                 value=value,
@@ -374,10 +399,50 @@ class _FeaModel(Model):
                 coverage=1.0,
                 coverage_axes=_structured_coverage(request),
                 in_domain=True,
-                solver_version=solver_version,
+                solver_version=self._solver_version(),
                 settings_digest=solution.settings_digest,
             )
         )
+
+    def _solver_version(self) -> str:
+        """The `solver_version` slot's tool-provenance string. FEA
+        routes fold in the fixed ccx/gmsh nominal placeholders
+        (`fea/solver.py` folds the real versions into its own
+        `settings_digest`, this slot just states which tools were on
+        the route); `_ClosedFormEngineModel` overrides this -- a
+        closed-form algebraic route never touches ccx or gmsh, so
+        naming them would be a false provenance claim."""
+        return f"feldspar {__version__} / ccx unknown / gmsh unknown"
+
+
+class _ClosedFormEngineModel(_FeaModel):
+    """`_FeaModel`'s convert -> `solve()` -> convert-back plumbing,
+    reused verbatim (NO DUPLICATION) for a WO-24 library-depth closed-
+    form engine direction instead of an FEA one: cost drops to the
+    cheapest tier (no mesh/ccx involved) and `solver_version` drops the
+    ccx/gmsh placeholders (they were never on the route).
+
+    Cycle-33 pack-exposure inventory: `member_capacity.py`,
+    `bolted_joints.py`, `weld_groups.py`, and `bearing_life.py` each
+    landed complete, calibrated, cited `@solver` directions in
+    `_engine_registry()` (WO-24 dispatches #1/#3/#4) with NO regolith
+    `Model` wrapper -- reachable inside feldspar's own planner, but
+    invisible to a lithos discharge. Every subclass below closes one of
+    those gaps by binding `target`/`inputs`/`engine_tags` to an
+    already-registered, already-tested direction; none reimplements
+    physics."""
+
+    @property
+    def cost(self) -> int:
+        """Closed-form algebraic routes are the cheapest tier (mirrors
+        `MechStiffnessModel`/`ElecRailModel`'s `cost=1`, always cheaper
+        than the FEA `_REDUCED_TIER_COST` base class default)."""
+        return 1
+
+    def _solver_version(self) -> str:
+        """No ccx/gmsh on a closed-form route -- state that plainly
+        instead of inheriting the FEA placeholder string."""
+        return f"feldspar {__version__} / closed-form"
 
 
 class FeaStaticStressModel(_FeaModel):
@@ -855,3 +920,259 @@ class ElecRailModel(Model):
             rload,
         )
         return Ok(Prediction(value=value, eps=0.0, coverage=1.0, in_domain=True))
+
+
+# ---------------------------------------------------------------------------
+# Cycle-33 pack-exposure wave: WO-24 library-depth directions (dispatches
+# #1/#3/#4, `member_capacity.py`/`bolted_joints.py`/`weld_groups.py`/
+# `bearing_life.py`) that landed complete, calibrated, cited `@solver`
+# directions in `_engine_registry()` with no regolith `Model` wrapper --
+# reachable inside feldspar's own planner, invisible to a lithos
+# discharge. Each class below is a thin `_ClosedFormEngineModel` bind
+# (claim_kind/target/inputs/engine_tags only, per direction's own
+# `library/*.py` registration) -- NO physics duplicated here.
+#
+# Exposed here are each module's single TOP-LEVEL "final answer" output
+# (a capacity, a utilization ratio, a rating life, a load factor) --
+# INTERMEDIATE distribution outputs that exist to be composed by a
+# caller into a further step, not to be claims in their own right, are
+# named RESIDUALS instead (matching this file's own precedent: E3's
+# internal `Fe`/`Fcr` are not separately exposed either):
+#
+#   - `bolt_group_shear_torsion` / `bolt_group_tension_from_moment`
+#     (mech.joint.group.shear_resultant / .tension_critical): per-bolt
+#     force components a caller compares against a bolt's own shear/
+#     tension allowable -- the allowable itself has no producer in this
+#     repo (CALLER-SUPPLIED), so there is no single sense-bearing claim
+#     limit to discharge against yet.
+#   - `weld_group_inplane_shear_torsion` / `weld_group_outofplane_bending`
+#     (mech.weld.group.inplane_line_force / .bending_line_force):
+#     intermediate unit line forces `weld_group_utilization` (exposed
+#     below) already composes into the one meaningful top-level claim
+#     (a stress utilization ratio) -- exposing the two partial forces
+#     separately would invite a caller to compare a line force (N/m)
+#     directly against a stress limit (Pa), an honest-but-useless claim
+#     shape this pack declines to manufacture.
+#   - `bearing_basic_rating_life_l10_ball` / `_l10_roller` (mech.bearing.l10,
+#     millions of revolutions): `bearing_basic_rating_life_l10h` (exposed
+#     below) is the SAME chain one step further, in the unit (hours) an
+#     actual duty-cycle claim limit is stated in -- L10 alone is an
+#     intermediate a caller chains, same shape as the two line-force
+#     directions above.
+#
+# `thermal_transient.py`'s four directions are a NAMED RESIDUAL of this
+# whole wave, NOT an oversight: dispatch #5's own close-out (WO-24
+# ledger, this file's sibling WO doc) already decided their lithos-side
+# claim-kind names (`thermo.junction_temperature_transient`/
+# `_duty_cycle`) belong to a FUTURE lithos-side model pack with its own
+# `NumericReducedTierModel` subclass, explicitly out of feldspar's own
+# `pack` module's scope -- re-deciding that here would contradict a
+# recorded decision, not extend it.
+# ---------------------------------------------------------------------------
+
+DEFAULT_MEMBER_FLEXURAL_CAPACITY_CLAIM_KIND = "mech.member.flexural_capacity"
+DEFAULT_MEMBER_AXIAL_CAPACITY_CLAIM_KIND = "mech.member.axial_capacity"
+DEFAULT_EULER_BUCKLING_LOAD_CLAIM_KIND = "mech.member.euler_buckling_load"
+DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND = "mech.joint.bolt_load_factor"
+DEFAULT_WELD_UTILIZATION_CLAIM_KIND = "mech.weld.utilization"
+DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND = "mech.bearing.rating_life_hours"
+
+
+class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
+    """AISC 360-16 F2.1 compact/braced flexural yield capacity
+    (`library.member_capacity.flexural_yield_capacity_f2`), a floor
+    claim (`value >= limit`, INV-9: a capacity claim is honest as its
+    conservative-LOW corner)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_MEMBER_FLEXURAL_CAPACITY_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.member.flexure.capacity",
+            inputs=("mech.member.flexure.fy", "mech.member.flexure.zx"),
+            engine_tags=frozenset({"compact", "braced", "steel"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_member_flexural_capacity_f2",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("compact", "braced", "steel", "aisc_360_16_f2"),
+        )
+
+
+class MemberAxialCapacityModel(_ClosedFormEngineModel):
+    """AISC 360-16 E3 axial yield/flexural-buckling capacity
+    (`library.member_capacity.axial_yield_buckling_capacity_e3`), a
+    floor claim."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_MEMBER_AXIAL_CAPACITY_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.member.axial.capacity",
+            inputs=(
+                "mech.member.axial.fy",
+                "mech.member.axial.ag",
+                "mech.member.axial.e",
+                "mech.member.axial.kl_over_r",
+            ),
+            engine_tags=frozenset({"steel", "no_slender_elements"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_member_axial_capacity_e3",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("steel", "no_slender_elements", "aisc_360_16_e3"),
+        )
+
+
+class EulerBucklingLoadModel(_ClosedFormEngineModel):
+    """Classical Euler elastic critical buckling load
+    (`library.member_capacity.euler_critical_buckling_load`), a floor
+    claim over caller-supplied `E, I, K, L` (no yield-strength branch,
+    the purely-elastic sibling of `MemberAxialCapacityModel`)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_EULER_BUCKLING_LOAD_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.member.euler.pcr",
+            inputs=(
+                "mech.member.euler.e",
+                "mech.member.euler.i",
+                "mech.member.euler.k",
+                "mech.member.euler.length",
+            ),
+            engine_tags=frozenset({"elastic", "prismatic", "no_slender_elements"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_member_euler_buckling_load",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("elastic", "prismatic", "no_slender_elements", "timoshenko_ch2"),
+        )
+
+
+class BoltLoadFactorModel(_ClosedFormEngineModel):
+    """VDI 2230-class single-bolt load factor
+    (`library.bolted_joints.bolt_single_load_factor_vdi2230`), a floor
+    claim: a joint's load factor phi must stay ABOVE a stated minimum
+    margin against embedment/loosening (VDI 2230 Blatt 1:2015, memo
+    sec. 8.1)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.joint.bolt.load_factor",
+            inputs=(
+                "mech.joint.bolt.cb",
+                "mech.joint.bolt.cp",
+                "mech.joint.bolt.fv",
+                "mech.joint.bolt.fa",
+            ),
+            engine_tags=frozenset(
+                {
+                    "elastic",
+                    "no_gasket_creep",
+                    "concentric_load",
+                    "friction_grip_out_of_scope",
+                }
+            ),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_joint_bolt_load_factor_vdi2230",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=(
+                "elastic",
+                "no_gasket_creep",
+                "concentric_load",
+                "vdi_2230_blatt1",
+            ),
+        )
+
+
+class WeldUtilizationModel(_ClosedFormEngineModel):
+    """Fillet weld-group elastic-line utilization ratio
+    (`library.weld_groups.weld_group_utilization`), a ceiling claim:
+    `utilization_ratio` must stay AT OR BELOW a stated limit (the
+    caller's own allowable margin, typically `1.0` -- this model
+    reports the ratio itself, INV-9 conservative-HIGH corner, the
+    caller's obligation states the limit)."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_WELD_UTILIZATION_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.weld.group.utilization_ratio",
+            inputs=(
+                "mech.weld.group.inplane_line_force",
+                "mech.weld.group.bending_line_force",
+                "mech.weld.group.leg_size",
+                "mech.weld.group.allowable_stress",
+            ),
+            engine_tags=frozenset({"elastic", "fillet", "static"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_weld_group_utilization",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("elastic", "fillet", "static", "aws_d1.1_j2.4"),
+        )
+
+
+class BearingRatingLifeModel(_ClosedFormEngineModel):
+    """ISO 281:2007 basic dynamic rating life in hours at constant
+    speed (`library.bearing_life.bearing_basic_rating_life_l10h`), a
+    floor claim: `L10h` (hours) must stay AT OR ABOVE the caller's
+    stated service-life requirement. Takes the already-computed `L10`
+    (millions of revolutions, from `bearing_basic_rating_life_l10_ball`
+    /`_l10_roller`, both named residuals of this exposure wave -- a
+    caller chains those first, same seam as `MechStiffnessModel`'s own
+    caller-supplied section properties) and `speed_rpm` directly."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.bearing.l10h",
+            inputs=("mech.bearing.l10", "mech.bearing.speed_rpm"),
+            engine_tags=frozenset({"iso_281", "constant_speed"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_bearing_rating_life_l10h",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("iso_281", "constant_speed", "basic_rating", "no_a_iso"),
+        )

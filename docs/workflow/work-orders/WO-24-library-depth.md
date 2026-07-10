@@ -1,6 +1,12 @@
 # WO-24: solver library depth wave (the AD-34/D174 program, feldspar half)
 
-Status: PARTIAL (2026-07-10 dispatch #5, branch `wo24-thermal`,
+Status: PARTIAL (2026-07-10 dispatch #6, branch `cycle33-pack-exposure`
+-- cycle-33 PACK EXPOSURE wave: exposed 6 previously-internal-only
+WO-24 directions (member capacity F2/E3/Euler, VDI 2230 bolt load
+factor, weld utilization, bearing L10h) as `feldspar.pack` regolith
+`Model`s via a new `_ClosedFormEngineModel` base; see its own close-out
+at the bottom of this file. No new WO-24 deliverables (4/5/7)
+attempted this dispatch.) (2026-07-10 dispatch #5, branch `wo24-thermal`,
 worktree `.claude/worktrees/wo24-thermal`) -- landed deliverable 0
 (dispatch #1, member capacity forms), deliverable -1 (dispatch #2,
 `docs/benchmarks-memo.md` consolidation), deliverable 1 (dispatch
@@ -808,3 +814,145 @@ rationale above (which is a recorded DECISION, not an escalation --
 no lithos-side ambiguity was found, `signature.py`'s `ClaimSense`/
 `ModelSignature` shape already supports the parallel naming directly,
 no new harness mechanism needed).
+
+---
+
+## Dispatch #6 close-out (2026-07-10, branch `cycle33-pack-exposure`,
+worktree `.worktrees/cycle33-pack-exposure`)
+
+Scope this dispatch: cycle-33's PACK EXPOSURE queue item (lithos
+design-log 2026-07-10-cycle-32 F112 + 2026-07-10-cycle-33 opener) --
+NOT a new WO-24 deliverable. Deliverables 4 (fatigue), 5 (Roark
+deflection catalog completion), and 7 (drive sizing) remain UNSTARTED,
+same reasons dispatches #2-#5 already recorded (no existing citation
+trail for fatigue factor tables or drive-sizing standards; the Roark
+gap list itself is unenumerated) -- not attempted this dispatch, whose
+scope was exposure of ALREADY-LANDED directions, not new physics.
+
+**Inventory** (`_engine_registry()` internal directions vs
+`feldspar.pack.register()`'s regolith `Model`s, before this dispatch):
+6 models exposed (`FeaStaticStressModel`, `FeaStaticDeflectionModel`,
+`FeaStaticDeflectionFromGeometryModel`, `MechStiffnessModel`,
+`ElecRailModel` x2) against >20 internal `@solver` directions across
+`library.mech`/`member_capacity`/`bolted_joints`/`weld_groups`/
+`bearing_life`/`thermal_transient`/`fluids`/`heat`/`thermo` --
+dispatches #1/#3/#4/#5's WO-24 deliverables (member capacity, bolted
+joints, weld groups, bearing life, thermal transient) had NO regolith
+exposure at all: reachable inside feldspar's own planner, invisible to
+a lithos discharge.
+
+**Landed** (`python/feldspar/pack/models.py`,
+`python/feldspar/pack/__init__.py`,
+`tests/regolith/test_pack_wo24_exposure.py`, `README.md`): a new
+`_ClosedFormEngineModel(_FeaModel)` base (cost=1, non-ccx/gmsh
+`solver_version`, `_FeaModel.__init__` generalized with an
+`engine_tags` param so a non-FEA direction's own `Domain.tags` --not
+the FEA-hardcoded `{"linear_elastic","small_deflection"}`-- reaches
+`plan()`) and six concrete `Model` subclasses over it, each binding an
+already-registered, already-calibrated WO-24 direction's TOP-LEVEL
+output to a new claim kind:
+
+| model | claim kind | wraps |
+|---|---|---|
+| `MemberFlexuralCapacityModel` | `mech.member.flexural_capacity` | `member_capacity.flexural_yield_capacity_f2` (AISC 360-16 F2.1) |
+| `MemberAxialCapacityModel` | `mech.member.axial_capacity` | `member_capacity.axial_yield_buckling_capacity_e3` (AISC 360-16 E3) |
+| `EulerBucklingLoadModel` | `mech.member.euler_buckling_load` | `member_capacity.euler_critical_buckling_load` (Timoshenko/Shigley) |
+| `BoltLoadFactorModel` | `mech.joint.bolt_load_factor` | `bolted_joints.bolt_single_load_factor_vdi2230` (VDI 2230 Blatt 1) |
+| `WeldUtilizationModel` | `mech.weld.utilization` | `weld_groups.weld_group_utilization` (Shigley/Blodgett/AWS D1.1) |
+| `BearingRatingLifeModel` | `mech.bearing.rating_life_hours` | `bearing_life.bearing_basic_rating_life_l10h` (ISO 281:2007) |
+
+No physics reimplemented -- every model routes through
+`_engine_registry()` + `feldspar.plan.solve.solve()`, the SAME code
+path `_FeaModel` already used, over the direction's already-registered
+`@solver` function.
+
+**Named residuals** (NOT half-landed -- deliberately not exposed as
+separate top-level claims, full reasoning in `pack/models.py`'s
+"cycle-33 pack-exposure wave" section comment):
+
+1. `bolt_group_shear_torsion` / `bolt_group_tension_from_moment` --
+   per-bolt force components with no producer for their own allowable
+   in this repo (caller-supplied), so no sense-bearing claim limit
+   exists yet to discharge against.
+2. `weld_group_inplane_shear_torsion` / `weld_group_outofplane_bending`
+   -- intermediate unit line forces (N/m) `weld_group_utilization`
+   (exposed) already composes into the one meaningful stress-ratio
+   claim; exposing them separately would invite comparing a line force
+   against a stress limit, an honest-but-useless claim shape.
+3. `bearing_basic_rating_life_l10_ball` / `_l10_roller` -- `L10`
+   (millions of revolutions) is the same chain one step short of
+   `L10h` (exposed), the unit an actual duty-cycle claim limit is
+   stated in.
+4. `thermal_transient.py` (all four directions) -- dispatch #5's own
+   close-out already decided their lithos-side claim-kind names
+   (`thermo.junction_temperature_transient`/`_duty_cycle`) belong to a
+   FUTURE lithos-side model pack with its own `NumericReducedTierModel`
+   subclass, explicitly out of feldspar's `pack` module's scope;
+   exposing them here would contradict that recorded decision, not
+   extend it.
+
+**Environment note** (not a code change, a dev-setup fix any future
+dispatch in a `.worktrees/`-style feldspar worktree should reuse):
+`pyproject.toml`'s `regolith = { path = "../lithos", editable = true }`
+resolves relative to the worktree root, so a worktree at
+`.worktrees/<name>/` needs a real or symlinked `.worktrees/lithos`
+sibling (this dispatch used `ln -s /home/logan/projects/lithos
+.worktrees/lithos`) for `uv sync --extra regolith` to succeed --
+without it, `make install`/`make install-regolith` fail outright
+(previous dispatches worked around this by treating the resulting
+`tests/regolith/*` collection failures as an accepted 7-error baseline
+instead; this dispatch's baseline has ZERO such errors because the
+symlink was created first).
+
+**Gate** (this worktree): `cargo fmt --all -- --check`: clean (no Rust
+changed). `cargo clippy --workspace --all-targets -- -D warnings`:
+clean. `cargo test --workspace`: all green (after `cargo build
+--workspace` first -- the cdylib-vs-test-binary build-order issue is a
+pre-existing environment artifact, not a regression; a raw `cargo test
+--workspace` run first hits it, a `cargo build --workspace` first
+resolves it, unrelated to any change this dispatch made). `uv run ruff
+format --check python/ tests/` / `uv run ruff check python/ tests/`:
+clean. `uv run lint-imports`: 1 contract kept, 0 broken. `uv run ty
+check python/`: 0 diagnostics (the `.worktrees/lithos` symlink fix
+above resolves what prior dispatches recorded as a 230-diagnostic
+nested-worktree gap -- an environment improvement, not a code effect).
+`uv run pytest tests/ -n auto -m "not regolith and not fea and not
+spice"`: 413 passed (baseline unchanged, no non-regolith test file
+touched). `uv run pytest tests/regolith/ -m regolith`: 75 passed (69
+baseline + 6 new `test_pack_wo24_exposure.py` cases), 0 errors.
+
+**Calibration** (all green, reusing exact reference values from the
+dispatches that originally landed and calibrated each direction --
+`tests/regolith/test_pack_wo24_exposure.py`, tolerance rel 1e-3..1e-6,
+matching the corresponding `tests/unit/test_library_*.py` case's own
+tolerance): flexural capacity (Fy=345e6, Zx=1.639e-3 -> 508,909.5 N*m),
+axial capacity inelastic branch (Fy=345e6, Ag=0.01, E=200e9, KL/r=80 ->
+~1.943e6 N), Euler buckling (E=200e9, I=8.0e-6, K=1.0, L=3.0 ->
+~1,754,600 N), VDI 2230 load factor (cb=200e6, cp=800e6, fv=10000,
+fa=5000 -> phi=0.20), weld utilization (f_inplane=4893.16,
+f_bending=15000.0, leg=0.008, allowable=145e6 -> ratio=0.01924),
+bearing L10h (L10=343.0, n=1800 rpm -> 3,175.93 hours). No calibration
+failures.
+
+**Cuts named this dispatch**: WO-24 deliverables 4 (shaft/member
+fatigue), 5 (Roark deflection catalog completion), and 7 (drive
+sizing) remain UNSTARTED -- out of this dispatch's exposure-only scope
+(explicit dispatch instruction: "Do NOT expose half-landed
+directions... A direction you cannot finish with honest calibration
+gets SKIPPED WHOLE"; this dispatch's own remit was PACK EXPOSURE plus
+"as many [WO-24 remainder directions] as you can complete PROPERLY" --
+the exposure inventory and wiring consumed this dispatch's full scope,
+so 4/5/7 were not attempted rather than rushed, same standing law
+dispatches #2-#5 already applied to themselves). The four
+`thermal_transient.py` residual reason is a recorded DECISION
+(dispatch #5), not a new finding.
+
+**LITHOS-SIDE NOTE**: nothing new escalated -- the six new claim kinds
+(`mech.member.flexural_capacity`, `mech.member.axial_capacity`,
+`mech.member.euler_buckling_load`, `mech.joint.bolt_load_factor`,
+`mech.weld.utilization`, `mech.bearing.rating_life_hours`) are NEW
+vocabulary this dispatch introduces (OPEN-6 interim pattern, same as
+every existing claim kind here) -- a lithos-side scaffold wanting to
+assert one of these claims needs its own vocabulary-side registration
+of the kind name, unchanged process from how `mech.stiffness`/
+`elec.rail.lo`/`elec.rail.hi` were already adopted.

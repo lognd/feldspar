@@ -12,8 +12,14 @@ from regolith.harness.signature import ClaimSense  # noqa: E402
 from feldspar.__about__ import __version__  # noqa: E402
 from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
+    DEFAULT_MICROSTRIP_Z0_HI_CLAIM_KIND,
+    DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND,
     DEFAULT_RAIL_HI_CLAIM_KIND,
     DEFAULT_RAIL_LO_CLAIM_KIND,
+    DEFAULT_STRIPLINE_Z0_HI_CLAIM_KIND,
+    DEFAULT_STRIPLINE_Z0_LO_CLAIM_KIND,
+    AcShuntCapacitorModel,
+    AcShuntResistorModel,
     BearingRatingLifeModel,
     BoltLoadFactorModel,
     ElecRailModel,
@@ -24,6 +30,11 @@ from feldspar.pack.models import (  # noqa: E402
     MechStiffnessModel,
     MemberAxialCapacityModel,
     MemberFlexuralCapacityModel,
+    MicrostripImpedanceModel,
+    SeriesTerminationModel,
+    StriplineImpedanceModel,
+    TheveninTerminationR1Model,
+    TheveninTerminationR2Model,
     WeldUtilizationModel,
 )
 
@@ -33,7 +44,7 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's twelve regolith models on `registry` (a
+    """Registers feldspar's nineteen regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 
@@ -46,6 +57,16 @@ def register(registry: Any) -> None:
     `Model` wrapper before this wave -- see `pack.models`'s own
     "cycle-33 pack-exposure wave" section comment for which directions
     stayed unexposed (named residuals) and why.
+
+    WO-25 signal-integrity wave: `MicrostripImpedanceModel`/
+    `StriplineImpedanceModel` (two instances each, one per `within
+    [lo, hi]` half, same shape as `ElecRailModel`) and
+    `SeriesTerminationModel`/`TheveninTerminationR1Model`/
+    `TheveninTerminationR2Model`/`AcShuntResistorModel`/
+    `AcShuntCapacitorModel` wrap `library.signal_integrity`'s directions
+    (lithos design-log 2026-07-10-cycle-32 D186) -- see `pack.models`'s
+    own "WO-25 signal-integrity wave" section comment for the
+    `diff_pair_z` named cut.
 
     Import-cheap and probe-free (FINV-3/10): constructing `Model`
     instances and calling `registry.register()` only adds Python-side
@@ -83,7 +104,36 @@ def register(registry: Any) -> None:
     registry.register(BoltLoadFactorModel())
     registry.register(WeldUtilizationModel())
     registry.register(BearingRatingLifeModel())
-    _log.info("feldspar.pack: registered 12 regolith model(s)")
+    registry.register(
+        MicrostripImpedanceModel(
+            claim_kind=DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND,
+            sense=ClaimSense.lower_bound(),
+        )
+    )
+    registry.register(
+        MicrostripImpedanceModel(
+            claim_kind=DEFAULT_MICROSTRIP_Z0_HI_CLAIM_KIND,
+            sense=ClaimSense.upper_bound(),
+        )
+    )
+    registry.register(
+        StriplineImpedanceModel(
+            claim_kind=DEFAULT_STRIPLINE_Z0_LO_CLAIM_KIND,
+            sense=ClaimSense.lower_bound(),
+        )
+    )
+    registry.register(
+        StriplineImpedanceModel(
+            claim_kind=DEFAULT_STRIPLINE_Z0_HI_CLAIM_KIND,
+            sense=ClaimSense.upper_bound(),
+        )
+    )
+    registry.register(SeriesTerminationModel())
+    registry.register(TheveninTerminationR1Model())
+    registry.register(TheveninTerminationR2Model())
+    registry.register(AcShuntResistorModel())
+    registry.register(AcShuntCapacitorModel())
+    _log.info("feldspar.pack: registered 19 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

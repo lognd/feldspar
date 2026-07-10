@@ -437,7 +437,20 @@ is committed scope now (WO-05).
   axial-flexure only) over caller-resolved capacities -- see its
   close-out for the full accounting; buckling/LTB/connection checks,
   section-capacity resolution, and the lithos corpus conformance run
-  itself (lithos WO-65) remain named residuals.
+  itself (lithos WO-65) remain named residuals. WO-24 (2026-07-09,
+  deliverable 0 only, PARTIAL) added the member CAPACITY forms the
+  H1 interaction check needs as its `axial_capacity`/
+  `moment_capacity` inputs: `mech.member.flexural_yield_capacity_f2`
+  (AISC 360-16 F2.1 eq. F2-1, compact+braced yield only) and
+  `mech.member.axial_yield_buckling_capacity_e3` (AISC 360-16 E3 eq.
+  E3-1..E3-4, flexural buckling of members without slender
+  elements) -- both registered `mech.member` pure-map directions
+  over caller-supplied section properties (Zx/Ag/r, same
+  out-of-band seam as `ea`/`ei`); see WO-24's close-out for the
+  deliverables 1-8 cut list (bolted joints, weld groups, bearing
+  life, fatigue, deflection catalog completion, lumped thermal
+  transient, drive sizing, column buckling completion -- none
+  landed this dispatch, all named and recorded, not guessed).
 - **Unphased catalog** (`materials`, `mfg`, `aero`, `chem`,
   `vehicle`; `mech.struct` graduated to Phase 6): committed scope,
   scheduled when a lithos consumer or an owner decision pulls them

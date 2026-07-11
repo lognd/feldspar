@@ -9,14 +9,16 @@ header/column wording varies across ccx versions. Rather than parse the
 headers, both parsers here scan every line and treat any line whose
 first whitespace-separated token parses as an `int` as the START of a
 data row; the remaining tokens must then parse as exactly the expected
-number of `float`s (3 for displacements: ux, uy, uz; 3 for principal
-stresses: s1, s2, s3, after dropping an optional blank integration-point
+number of `float`s (3 for displacements: ux, uy, uz; 6 for stresses: the
+Sxx..Syz tensor components ccx prints for `*EL PRINT, S`, reduced to
+principal stresses here, after dropping an optional integration-point
 token). Any line that looks like a data row (leads with an int) but
 fails to parse cleanly -- wrong column count or a non-numeric token --
 is treated as a truncated/malformed table and fails the WHOLE parse
 (fail closed, per WO-08 contract): never a partial/silent answer.
 Non-data lines (headers, blank lines, footers) are skipped."""
 
+import math
 from typing import Mapping, Tuple
 
 from typani import Err, Ok, Result
@@ -94,15 +96,89 @@ def parse_dat_displacements(
     return _parse_three_column_table(text, "displacements")
 
 
+def _principal_stresses(
+    sxx: float, syy: float, szz: float, sxy: float, sxz: float, syz: float
+) -> Tuple[float, float, float]:
+    """Principal stresses (eigenvalues, descending) of the symmetric
+    Cauchy stress tensor via the closed-form 3x3 symmetric-eigenvalue
+    algorithm -- ccx has no principal-stress `*EL PRINT` label, so it
+    prints the six tensor components (S) and the principals are reduced
+    here (pure Python: numpy is not a feldspar runtime dependency)."""
+    p1 = sxy * sxy + sxz * sxz + syz * syz
+    if p1 == 0.0:
+        # Already diagonal.
+        ordered = sorted((sxx, syy, szz), reverse=True)
+        return (ordered[0], ordered[1], ordered[2])
+    q = (sxx + syy + szz) / 3.0
+    p2 = (sxx - q) ** 2 + (syy - q) ** 2 + (szz - q) ** 2 + 2.0 * p1
+    p = math.sqrt(p2 / 6.0)
+    # B = (A - q*I) / p; r = det(B) / 2, clamped to [-1, 1] for acos.
+    b11, b22, b33 = (sxx - q) / p, (syy - q) / p, (szz - q) / p
+    b12, b13, b23 = sxy / p, sxz / p, syz / p
+    det_b = (
+        b11 * (b22 * b33 - b23 * b23)
+        - b12 * (b12 * b33 - b23 * b13)
+        + b13 * (b12 * b23 - b22 * b13)
+    )
+    r = max(-1.0, min(1.0, det_b / 2.0))
+    phi = math.acos(r) / 3.0
+    s1 = q + 2.0 * p * math.cos(phi)
+    s3 = q + 2.0 * p * math.cos(phi + 2.0 * math.pi / 3.0)
+    s2 = 3.0 * q - s1 - s3
+    return (s1, s2, s3)
+
+
 def parse_dat_principal_stresses(
     text: str,
 ) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
-    """Parses a ccx `*EL PRINT ... S1,S2,S3` principal-stress table into
-    `{element_or_ipoint_id: (s1, s2, s3)}`; assumed canonical row shape
-    is exactly `<id> <s1> <s2> <s3>` (4 whitespace-separated numeric
-    fields) -- any malformed/truncated row fails the whole parse
-    (SolveError.ParseFailed), never a partial map."""
-    return _parse_three_column_table(text, "principal stresses")
+    """Parses a ccx `*EL PRINT ... S` stress table into
+    `{row_index: (s1, s2, s3)}` principal stresses. ccx prints one row
+    per element integration point as `<elem> <ip> Sxx Syy Szz Sxy Sxz
+    Syz` (an optional leading integration-point column is tolerated);
+    each row's six components are reduced to principals here. Rows are
+    keyed by a running index so every integration point is preserved for
+    the downstream max reduction. Any malformed/truncated row fails the
+    whole parse (SolveError.ParseFailed), never a partial map."""
+    rows: dict[int, Tuple[float, float, float]] = {}
+    row_index = 0
+    for line_no, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        tokens = line.split()
+        try:
+            int(tokens[0])
+        except ValueError:
+            # Not a data row (header/label text) -- skip.
+            continue
+        value_tokens = tokens[1:]
+        # Tolerate an optional leading integration-point column: a stress
+        # row is `<elem> <ip> S11..S23` (7 trailing tokens) or `<elem>
+        # S11..S23` (6). Anything else is malformed.
+        if len(value_tokens) == 7:
+            value_tokens = value_tokens[1:]
+        if len(value_tokens) != 6:
+            _log.warning(
+                "principal stresses: malformed row at line %d (expected 6 "
+                "stress components, got %d): %r",
+                line_no,
+                len(value_tokens),
+                raw_line,
+            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
+        try:
+            sxx, syy, szz, sxy, sxz, syz = (float(tok) for tok in value_tokens)
+        except ValueError:
+            _log.warning(
+                "principal stresses: non-numeric value token at line %d: %r",
+                line_no,
+                raw_line,
+            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
+        rows[row_index] = _principal_stresses(sxx, syy, szz, sxy, sxz, syz)
+        row_index += 1
+    _log.info("principal stresses: parsed %d data rows", len(rows))
+    return Ok(rows)
 
 
 def parse_dat_frequencies(

@@ -41,24 +41,25 @@ def test_parse_dat_displacements_valid_table():
 
 
 def test_parse_dat_principal_stresses_valid_table_and_max_von_mises():
-    """A small *EL PRINT S1,S2,S3 block parses correctly, and
-    max_von_mises matches the hand-computed uniaxial identity
+    """A small *EL PRINT S block (the six tensor components ccx actually
+    prints, `<elem> <ip> Sxx Syy Szz Sxy Sxz Syz`) parses and reduces to
+    principals; max_von_mises matches the hand-computed uniaxial identity
     (s1=100, s2=0, s3=0 -> von Mises = 100), same case as WO-07's
     test_library_mech.py uniaxial check."""
     text = """
     STRESSES (ELEMENT INTEGRATION POINTS) FOR ELEMENT SET ESET
 
-     ELEMENT     S1              S2              S3
-           1  1.0000000E+02   0.0000000E+00   0.0000000E+00
-           2  5.0000000E+01   5.0000000E+01   0.0000000E+00
+     ELEMENT   PT   SXX      SYY      SZZ      SXY      SXZ      SYZ
+           1    1  1.0000000E+02  0.0  0.0  0.0  0.0  0.0
+           2    1  5.0000000E+01  5.0000000E+01  0.0  0.0  0.0  0.0
     """
     result = parse_dat_principal_stresses(text)
     assert result.is_ok
     stresses = result.danger_ok
-    assert stresses == {
-        1: (100.0, 0.0, 0.0),
-        2: (50.0, 50.0, 0.0),
-    }
+    # Keyed by running row index; uniaxial -> (100,0,0), equibiaxial -> (50,50,0).
+    values = sorted(stresses.values(), reverse=True)
+    assert values[0] == pytest.approx((100.0, 0.0, 0.0))
+    assert values[1] == pytest.approx((50.0, 50.0, 0.0))
     assert max_von_mises(stresses) == pytest.approx(100.0, rel=1e-9)
 
 
@@ -83,8 +84,8 @@ def test_parse_dat_principal_stresses_non_numeric_token_fails_closed():
     """A would-be data row with a non-numeric token mid-row must fail
     the whole parse, not just skip that row."""
     text = """
-     ELEMENT     S1              S2              S3
-           1  1.0000000E+02   NaNgarbage      0.0000000E+00
+     ELEMENT   PT   SXX      SYY      SZZ      SXY      SXZ      SYZ
+           1    1  1.0000000E+02   NaNgarbage   0.0   0.0   0.0   0.0
     """
     result = parse_dat_principal_stresses(text)
     assert result.is_err

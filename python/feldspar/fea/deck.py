@@ -48,7 +48,13 @@ __all__ = [
     "build_cantilever_modal_deck",
 ]
 
-_MAX_ITEMS_PER_LINE = 8  # ccx/Abaqus keyword-format line-length convention
+# ccx/Abaqus fixed-format data lines hold at most 16 comma-separated fields.
+# A C3D20 record is 21 fields (id + 20 nodes); at 16/line that is exactly two
+# lines (one continuation), which the ccx *ELEMENT reader's allocation pass
+# expects. Splitting it across three lines (e.g. 8/line) makes stricter ccx
+# builds miscount elements and abort with "*ERROR reading *ELEMENT: increase
+# ne_".
+_MAX_ITEMS_PER_LINE = 16
 
 
 def _chunk_line(items: Sequence[str]) -> str:
@@ -177,19 +183,21 @@ def _solid_section_block() -> str:
     return "*SOLID SECTION, ELSET=EALL, MATERIAL=MAT1"
 
 
-def _result_requests_block() -> str:
-    """`*STEP`/`*STATIC` block requesting nodal displacements (U) and
-    elemental PRINCIPAL stresses (S1, S2, S3 -- not the 6 tensor
-    components, so results.py can call `mech_von_mises_principal`
-    directly without reimplementing eigenvalue math)."""
+def _static_step_block(cload_block: str) -> str:
+    """`*STEP`/`*STATIC` block: the applied `*CLOAD` MUST live inside the
+    step (ccx rejects a *CLOAD in the model-definition section), followed
+    by nodal displacement (U) and elemental stress (S -- the 6 tensor
+    components; ccx has no principal-stress *EL PRINT label, so results.py
+    reduces the tensor to principals) requests."""
 
     return (
         "*STEP\n"
         "*STATIC\n"
+        f"{cload_block}\n"
         "*NODE PRINT, NSET=NALL,\n"
         "U\n"
         "*EL PRINT, ELSET=EALL,\n"
-        "S1, S2, S3\n"
+        "S\n"
         "*END STEP"
     )
 
@@ -225,8 +233,7 @@ def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) 
         _material_block(material),
         _solid_section_block(),
         "*BOUNDARY\nFIXED,1,3",
-        f"*CLOAD\nTIP,2,{format_f64(-force_per_node)}",
-        _result_requests_block(),
+        _static_step_block(f"*CLOAD\nTIP,2,{format_f64(-force_per_node)}"),
     ]
     return "\n".join(sections) + "\n"
 
@@ -276,7 +283,6 @@ def build_cylinder_deck(mesh: MeshData, material: Material, pressure: float) -> 
         _material_block(material),
         _solid_section_block(),
         "*BOUNDARY\nNALL,2,2",
-        f"*CLOAD\nBORE,1,{format_f64(force_per_node)}",
-        _result_requests_block(),
+        _static_step_block(f"*CLOAD\nBORE,1,{format_f64(force_per_node)}"),
     ]
     return "\n".join(sections) + "\n"

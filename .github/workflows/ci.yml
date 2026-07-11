@@ -17,6 +17,17 @@ on:
 
 env:
   OMP_NUM_THREADS: "1"
+  # The committed uv.lock pins `regolith` as an editable path source at
+  # ../lithos (tool.uv.sources). Any re-resolution -- which a bare `uv sync`
+  # or `uv run` performs -- must build that source's metadata, so it fails on
+  # every job that does not check lithos out beside feldspar, EVEN WITH
+  # `--no-extra regolith` (that flag only drops it from the install set, not
+  # the resolve graph). `UV_FROZEN=1` makes every uv invocation (including the
+  # ones nested inside `make check`) install straight from the committed lock
+  # without re-resolving, so lithos is only needed by the regolith job that
+  # actually checks it out. The lock's freshness is verified locally / in the
+  # regolith job, not on every run.
+  UV_FROZEN: "1"
 
 jobs:
   # AD-12a: make check (ruff, ty, pytest sans regolith/fea markers)

@@ -99,8 +99,9 @@ def _probe_gmsh():
     consuming direction's tool, probed separately)."""
     try:
         import gmsh  # noqa: F401
-    except ImportError:
-        _log.info("probe: gmsh not importable")
+    except (ImportError, OSError):
+        # OSError: gmsh installed but a native dependency failed to load.
+        _log.info("probe: gmsh unavailable")
         return Err(
             SolveError.ToolMissing(
                 tool="gmsh",

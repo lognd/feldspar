@@ -187,8 +187,9 @@ def _probe_tools():
     for the external `ccx` binary."""
     try:
         import gmsh  # noqa: F401
-    except ImportError:
-        _log.info("probe_tools: gmsh not importable")
+    except (ImportError, OSError):
+        # OSError: gmsh installed but a native dependency failed to load.
+        _log.info("probe_tools: gmsh unavailable")
         return Err(
             SolveError.ToolMissing(
                 tool="gmsh",

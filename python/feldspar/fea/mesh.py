@@ -72,8 +72,10 @@ def build_cantilever_mesh(
 
     try:
         import gmsh
-    except ImportError:
-        _log.warning("gmsh not importable; cannot build cantilever mesh")
+    except (ImportError, OSError):
+        # OSError: gmsh is installed but a native dependency (e.g. libGLU)
+        # failed to load -- still unusable, so degrade to ToolMissing.
+        _log.warning("gmsh unavailable; cannot build cantilever mesh")
         return Err(
             SolveError.ToolMissing(
                 tool="gmsh",
@@ -191,8 +193,9 @@ def build_cylinder_mesh(
 
     try:
         import gmsh
-    except ImportError:
-        _log.warning("gmsh not importable; cannot build cylinder mesh")
+    except (ImportError, OSError):
+        # OSError: gmsh installed but a native dependency failed to load.
+        _log.warning("gmsh unavailable; cannot build cylinder mesh")
         return Err(
             SolveError.ToolMissing(
                 tool="gmsh",

@@ -55,12 +55,14 @@ def build_rc_step_deck(vf: float, r: float, c: float, t: float, timestep: float)
     step-halving eps estimate the WO-17 deliverable calls for."""
     stop_time = t
     # PWL step: 0V until a tiny rise-time epsilon, then vf held -- ngspice
-    # needs a nonzero rise time for a clean transient step. Keep it small
-    # (timestep/1000): the finite ramp biases v_C low relative to the
+    # needs a nonzero rise time for a clean transient step. Keep it very small
+    # (timestep/100000): the finite ramp biases v_C low relative to the
     # ideal-step closed-form oracle, and that bias is a MODELING offset the
     # step-halving Richardson extrapolation cannot remove (both runs share the
     # same rise), so it must be driven well below the discretization eps.
-    rise_time = min(timestep / 1000.0, t / 1000.0) if t > 0.0 else timestep / 1000.0
+    rise_time = (
+        min(timestep / 100000.0, t / 100000.0) if t > 0.0 else timestep / 100000.0
+    )
     return (
         "series RC step response (feldspar WO-17)\n"
         f"vin in 0 PWL(0 0 {format_f64(rise_time)} {format_f64(vf)} "

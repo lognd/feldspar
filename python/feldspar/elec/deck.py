@@ -46,8 +46,9 @@ def build_rc_step_deck(vf: float, r: float, c: float, t: float, timestep: float)
     """Series RC step-response deck (benchmark memo sec. 4.1): a
     piecewise-linear step source `vf` at t=0 through `r` into node
     `out`, `c` from `out` to ground. A `.tran` analysis at the given
-    `timestep` out to `t`, `print v(out)` at the final timepoint
-    reports `v_C(t)`.
+    `timestep` out to `t`; `meas tran` extracts `v(out)` at the final
+    timepoint as the scalar `vc` (a bare `print v(out)` after a
+    transient dumps the whole vector table, not a single value).
 
     `timestep` is a caller-supplied parameter (not fixed) so
     `solver.py` can run the same deck shape at two step sizes for the
@@ -64,7 +65,8 @@ def build_rc_step_deck(vf: float, r: float, c: float, t: float, timestep: float)
         f"c1 out 0 {format_f64(c)}\n"
         ".control\n"
         f"tran {format_f64(timestep)} {format_f64(stop_time)}\n"
-        f"print v(out)\n"
+        f"meas tran vc FIND v(out) AT={format_f64(stop_time)}\n"
+        f"print vc\n"
         "quit\n"
         ".endc\n"
         ".end\n"

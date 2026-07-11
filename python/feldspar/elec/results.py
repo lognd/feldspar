@@ -65,8 +65,10 @@ def parse_print_value(log_text: str, expr_name: str) -> Result[float, SolveError
         return Ok(value)
 
     _log.warning(
-        "parse_print_value: no line matching %r = <value> found in ngspice output",
+        "parse_print_value: no line matching %r = <value> found in ngspice "
+        "output; raw output follows (truncated to 2000 chars):\n%s",
         expr_name,
+        log_text[:2000],
     )
     return Err(
         SolveError.ParseFailed(

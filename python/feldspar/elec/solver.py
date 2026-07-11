@@ -253,7 +253,7 @@ def rc_step(x):
             timestep,
             run.elapsed_s,
         )
-        parsed = results.parse_print_value(run.log_text, "v(out)")
+        parsed = results.parse_print_value(run.log_text, "vc")
         if parsed.is_err:
             _log.warning(
                 "elec.ngspice.rc_step: result parse failed at dt=%s: %r",

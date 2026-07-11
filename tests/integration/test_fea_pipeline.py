@@ -93,7 +93,11 @@ def test_cantilever_fea_matches_closed_form_oracle(
             "mech.material.youngs_modulus": Interval(youngs_modulus, youngs_modulus),
             "mech.section.second_moment": Interval(second_moment, second_moment),
         },
-        tags=set(),
+        # The closed-form Euler-Bernoulli deflection is only valid in this
+        # regime, so its direction requires these tags; the oracle solve must
+        # supply them to route to it (an empty tag set matches no deflection
+        # direction and yields NoApplicableSolver).
+        tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
         eps_budget=1e-15,
     ).danger_ok

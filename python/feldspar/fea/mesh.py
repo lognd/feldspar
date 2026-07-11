@@ -56,6 +56,46 @@ class MeshData(BaseModel):
     node_sets: Mapping[str, Tuple[int, ...]]
 
 
+# gmsh numbers a 20-node hexahedron's twelve mid-edge nodes in a different
+# edge order than Abaqus/ccx's C3D20, so the raw gmsh connectivity yields
+# inverted elements (ccx: "nonpositive jacobian determinant"). This maps each
+# ccx C3D20 slot to its gmsh index (corners 0-7 already agree; the mid-edge
+# block 8-19 is the permutation, same as meshio's gmsh hexahedron20 mapping).
+# gmsh's 8-node quad (CAX8) already matches ccx's mid-edge order, so it needs
+# no reordering.
+_GMSH_TO_CCX_C3D20 = (
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    11,
+    13,
+    9,
+    16,
+    18,
+    19,
+    17,
+    10,
+    12,
+    14,
+    15,
+)
+
+
+def _to_ccx_order(node_ids: Tuple[int, ...]) -> Tuple[int, ...]:
+    """Reorder one element's gmsh node ids into ccx's expected order.
+    Only the 20-node hexahedron (C3D20) differs; every other supported
+    topology is passed through unchanged."""
+    if len(node_ids) == len(_GMSH_TO_CCX_C3D20):
+        return tuple(node_ids[i] for i in _GMSH_TO_CCX_C3D20)
+    return node_ids
+
+
 def _subdivisions(dimension: float, char_length: float) -> int:
     """Element count along one axis: dimension / char_length, rounded,
     floored at 1 so a coarse char_length never collapses an axis."""
@@ -147,7 +187,9 @@ def build_cantilever_mesh(
             nodes_per_elem = int(nodes_per_elem)
             for i in range(0, len(node_tags), nodes_per_elem):
                 elements.append(
-                    tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
+                    _to_ccx_order(
+                        tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
+                    )
                 )
 
         fixed_ids = tuple(
@@ -263,7 +305,9 @@ def build_cylinder_mesh(
             nodes_per_elem = int(nodes_per_elem)
             for i in range(0, len(node_tags), nodes_per_elem):
                 elements.append(
-                    tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
+                    _to_ccx_order(
+                        tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
+                    )
                 )
 
         bore_ids = tuple(

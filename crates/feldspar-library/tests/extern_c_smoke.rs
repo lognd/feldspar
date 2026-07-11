@@ -9,11 +9,13 @@
 //! precise arity check via the `Symbol<unsafe extern "C" fn(...) -> f64>`
 //! turbofish, not just a substring match on a symbol table.
 //!
-//! The built cdylib is located relative to the current test binary:
-//! integration test binaries live at `target/<profile>/deps/<bin>`, so
-//! walking up from `current_exe()` to its `deps`-parent directory lands
-//! on `target/<profile>/`, where the cdylib
-//! (`libfeldspar_library.so`/`.dylib`/`.dll`) sits alongside it.
+//! The cdylib is located relative to the current test binary: integration
+//! test binaries live at `target/<profile>/deps/<bin>`, so walking up from
+//! `current_exe()` to its `deps`-parent directory lands on `target/<profile>/`,
+//! where the cdylib (`libfeldspar_library.so`/`.dylib`/`.dll`) sits alongside
+//! it. `cargo test` builds this crate only as an `rlib`, never emitting the
+//! cdylib, so the test builds it on demand (`ensure_cdylib_built`) rather than
+//! relying on a prior `cargo build` -- keeping an isolated `cargo test` green.
 
 // This integration test must call `dlopen`/`dlsym` (via `libloading`) to
 // assert extern "C" symbol presence, which is inherently `unsafe`. The
@@ -22,7 +24,8 @@
 // this file and does not weaken that guarantee anywhere else.
 #![allow(unsafe_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use libloading::{Library, Symbol};
 
@@ -49,14 +52,41 @@ fn cdylib_name() -> &'static str {
     }
 }
 
+/// Ensures the cdylib artifact exists, building it on demand if absent.
+///
+/// `cargo test` compiles this crate only as an `rlib` for the test harness
+/// and never emits the `cdylib` output, so an isolated `cargo test` (as CI
+/// runs it) finds no `.so` unless a prior `cargo build` happened to leave a
+/// stale one behind. Build it explicitly, honoring the active profile
+/// inferred from the running test binary's own `target/<profile>/` location,
+/// so the test is hermetic regardless of invocation order.
+fn ensure_cdylib_built(profile_dir: &Path) {
+    if profile_dir.join(cdylib_name()).exists() {
+        return;
+    }
+    let mut cmd = Command::new(env!("CARGO"));
+    cmd.args(["build", "-p", "feldspar-library"]);
+    // The dev profile lands in `target/debug`; `--release` in `target/release`.
+    if profile_dir.file_name().and_then(|n| n.to_str()) == Some("release") {
+        cmd.arg("--release");
+    }
+    let status = cmd
+        .status()
+        .expect("failed to spawn `cargo build` to produce the cdylib");
+    assert!(
+        status.success(),
+        "`cargo build -p feldspar-library` failed while producing the cdylib"
+    );
+}
+
 fn locate_cdylib() -> PathBuf {
     let profile_dir = target_profile_dir();
+    ensure_cdylib_built(&profile_dir);
     let candidate = profile_dir.join(cdylib_name());
     assert!(
         candidate.exists(),
-        "expected built cdylib at {:?} (searched from profile dir {:?}); \
-         run `cargo test --workspace` from the repo root so the cdylib \
-         is built alongside the test binary",
+        "expected built cdylib at {:?} (searched from profile dir {:?}) \
+         even after an on-demand `cargo build`",
         candidate,
         profile_dir
     );

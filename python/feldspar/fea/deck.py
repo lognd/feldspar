@@ -12,9 +12,13 @@ is a `Mapping`; we always look up its known keys explicitly ("FIXED",
 
 Load-application choices, documented here rather than buried in code:
 - Cantilever *CLOAD: `tip_force` is split evenly across the TIP node
-  set and applied as DOF 2 (transverse) point loads, matching the
-  handbook bending-deflection convention `mech.py`'s closed-form
-  cantilever direction is calibrated against.
+  set and applied as DOF 3 (the z = height direction) point loads. The
+  box is meshed x=length, y=width, z=height, so bending in z is bending
+  about the width axis with `I = width*height^3/12` -- exactly the
+  `mech.rect_second_moment(width, height)` the closed-form oracle uses.
+  Loading DOF 2 (width) instead would bend about the height axis
+  (`I = height*width^3/12`), deflecting by a factor `(height/width)^2`
+  more than the oracle predicts.
 - Cylinder pressure: the physically correct ccx mechanism is a
   `*DLOAD` face-pressure load, which needs element face/surface
   definitions this module does not have (`MeshData.node_sets` is a
@@ -197,8 +201,9 @@ def _static_step_block(cload_block: str, output_request: str) -> str:
 
 def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) -> str:
     """Render a full ccx .inp deck for one cantilever mesh: fixed FIXED
-    set (DOFs 1-3), tip_force split evenly across TIP as DOF-2 point
-    loads, principal-stress + displacement result requests."""
+    set (DOFs 1-3), tip_force split evenly across TIP as DOF-3 (height)
+    point loads (see the module load-application note), displacement
+    result request."""
 
     fixed_ids = mesh.node_sets["FIXED"]
     tip_ids = mesh.node_sets["TIP"]
@@ -227,7 +232,7 @@ def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) 
         _solid_section_block(),
         "*BOUNDARY\nFIXED,1,3",
         _static_step_block(
-            f"*CLOAD\nTIP,2,{format_f64(-force_per_node)}",
+            f"*CLOAD\nTIP,3,{format_f64(-force_per_node)}",
             "*NODE PRINT, NSET=NALL,\nU",
         ),
     ]

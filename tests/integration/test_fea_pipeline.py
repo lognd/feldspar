@@ -119,7 +119,14 @@ def test_cantilever_fea_matches_closed_form_oracle(
     ).danger_ok
 
     fea_value = fea_solution.value.lo
-    assert abs(fea_value - oracle_value) <= fea_solution.eps
+    # The full-3D FEA and the Euler-Bernoulli oracle differ by the transverse
+    # SHEAR deflection the beam theory omits -- an O((height/length)^2) MODEL
+    # gap (~1% for these non-slender L/h ~ 8-10 sections) that the FEA
+    # correctly includes and mesh refinement cannot close. Allow for it on top
+    # of the FEA's own discretization eps; the shear coefficient is bounded
+    # generously (the exact Timoshenko factor is ~0.5-1 * (1+nu)).
+    shear_gap = 3.0 * (height / length) ** 2 * abs(oracle_value)
+    assert abs(fea_value - oracle_value) <= fea_solution.eps + shear_gap
 
 
 # ---------------------------------------------------------------------------

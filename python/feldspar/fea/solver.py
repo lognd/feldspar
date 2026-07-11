@@ -134,7 +134,8 @@ _CYLINDER_AXIAL_LENGTH = 0.5  # m
 # without implying any yield-based behavior.
 _NOMINAL_YIELD_STRENGTH = 2.5e8  # Pa
 
-_DEFAULT_TIMEOUT_S = 120.0  # s -- excluded from settings_digest (see SolveSettings)
+_DEFAULT_TIMEOUT_S = 600.0  # s -- fine C3D20 solves are slow on CI
+# (single-threaded); timeout is excluded from settings_digest (SolveSettings).
 
 
 def _fold_settings_digest(

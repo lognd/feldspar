@@ -73,7 +73,8 @@ _MESH_SETTINGS = MeshSettings(
     family="cantilever", element_type="C3D20", char_length=0.02
 )
 
-_DEFAULT_TIMEOUT_S = 120.0  # s -- excluded from settings digests (WO-08 rule)
+_DEFAULT_TIMEOUT_S = 600.0  # s -- fine C3D20 solves are slow on CI
+# (single-threaded); timeout excluded from settings digests (WO-08 rule).
 
 _GMSH_CITATION = Citation(
     kind="paper",

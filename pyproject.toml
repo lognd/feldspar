@@ -59,6 +59,16 @@ dev = [
     "import-linter>=2.13",
 ]
 
+# `feldspar.pack` legitimately imports regolith -- the optional integration
+# target, confined to this package per FINV-3 / the import-linter contract
+# below. regolith is not installed in the regolith-free CI jobs (make-check
+# runs `uv sync --no-extra regolith`), so ty cannot resolve those imports
+# there; scope the unresolved-import rule to `ignore` for the pack package
+# only. Everywhere else an unresolved import stays a hard error.
+[[tool.ty.overrides]]
+include = ["python/feldspar/pack/**"]
+rules = { "unresolved-import" = "ignore" }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

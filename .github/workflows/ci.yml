@@ -88,6 +88,17 @@ jobs:
           repository: lognd/lithos
           path: lithos
       - uses: dtolnay/rust-toolchain@stable
+      # Building regolith editable makes cargo honor lithos's rust-toolchain.toml
+      # pin (1.90.0) and auto-download it mid-build, which intermittently fails
+      # on a rustup download rename race. Pre-install it in one retried step so
+      # the maturin build finds it already present.
+      - name: pre-install lithos's pinned Rust toolchain
+        run: |
+          for i in 1 2 3; do
+            rustup toolchain install 1.90.0 --profile minimal \
+              --component rustfmt --component clippy && break
+            echo "rustup install attempt $i failed; retrying" && sleep 5
+          done
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
       - run: uv run maturin develop
@@ -103,8 +114,14 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras --no-extra regolith
       - run: uv run maturin develop
-      - name: install ccx (best-effort; job is continue-on-error)
-        run: sudo apt-get update && sudo apt-get install -y calculix-ccx || true
+      - name: install FEA tool runtime (best-effort; job is continue-on-error)
+        # ccx is the solver; the rest are gmsh's native runtime deps (its wheel
+        # dlopens libGLU/libGL and several X libs, absent on the bare runner).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            calculix-ccx libglu1-mesa libgl1 libxrender1 libxcursor1 \
+            libxft2 libxinerama1 || true
       - run: uv run pytest tests/ -m fea
 
   # WO-17: spice job with ngspice; same "can't pass until the env has

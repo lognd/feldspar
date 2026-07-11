@@ -161,6 +161,10 @@ def build_cantilever_mesh(
         gmsh.option.setNumber("Mesh.Algorithm", settings.algorithm_id)
         gmsh.option.setNumber("Mesh.RandomSeed", settings.seed)
         gmsh.model.mesh.generate(3)
+        # Serendipity (incomplete) second order: emit 20-node hexes (C3D20),
+        # not the default 27-node hex (with face/body centre nodes) that ccx
+        # would misread against a C3D20 declaration.
+        gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 1)
         gmsh.model.mesh.setOrder(2)  # quadratic -> C3D20
 
         node_ids, node_coords, _ = gmsh.model.mesh.getNodes()
@@ -186,19 +190,11 @@ def build_cantilever_mesh(
             )
             nodes_per_elem = int(nodes_per_elem)
             for i in range(0, len(node_tags), nodes_per_elem):
-                raw = tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
-                if i == 0:
-                    # TEMP diagnostic: dump the first element's node ids and
-                    # coordinates in gmsh's native order so the true gmsh
-                    # hex20 -> ccx C3D20 permutation can be read off CI.
-                    _log.warning(
-                        "gmsh element[0] native order (id: x,y,z):\n%s",
-                        "\n".join(
-                            f"  slot {k}: id={nid} {nodes_by_id.get(nid)}"
-                            for k, nid in enumerate(raw)
-                        ),
+                elements.append(
+                    _to_ccx_order(
+                        tuple(int(t) for t in node_tags[i : i + nodes_per_elem])
                     )
-                elements.append(_to_ccx_order(raw))
+                )
 
         fixed_ids = tuple(
             sorted(
@@ -287,6 +283,10 @@ def build_cylinder_mesh(
         gmsh.option.setNumber("Mesh.Algorithm", settings.algorithm_id)
         gmsh.option.setNumber("Mesh.RandomSeed", settings.seed)
         gmsh.model.mesh.generate(2)
+        # Serendipity (incomplete) second order: emit 8-node quads (CAX8),
+        # not the default 9-node quad (with a centre node) that ccx would
+        # misread against a CAX8 declaration.
+        gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 1)
         gmsh.model.mesh.setOrder(2)  # quadratic -> CAX8
 
         node_ids, node_coords, _ = gmsh.model.mesh.getNodes()

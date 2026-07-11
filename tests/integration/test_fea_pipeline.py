@@ -82,7 +82,7 @@ def test_cantilever_fea_matches_closed_form_oracle(
         tags=set(),
         target="mech.section.second_moment",
         eps_budget=1e-15,
-    ).unwrap()
+    ).danger_ok
     assert oracle.value.lo == pytest.approx(second_moment, rel=1e-9)
 
     oracle_deflection = solve(
@@ -96,7 +96,7 @@ def test_cantilever_fea_matches_closed_form_oracle(
         tags=set(),
         target="mech.deflection.tip",
         eps_budget=1e-15,
-    ).unwrap()
+    ).danger_ok
     oracle_value = oracle_deflection.value.lo
 
     fea_solution = solve(
@@ -112,7 +112,7 @@ def test_cantilever_fea_matches_closed_form_oracle(
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
         eps_budget=1e10,
-    ).unwrap()
+    ).danger_ok
 
     fea_value = fea_solution.value.lo
     assert abs(fea_value - oracle_value) <= fea_solution.eps
@@ -151,7 +151,7 @@ def test_cylinder_fea_matches_closed_form_oracle(
         tags={"linear_elastic"},
         target="mech.stress.von_mises",
         eps_budget=1e-15,
-    ).unwrap()
+    ).danger_ok
     oracle_value = oracle_solution.value.lo
 
     fea_solution = solve(
@@ -166,7 +166,7 @@ def test_cylinder_fea_matches_closed_form_oracle(
         tags={"linear_elastic"},
         target="mech.stress.von_mises",
         eps_budget=1e6,
-    ).unwrap()
+    ).danger_ok
     fea_value = fea_solution.value.lo
 
     assert abs(fea_value - oracle_value) <= fea_solution.eps
@@ -198,14 +198,14 @@ def test_cantilever_fea_solve_is_deterministic_across_two_runs():
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
         eps_budget=1e10,
-    ).unwrap()
+    ).danger_ok
     second = solve(
         _registry(),
         known=known,
         tags={"linear_elastic", "small_deflection"},
         target="mech.deflection.tip",
         eps_budget=1e10,
-    ).unwrap()
+    ).danger_ok
 
     assert first.settings_digest == second.settings_digest
     assert first.value.lo == pytest.approx(second.value.lo, rel=1e-9)

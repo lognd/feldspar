@@ -11,9 +11,11 @@ import math
 import pytest
 
 from feldspar.fea.results import (
+    first_mode_frequency,
     max_displacement_magnitude,
     max_von_mises,
     parse_dat_displacements,
+    parse_dat_frequencies,
     parse_dat_principal_stresses,
 )
 from feldspar.solve.errors import SolveError
@@ -93,6 +95,46 @@ def test_parse_dat_principal_stresses_non_numeric_token_fails_closed():
     assert isinstance(error, SolveError)
     assert error.kind == "ParseFailed"
     assert "line 3" in error.context
+
+
+def test_parse_dat_frequencies_reads_only_the_eigenvalue_table():
+    """A real ccx *FREQUENCY .dat holds several int-leading tables; only
+    the EIGENVALUE OUTPUT rows (mode, eigenvalue, rad/time, cycles/time,
+    imaginary) are the frequencies, and first_mode_frequency returns the
+    fundamental mode's cycles/time (Hz)."""
+    text = """
+     E I G E N V A L U E   O U T P U T
+
+ MODE NO    EIGENVALUE                       FREQUENCY
+                                     REAL PART            IMAGINARY PART
+                           (RAD/TIME)      (CYCLES/TIME     (RAD/TIME)
+
+      1   0.1382130E+08   0.3717700E+04   0.5916904E+03   0.0000000E+00
+      2   0.1382130E+08   0.3717700E+04   0.5916904E+03   0.0000000E+00
+      3   0.2422965E+08   0.4922362E+04   0.7834182E+03   0.0000000E+00
+
+     P A R T I C I P A T I O N   F A C T O R S
+
+MODE NO.   X-COMPONENT     Y-COMPONENT     Z-COMPONENT
+      1   0.9183150E-11   0.4170385E+02   0.1014089E+02
+    """
+    result = parse_dat_frequencies(text)
+    assert result.is_ok
+    freqs = result.danger_ok
+    # Only the three eigenvalue rows -- the participation-factor row is not
+    # mistaken for a fourth mode.
+    assert set(freqs) == {1, 2, 3}
+    assert first_mode_frequency(freqs) == pytest.approx(591.6904)
+
+
+def test_parse_dat_frequencies_missing_table_fails_closed():
+    """A .dat with no EIGENVALUE OUTPUT section is an error, not an empty
+    (silently wrong) frequency map."""
+    result = parse_dat_frequencies(
+        "     P A R T I C I P A T I O N\n  1  2.0  3.0  4.0\n"
+    )
+    assert result.is_err
+    assert result.danger_err.kind == "ParseFailed"
 
 
 def test_max_displacement_magnitude_known_map():

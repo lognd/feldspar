@@ -184,16 +184,70 @@ def parse_dat_principal_stresses(
 def parse_dat_frequencies(
     text: str,
 ) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
-    """Parses a ccx `*FREQUENCY` step's mode table (WO-16, 07 vibration
-    Phase 3): ccx prints one row per requested mode,
-    `<mode_no> <eigenvalue> <freq_rad_per_time> <freq_cycles_per_time>`,
-    the same shape as the displacement/stress tables (an id column plus
-    3 numeric columns), so this reuses `_parse_three_column_table`
-    (NO DUPLICATION) rather than a bespoke scanner. Returns
-    `{mode_no: (eigenvalue, freq_rad_per_time, freq_cycles_per_time)}`;
-    any malformed/truncated row fails the whole parse, same fail-closed
-    rule as the other two tables."""
-    return _parse_three_column_table(text, "frequencies")
+    """Parses a ccx `*FREQUENCY` step's EIGENVALUE OUTPUT table (WO-16,
+    07 vibration Phase 3). A `*FREQUENCY` .dat holds several int-leading
+    tables (eigenvalues, participation factors, effective modal mass), so
+    this is section-aware rather than a blind row scan: it reads only the
+    rows under the "E I G E N V A L U E   O U T P U T" header, where each
+    row is `<mode_no> <eigenvalue> <freq_rad/time> <freq_cycles/time>
+    <imaginary>`. Returns `{mode_no: (eigenvalue, freq_rad_per_time,
+    freq_cycles_per_time)}` (the imaginary column is dropped). Any
+    malformed row inside the table fails the whole parse (fail closed)."""
+    rows: dict[int, Tuple[float, float, float]] = {}
+    in_table = False
+    for line_no, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if "E I G E N V A L U E" in line:
+            in_table = True
+            continue
+        if not in_table:
+            continue
+        if not line:
+            # A blank line after the first data row ends the eigenvalue table
+            # (the participation-factor table follows); before any data it is
+            # just header spacing.
+            if rows:
+                break
+            continue
+        tokens = line.split()
+        try:
+            mode_no = int(tokens[0])
+        except ValueError:
+            # A non-numeric leading token is a column sub-header while the
+            # table is still empty, or the start of the next section once it
+            # has data.
+            if rows:
+                break
+            continue
+        value_tokens = tokens[1:]
+        if len(value_tokens) < 3:
+            _log.warning(
+                "frequencies: malformed row at line %d (expected >=3 value "
+                "columns, got %d): %r",
+                line_no,
+                len(value_tokens),
+                raw_line,
+            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
+        try:
+            eigenvalue = float(value_tokens[0])
+            rad_per_time = float(value_tokens[1])
+            cycles_per_time = float(value_tokens[2])
+        except ValueError:
+            _log.warning(
+                "frequencies: non-numeric value token at line %d: %r",
+                line_no,
+                raw_line,
+            )
+            return Err(SolveError.ParseFailed(context=f"line {line_no}: {raw_line!r}"))
+        rows[mode_no] = (eigenvalue, rad_per_time, cycles_per_time)
+    if not rows:
+        _log.warning("frequencies: no EIGENVALUE OUTPUT table found")
+        return Err(
+            SolveError.ParseFailed(context="no ccx EIGENVALUE OUTPUT table found")
+        )
+    _log.info("frequencies: parsed %d mode rows", len(rows))
+    return Ok(rows)
 
 
 def first_mode_frequency(

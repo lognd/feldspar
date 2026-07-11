@@ -148,11 +148,21 @@ def build_cantilever_mesh(
         )
         gmsh.model.occ.synchronize()
 
-        # Structured (transfinite) meshing: pin subdivision counts on
-        # every edge of the box so gmsh produces a regular hex grid
-        # instead of a free/adaptive tetrahedral mesh.
-        for curve in gmsh.model.getEntities(1):
-            gmsh.model.mesh.setTransfiniteCurve(curve[1], n_x + 1)
+        # Structured (transfinite) meshing: pin subdivision counts PER AXIS
+        # so gmsh produces a regular n_x by n_y by n_z hex grid. Each box edge
+        # is axis-aligned; assign n_x/n_y/n_z by the edge's dominant extent.
+        # (Applying n_x to every edge makes the mesh n_x^3, not n_x*n_y*n_z --
+        # e.g. 50^3 = 125000 elements instead of 50*4*6 = 1200.)
+        for dim, tag in gmsh.model.getEntities(1):
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(dim, tag)
+            dx, dy, dz = xmax - xmin, ymax - ymin, zmax - zmin
+            if dx >= dy and dx >= dz:
+                divisions = n_x
+            elif dy >= dz:
+                divisions = n_y
+            else:
+                divisions = n_z
+            gmsh.model.mesh.setTransfiniteCurve(tag, divisions + 1)
         for surface in gmsh.model.getEntities(2):
             gmsh.model.mesh.setTransfiniteSurface(surface[1])
             gmsh.model.mesh.setRecombine(2, surface[1])
@@ -275,8 +285,13 @@ def build_cylinder_mesh(
         )
         gmsh.model.occ.synchronize()
 
-        for curve in gmsh.model.getEntities(1):
-            gmsh.model.mesh.setTransfiniteCurve(curve[1], n_r + 1)
+        # Per-axis subdivision (see the cantilever note): the r-z rectangle's
+        # x-edges span r (n_r), its y-edges span z (n_z). Applying n_r to every
+        # edge would make the mesh n_r by n_r instead of n_r by n_z.
+        for dim, tag in gmsh.model.getEntities(1):
+            xmin, ymin, _zmin, xmax, ymax, _zmax = gmsh.model.getBoundingBox(dim, tag)
+            divisions = n_r if (xmax - xmin) >= (ymax - ymin) else n_z
+            gmsh.model.mesh.setTransfiniteCurve(tag, divisions + 1)
         gmsh.model.mesh.setTransfiniteSurface(rectangle)
         gmsh.model.mesh.setRecombine(2, rectangle)
 

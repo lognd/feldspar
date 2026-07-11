@@ -69,6 +69,16 @@ dev = [
 include = ["python/feldspar/pack/**"]
 rules = { "unresolved-import" = "ignore" }
 
+# `feldspar.fea` defers `import gmsh` (the optional `mesh` extra) into function
+# bodies behind `try/except ImportError`. gmsh ships no wheel for some
+# platforms (e.g. linux-aarch64), so ty cannot resolve it there; scope
+# unresolved-import to `ignore` for fea only. A per-line `# ty: ignore` would
+# instead flip to an `unused-ignore-comment` failure on the CI platform where
+# gmsh IS installed -- the override is stable across both.
+[[tool.ty.overrides]]
+include = ["python/feldspar/fea/**"]
+rules = { "unresolved-import" = "ignore" }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

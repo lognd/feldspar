@@ -98,7 +98,7 @@ def _probe_gmsh():
     """Presence probe for the mesh direction (gmsh only -- ccx is the
     consuming direction's tool, probed separately)."""
     try:
-        import gmsh  # noqa: F401  # ty: ignore[unresolved-import]
+        import gmsh  # noqa: F401
     except ImportError:
         _log.info("probe: gmsh not importable")
         return Err(

@@ -186,7 +186,7 @@ def _probe_tools():
     first (cheap, no `gmsh.initialize()` needed), then `ccx.probe_tools`
     for the external `ccx` binary."""
     try:
-        import gmsh  # noqa: F401  # ty: ignore[unresolved-import]
+        import gmsh  # noqa: F401
     except ImportError:
         _log.info("probe_tools: gmsh not importable")
         return Err(

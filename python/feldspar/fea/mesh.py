@@ -71,7 +71,7 @@ def build_cantilever_mesh(
     *BOUNDARY / *CLOAD deck entries."""
 
     try:
-        import gmsh  # ty: ignore[unresolved-import]
+        import gmsh
     except ImportError:
         _log.warning("gmsh not importable; cannot build cantilever mesh")
         return Err(
@@ -190,7 +190,7 @@ def build_cylinder_mesh(
     "OUTER" (r=outer) node sets for the pressure load / support."""
 
     try:
-        import gmsh  # ty: ignore[unresolved-import]
+        import gmsh
     except ImportError:
         _log.warning("gmsh not importable; cannot build cylinder mesh")
         return Err(

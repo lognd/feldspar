@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.metadata
+
 import feldspar
 from feldspar.__about__ import __version__
 
@@ -7,6 +9,14 @@ from feldspar.__about__ import __version__
 def test_version_single_sourced() -> None:
     """feldspar.__version__ must be the same object __about__ defines (AD-11)."""
     assert feldspar.__version__ == __version__
+
+
+def test_version_matches_wheel_metadata() -> None:
+    """Cargo workspace version (maturin's wheel metadata source) must agree
+    with __about__.py; a bump to one without the other desyncs
+    importlib.metadata.version("feldspar") from feldspar.__version__.
+    """
+    assert importlib.metadata.version("feldspar") == __version__
 
 
 # `feldspar.pack` itself now requires regolith installed to import (it is

@@ -228,3 +228,74 @@ def test_goodman_factor_of_safety_negative_mean_stress_is_honest_indeterminate()
     )
     assert result.is_err
     assert result.err.kind == "OutOfDomain"
+
+
+# ---------------------------------------------------------------------------
+# fatigue_gerber_factor_of_safety: Gerber parabola (WO-111), Table 6-7
+# ---------------------------------------------------------------------------
+
+
+def test_gerber_factor_of_safety_matches_hand_computed():
+    """Se=100e6, Sut=400e6, sigma_a=sigma_m=50e6 ->
+    nf = 0.5*(8)^2*(0.5)*(-1+sqrt(1+0.25)) = 16*(sqrt(1.25)-1) = 1.888544."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_gerber_factor_of_safety"]
+    result = fn(
+        {
+            "mech.fatigue.gerber.se": 100.0e6,
+            "mech.fatigue.gerber.sut": 400.0e6,
+            "mech.fatigue.gerber.sigma_a": 50.0e6,
+            "mech.fatigue.gerber.sigma_m": 50.0e6,
+        }
+    )
+    assert result.is_ok
+    expected = 16.0 * (math.sqrt(1.25) - 1.0)
+    assert result.danger_ok.values[
+        "mech.fatigue.gerber.factor_of_safety"
+    ] == pytest.approx(expected, rel=1e-9)
+
+
+def test_gerber_less_conservative_than_goodman():
+    """Published relationship: for the same stresses the Gerber parabola
+    gives a factor of safety >= the modified-Goodman line (Gerber fits
+    the failure data less conservatively). Independent cross-check."""
+    inputs = {"se": 100.0e6, "sut": 400.0e6, "sigma_a": 50.0e6, "sigma_m": 50.0e6}
+    _gi, gfn = _solvers()["mech.fatigue.fatigue_gerber_factor_of_safety"]
+    _di, dfn = _solvers()["mech.fatigue.fatigue_goodman_factor_of_safety"]
+    nf_gerber = gfn(
+        {f"mech.fatigue.gerber.{k}": v for k, v in inputs.items()}
+    ).danger_ok.values["mech.fatigue.gerber.factor_of_safety"]
+    nf_goodman = dfn(
+        {f"mech.fatigue.goodman.{k}": v for k, v in inputs.items()}
+    ).danger_ok.values["mech.fatigue.goodman.factor_of_safety"]
+    assert nf_gerber > nf_goodman
+
+
+def test_gerber_pure_alternating_matches_goodman_endpoint():
+    """sigma_m=0 -> both criteria share the endpoint nf = Se/sigma_a."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_gerber_factor_of_safety"]
+    result = fn(
+        {
+            "mech.fatigue.gerber.se": 100.0e6,
+            "mech.fatigue.gerber.sut": 400.0e6,
+            "mech.fatigue.gerber.sigma_a": 50.0e6,
+            "mech.fatigue.gerber.sigma_m": 0.0,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values[
+        "mech.fatigue.gerber.factor_of_safety"
+    ] == pytest.approx(2.0, rel=1e-9)
+
+
+def test_gerber_negative_mean_stress_is_honest_indeterminate():
+    _info, fn = _solvers()["mech.fatigue.fatigue_gerber_factor_of_safety"]
+    result = fn(
+        {
+            "mech.fatigue.gerber.se": 100.0e6,
+            "mech.fatigue.gerber.sut": 400.0e6,
+            "mech.fatigue.gerber.sigma_a": 50.0e6,
+            "mech.fatigue.gerber.sigma_m": -1.0e6,
+        }
+    )
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"

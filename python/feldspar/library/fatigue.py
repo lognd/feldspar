@@ -58,6 +58,8 @@ flag -- `Domain.tags` documents this precondition, never derives or
 verifies it from an input (same convention `member_capacity.py`'s
 "compact"/"braced" tags use)."""
 
+import math
+
 from typani import Err, Ok
 
 from feldspar.core import Domain, Interval
@@ -372,10 +374,92 @@ def fatigue_goodman_factor_of_safety(x):
     )
 
 
+# ---------------------------------------------------------------------------
+# Table 6-7 / eq. 6-48: Gerber-parabola fatigue factor of safety
+# ---------------------------------------------------------------------------
+
+_GERBER_CITATIONS = (
+    Citation(
+        kind="handbook",
+        ref=(
+            f"{_SHIGLEY}, ch. 6 Table 6-7 / eq. 6-48 (the Gerber "
+            "parabolic mean-stress fatigue criterion factor of safety: "
+            "nf = 0.5*(Sut/sigma_m)^2*(sigma_a/Se)*"
+            "(-1 + sqrt(1 + (2*sigma_m*Se/(Sut*sigma_a))^2)); "
+            "docs/benchmarks-memo.md sec. 18)"
+        ),
+        note=(
+            "Same scope caveats as the modified-Goodman direction: STEEL, "
+            "HCF, Kf pre-applied by the caller, fatigue-governs region "
+            "only. Gerber is the LESS conservative parabolic fit (nf_Gerber "
+            ">= nf_Goodman for the same stresses -- the calibration test "
+            "asserts that published relationship as an independent check). "
+            "sigma_m<=0 (pure alternating) degenerates to nf = Se/sigma_a, "
+            "identical to the Goodman limit (both criteria share the "
+            "sigma_m=0 endpoint)."
+        ),
+    ),
+)
+
+
+@solver(
+    namespace="mech.fatigue",
+    inputs=(
+        "mech.fatigue.gerber.se",
+        "mech.fatigue.gerber.sut",
+        "mech.fatigue.gerber.sigma_a",
+        "mech.fatigue.gerber.sigma_m",
+    ),
+    outputs=("mech.fatigue.gerber.factor_of_safety",),
+    domain=Domain(
+        box={
+            "mech.fatigue.gerber.se": Interval(1.0e7, 7.0e8),
+            "mech.fatigue.gerber.sut": Interval(2.0e8, 2.0e9),
+            "mech.fatigue.gerber.sigma_a": Interval(1.0e5, 1.0e9),
+            "mech.fatigue.gerber.sigma_m": Interval(1.0e5, 1.0e9),
+        },
+        tags={"steel", "hcf", "fatigue_governs"},
+    ),
+    cost=1e-7,
+    accuracy=EXACT,
+    citations=_GERBER_CITATIONS,
+    version="1",
+)
+def fatigue_gerber_factor_of_safety(x):
+    """Shigley 11e Table 6-7 / eq. 6-48: the Gerber-parabola fatigue
+    factor of safety for a caller-supplied (already Kf-multiplied)
+    alternating/mean stress pair. `sigma_m<=0` degenerates to the
+    pure-alternating limit `nf = Se/sigma_a` (shared endpoint with the
+    Goodman line)."""
+    se = x["mech.fatigue.gerber.se"]
+    sut = x["mech.fatigue.gerber.sut"]
+    sigma_a = x["mech.fatigue.gerber.sigma_a"]
+    sigma_m = x["mech.fatigue.gerber.sigma_m"]
+    if se <= 0.0 or sut <= 0.0 or sigma_a <= 0.0 or sigma_m < 0.0:
+        return Err(
+            SolveError.OutOfDomain(
+                violation=(
+                    f"Gerber: non-positive se={se!r}, sut={sut!r}, "
+                    f"sigma_a={sigma_a!r}, or negative sigma_m={sigma_m!r}"
+                )
+            )
+        )
+    if sigma_m == 0.0:
+        return Ok({"mech.fatigue.gerber.factor_of_safety": se / sigma_a})
+    nf = (
+        0.5
+        * (sut / sigma_m) ** 2
+        * (sigma_a / se)
+        * (-1.0 + math.sqrt(1.0 + (2.0 * sigma_m * se / (sut * sigma_a)) ** 2))
+    )
+    return Ok({"mech.fatigue.gerber.factor_of_safety": nf})
+
+
 def register(registry: SolverRegistry) -> None:
-    """Registers all four fatigue directions (WO-24 deliverable 4:
+    """Registers all five fatigue directions (WO-24 deliverable 4:
     baseline Se', Marin surface factor, Marin-composed Se, modified-
-    Goodman factor of safety)."""
+    Goodman factor of safety; WO-111: Gerber-parabola factor of
+    safety)."""
     result_a = registry.register(*fatigue_endurance_limit_baseline.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*fatigue_marin_surface_factor.solver_direction)  # ty: ignore[unresolved-attribute]
@@ -384,4 +468,6 @@ def register(registry: SolverRegistry) -> None:
     _ = result_c.danger_ok
     result_d = registry.register(*fatigue_goodman_factor_of_safety.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_d.danger_ok
-    _log.info("fatigue: registered %d solver directions", 4)
+    result_e = registry.register(*fatigue_gerber_factor_of_safety.solver_direction)  # ty: ignore[unresolved-attribute]
+    _ = result_e.danger_ok
+    _log.info("fatigue: registered %d solver directions", 5)

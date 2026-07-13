@@ -1166,3 +1166,146 @@ was transcribed or verified within this dispatch's research budget,
 recorded whole in the WO-24 ledger, not half-landed.
 
 ---
+## 16. Shaft critical (whirl) speed (feldspar WO-111, Shigley ch. 7)
+
+Single-mass shaft first critical speed = first lateral natural
+frequency (Shigley's Mechanical Engineering Design, 11th ed., ch. 7
+sec. 7-6): a shaft whirls when its rotation rate reaches a bending
+natural frequency. Module `python/feldspar/library/critical_speed.py`;
+tests `tests/unit/test_library_critical_speed.py`.
+
+### 16.1 Stiffness form (eq. 7-22)
+
+`omega_c = sqrt(k/m)`, `n_c = omega_c * 60/(2*pi)` rpm, over lateral
+stiffness `k` (N/m) at the mass location and lumped mass `m` (kg).
+Reference case: `k = 1e6 N/m`, `m = 2 kg` -> `omega_c = sqrt(5e5) =
+707.1068 rad/s`, `n_c = 6752.70 rpm` (exact, tol rel 1e-9).
+
+### 16.2 Rayleigh single-mass form (eq. 7-23)
+
+`n_c = (30/pi) * sqrt(g/delta)` rpm, over static deflection `delta`
+(m) under self-weight, `g = 9.80665 m/s^2`. Reference case:
+`delta = 1 mm` -> `n_c = (30/pi)*sqrt(9806.65) = 945.6 rpm` (exact,
+tol rel 1e-9).
+
+### 16.3 Consistency cross-check
+
+A single mass with static deflection `delta` has lateral stiffness
+`k = m*g/delta`; feeding that `k` into 16.1 must reproduce 16.2's
+critical speed. Verified (`test_stiffness_and_rayleigh_agree_for_one
+_mass`, tol rel 1e-9) -- a physical cross-check independent of either
+closed form's internal algebra.
+
+CALIBRATION HONESTY (WO111-F1): 16.1/16.2 are exact evaluations of
+the cited textbook closed forms; no independent worked numeric with a
+verified example number was transcribed (the oracle is the cited
+formula, the same known-answer pattern the WO-24 sections use). The
+consistency cross-check (16.3) is the independent structural check.
+
+**Named cuts**: multi-mass Rayleigh/Dunkerley summations, damped
+whirl, gyroscopic stiffening, higher critical speeds -- caller
+composes the aggregate `k`,`m` (or `delta`) upstream.
+
+## 17. Circular flat plate, uniform load (feldspar WO-111, Roark Table 11.2)
+
+Circular flat plate under uniform pressure `q` (Pa), radius `a` (m),
+thickness `t` (m), modulus `E` (Pa), Poisson `nu`; flexural rigidity
+`D = E*t^3/(12*(1-nu^2))`. Source: Roark's Formulas for Stress and
+Strain, 8th ed., Table 11.2 cases 10a (simply-supported) and 10b
+(clamped); identical to Timoshenko & Woinowsky-Krieger, Theory of
+Plates and Shells, 2nd ed., arts. 16-17. Module
+`python/feldspar/library/plate.py`; tests
+`tests/unit/test_library_plate.py`. Small-deflection Kirchhoff theory
+(a/t >~ 10, y_max <~ t/2); large-deflection membrane stiffening is a
+named cut.
+
+Reference case (all four directions): `q = 10 kPa`, `a = 0.1 m`,
+`t = 5 mm`, steel (`E = 200 GPa`, `nu = 0.3`) -> `D = 2289.377 N*m`.
+
+- 17.1 SS max stress (center): `sigma = 3*q*a^2*(3+nu)/(8*t^2) =
+  4.950 MPa` (exact, tol rel 1e-9).
+- 17.2 SS max deflection (center): `y = q*a^4*(5+nu)/(64*D*(1+nu)) =
+  2.7825e-5 m` (exact, tol rel 1e-9).
+- 17.3 clamped max stress (edge): `sigma = 3*q*a^2/(4*t^2) =
+  3.000 MPa` (exact, tol rel 1e-9).
+- 17.4 clamped max deflection (center): `y = q*a^4/(64*D) =
+  6.8250e-6 m` (exact, tol rel 1e-9).
+
+### 17.5 Edge-fixity cross-check
+
+Published structural relationship: the simply-supported plate is
+strictly higher-stressed AND higher-deflection than the same clamped
+plate (why the pack wraps the SS forms as conservative under uncertain
+edge fixity). Verified (`test_simply_supported_more_severe_than
+_clamped`). Ratios for the reference case: stress 4.95/3.00 = 1.65,
+deflection 2.7825e-5/6.825e-6 = 4.077 -- consistent with the published
+Roark coefficients.
+
+**Named cuts**: rectangular plates (aspect-ratio alpha/beta tables,
+Roark Table 11.4 -- caller-supplied coefficient seam), central patch /
+edge-moment loads, large-deflection membrane action.
+
+## 18. Gerber-parabola fatigue factor of safety (feldspar WO-111, Shigley Table 6-7)
+
+The Gerber parabolic mean-stress fatigue criterion factor of safety
+(Shigley 11e ch. 6 Table 6-7 / eq. 6-48), the less-conservative
+sibling of the modified-Goodman line already in sec. 14.4:
+
+`nf = 0.5*(Sut/sigma_m)^2*(sigma_a/Se)*(-1 + sqrt(1 +
+(2*sigma_m*Se/(Sut*sigma_a))^2))`
+
+Same scope caveats as sec. 14.4 (STEEL, HCF, Kf pre-applied, fatigue-
+governs region). Module `python/feldspar/library/fatigue.py` (WO-111
+addition); tests in `tests/unit/test_library_fatigue.py`.
+
+Reference case: `Se = 100 MPa`, `Sut = 400 MPa`, `sigma_a = sigma_m =
+50 MPa` -> `nf = 16*(sqrt(1.25) - 1) = 1.88854` (exact, tol rel 1e-9).
+
+### 18.1 Goodman cross-check
+
+Published relationship: for the same stresses Gerber gives `nf >= `
+the modified-Goodman `nf` (Gerber fits the failure data less
+conservatively). For the reference case Goodman gives
+`nf = 1/(0.5 + 0.125) = 1.600 < 1.88854`. Verified
+(`test_gerber_less_conservative_than_goodman`). The `sigma_m = 0`
+endpoint is shared by both criteria (`nf = Se/sigma_a`), also pinned.
+
+CALIBRATION HONESTY (WO111-F1): the reference `nf` is an exact
+evaluation of the cited Table 6-7 closed form; the Goodman
+cross-check (18.1) is the independent published relationship.
+
+## 19. Reflected-inertia drive acceleration torque (feldspar WO-111)
+
+Peak motor torque to accelerate a geared inertial load, reflected
+through a speed-reduction ratio `N` (motor/load) and efficiency `eta`:
+
+`J_total = J_motor + J_load/N^2`,
+`T_required = J_total*alpha + T_load/(N*eta)`
+
+where `alpha` is motor-side angular acceleration (rad/s^2), `T_load`
+the load-shaft resisting torque (N*m). Sources: Norton, Design of
+Machinery, 6th ed., sec. 11.11 (reflected inertia `J_r = J_load/N^2`);
+Slocum, Precision Machine Design, sec. 7.4 (drive sizing). Rigid
+single-stage drivetrain, constant efficiency, trapezoidal-peak
+(constant alpha). Module `python/feldspar/library/drive.py`; tests
+`tests/unit/test_library_drive.py`.
+
+Reference case: `J_motor = 1e-4`, `J_load = 4e-3 kg*m^2`, `N = 5`,
+`eta = 0.9`, `alpha = 100 rad/s^2`, `T_load = 2 N*m` ->
+`J_total = 2.6e-4`, `T = 0.026 + 0.44444 = 0.47044 N*m` (exact,
+tol rel 1e-9).
+
+### 19.1 Limiting-case cross-checks
+
+- `N = 1` (direct drive): reflected inertia is the plain sum
+  `J_motor + J_load`; verified (`test_direct_drive_limit_sums
+  _inertias`).
+- `J_load = 0`: only the motor rotor accelerates plus reflected load
+  torque, `T = J_motor*alpha + T_load/(N*eta)`; verified
+  (`test_zero_load_inertia_limit`).
+
+CALIBRATION HONESTY (WO111-F1): an exact evaluation of the two cited
+textbook relations composed; the two limiting cases (19.1) are the
+independent cross-checks.
+
+---

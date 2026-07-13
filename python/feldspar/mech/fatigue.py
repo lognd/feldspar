@@ -73,8 +73,9 @@ from feldspar.solve import (
     make_direction,
     solver,
 )
+from feldspar.solve.digest import canonical_digest
 from feldspar.solve.errors import SolveError
-from feldspar.solve.payload import PayloadResolver
+from feldspar.solve.payload import PayloadResolver, resolver_cache_identity
 
 _log = get_logger(__name__)
 
@@ -731,6 +732,11 @@ def _make_miner_damage_direction(resolver: PayloadResolver):
         citations=_MINER_CITATIONS,
         version="1",
         tier="closed_form",
+        # Bug fix (cycle-35 WO-118 integration): fold the resolver's own
+        # kind into the settings digest so a no-resolver honest-Err run
+        # and a working-resolver Ok run never collide on the same
+        # SolveCache key (see `resolver_cache_identity`'s docstring).
+        settings=canonical_digest({"resolver": resolver_cache_identity(resolver)}),
         fn=miner_fn,
     )
     return info, fn

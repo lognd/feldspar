@@ -28,6 +28,7 @@ __all__ = [
     "PayloadRef",
     "PayloadResolver",
     "payload_feature_violation",
+    "resolver_cache_identity",
 ]
 
 #: The 09 sec. 4 payload-kind table, VERBATIM (single home on the Python
@@ -103,6 +104,30 @@ class PayloadResolver(Protocol):
         writes is an orchestrator-environment bug, not a solve-time
         error value."""
         ...
+
+
+def resolver_cache_identity(resolver: "PayloadResolver") -> str:
+    """The honest cache-key marker for which `PayloadResolver`
+    IMPLEMENTATION a payload-consuming solver was built over (bug fix,
+    integration cycle-35: WO-118). A payload's digest already IS its
+    identity (FINV-12), so two resolvers handed the SAME digest must
+    agree on its bytes for a content-addressed store to be coherent at
+    all -- but a resolver that cannot reach a store yet (the pack
+    boundary's `NoStoreResolver` stand-in, D154) and one that CAN
+    (a real orchestrator-backed adapter) turn the exact same request +
+    payload digest into different outcomes: an honest `Err` versus a
+    real `Ok` prediction. `SolveCache`'s freshness argument
+    (`cache.py` module docstring) only holds if the key is a pure
+    function of everything the answer depends on -- and the answer
+    depends on WHICH resolver kind is bound, not just the payload
+    digest. `type(resolver).__name__` is a stable, no-import marker any
+    registration site can fold into its `SolverInfo.settings_digest`
+    (`solve/_build.py`'s `settings=` seam) without this module (or any
+    caller) depending on where concrete resolver implementations live
+    (`feldspar.pack.payload_bridge`, test fixtures, etc.) -- keeping the
+    resolver-registry direction one-way (registry/solve never imports
+    pack)."""
+    return type(resolver).__name__
 
 
 def payload_feature_violation(port: str, feature: str) -> DomainViolation:

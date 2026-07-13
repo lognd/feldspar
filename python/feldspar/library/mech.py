@@ -14,14 +14,52 @@ alone)."""
 from typani import Err, Ok
 
 from feldspar import _feldspar
-from feldspar.core import Accuracy, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, Relation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
 
 _log = get_logger(__name__)
 
-__all__ = ["register"]
+__all__ = ["declare_core_ports", "register"]
+
+#: The shared cross-family mech CORE port vocabulary (WO111b
+#: composition fix): every port here is referenced by MORE THAN ONE
+#: module (this one, `fea.solver`, `fea.payload_steps`,
+#: `library.vibe`), so F12's one-declaration-per-port rule needs a
+#: single owner -- and that owner is the WO-07 base vocabulary module,
+#: which registers FIRST in the one full catalog
+#: (`feldspar.catalog.build_engine_catalog`). Any OTHER composition
+#: that combines core-referencing modules without this one calls
+#: `declare_core_ports(registry)` itself, exactly once, before the
+#: first core-referencing registration.
+_CORE_PORT_DECLS = (
+    PortDecl("mech.material.youngs_modulus", "Pa"),
+    PortDecl("mech.material.poisson", "1"),
+    PortDecl("mech.geom.cantilever.length", "m"),
+    PortDecl("mech.geom.cantilever.width", "m"),
+    PortDecl("mech.geom.cantilever.height", "m"),
+    PortDecl("mech.geom.cylinder.inner_radius", "m"),
+    PortDecl("mech.geom.cylinder.outer_radius", "m"),
+    PortDecl("mech.load.tip_force", "N"),
+    PortDecl("mech.load.internal_pressure", "Pa"),
+    PortDecl("mech.section.width", "m"),
+    PortDecl("mech.section.height", "m"),
+    PortDecl("mech.section.second_moment", "m^4"),
+    PortDecl("mech.deflection.tip", "m"),
+    PortDecl("mech.stress.von_mises", "Pa"),
+)
+
+
+def declare_core_ports(registry: SolverRegistry) -> None:
+    """Declares the shared mech core vocabulary (the ONE home of these
+    literals -- see `_CORE_PORT_DECLS`). Call exactly once per
+    registry, before any core-referencing module registers;
+    `register()` below does it for the standard catalog."""
+    result = registry.declare_ports(*_CORE_PORT_DECLS)
+    _ = result.danger_ok
+    _log.info("mech: declared %d core ports", len(_CORE_PORT_DECLS))
+
 
 # ---------------------------------------------------------------------------
 # rect_second_moment -- the real registered twin of examples/solvers/00's
@@ -195,7 +233,11 @@ def bore_von_mises(x):
 
 
 def register(registry: SolverRegistry) -> None:
-    """Registers every mech Phase 1 direction (WO-07)."""
+    """Registers every mech Phase 1 direction (WO-07). Declares the
+    shared mech core vocabulary first (WO111b: every module declares
+    its ports; this module additionally owns the cross-family core
+    table, `declare_core_ports`)."""
+    declare_core_ports(registry)
     result_a = registry.register(*rect_second_moment.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = cantilever.register(registry)

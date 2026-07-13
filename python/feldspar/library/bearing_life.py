@@ -45,7 +45,7 @@ standard, out of this deliverable's scope."""
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -205,10 +205,24 @@ def bearing_basic_rating_life_l10h(x):
     return Ok({"mech.bearing.l10h": l10h})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note). `l10` is in millions
+#: of revolutions (ISO 281's own unit for the basic rating life).
+_PORT_DECLS = (
+    PortDecl("mech.bearing.dynamic_rating", "N"),
+    PortDecl("mech.bearing.equivalent_load", "N"),
+    PortDecl("mech.bearing.l10", "Mrev"),
+    PortDecl("mech.bearing.l10h", "h"),
+    PortDecl("mech.bearing.speed_rpm", "rev/min"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all three bearing-life directions (WO-24 deliverable
     3: ISO 281 basic L10 for ball and roller bearings + L10 -> L10h
-    at a caller-supplied constant speed)."""
+    at a caller-supplied constant speed). Declares this family's port
+    table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     ball_direction = bearing_basic_rating_life_l10_ball.solver_direction  # ty: ignore[unresolved-attribute]
     result_a = registry.register(*ball_direction)
     _ = result_a.danger_ok

@@ -46,7 +46,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -307,10 +307,37 @@ def bolt_group_tension_from_moment(x):
     return Ok({"mech.joint.group.tension_critical": f_t})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.joint.bolt.cb", "N/m"),
+    PortDecl("mech.joint.bolt.cp", "N/m"),
+    PortDecl("mech.joint.bolt.fv", "N"),
+    PortDecl("mech.joint.bolt.fa", "N"),
+    PortDecl("mech.joint.bolt.load_factor", "1"),
+    PortDecl("mech.joint.bolt.working_load", "N"),
+    PortDecl("mech.joint.bolt.residual_clamp_load", "N"),
+    PortDecl("mech.joint.group.n", "1"),
+    PortDecl("mech.joint.group.vx", "N"),
+    PortDecl("mech.joint.group.vy", "N"),
+    PortDecl("mech.joint.group.torque", "N*m"),
+    PortDecl("mech.joint.group.j_polar", "m^2"),
+    PortDecl("mech.joint.group.xi", "m"),
+    PortDecl("mech.joint.group.yi", "m"),
+    PortDecl("mech.joint.group.shear_resultant", "N"),
+    PortDecl("mech.joint.group.moment", "N*m"),
+    PortDecl("mech.joint.group.sum_y_sq", "m^2"),
+    PortDecl("mech.joint.group.y_critical", "m"),
+    PortDecl("mech.joint.group.tension_critical", "N"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all three bolted-joint directions (WO-24
     deliverable 1: single-bolt VDI 2230 tier + elastic bolt-group
-    shear/torsion + elastic bolt-group tension-from-moment)."""
+    shear/torsion + elastic bolt-group tension-from-moment). Declares
+    this family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result_a = registry.register(*bolt_single_load_factor_vdi2230.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*bolt_group_shear_torsion.solver_direction)  # ty: ignore[unresolved-attribute]

@@ -229,16 +229,24 @@ def _make_static_from_mesh_direction(resolver: PayloadResolver):
 
 
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
-    """Declares this module's port table (payload ports NEED declared
-    kinds; see the module docstring's F12 ordering note) and registers
-    both payload directions, closed over the caller's resolver."""
+    """Declares this module's OWN port table (the two payload ports --
+    payload ports NEED declared kinds; see the module docstring's F12
+    ordering note) and registers both payload directions, closed over
+    the caller's resolver.
+
+    WO111b composition fix: the shared mech core scalar ports this
+    module's directions reference (`mech.material.youngs_modulus`,
+    `mech.material.poisson`, `mech.load.tip_force`,
+    `mech.deflection.tip`) are NO LONGER declared here -- their one
+    F12 home is `feldspar.library.mech.declare_core_ports` (called by
+    `library.mech.register`, which registers before this module in
+    the one full catalog, `feldspar.catalog.build_engine_catalog`). A
+    caller composing this module WITHOUT `library.mech` must call
+    `declare_core_ports(registry)` itself before this `register()`
+    (this module's own unit tests do so)."""
     ports_result = registry.declare_ports(
         PortDecl(GEOMETRY_PORT, "", Rank.payload("geometry.parametric")),
         PortDecl(MESH_PORT, "", Rank.payload("mesh")),
-        PortDecl("mech.material.youngs_modulus", "Pa"),
-        PortDecl("mech.material.poisson", "1"),
-        PortDecl("mech.load.tip_force", "N"),
-        PortDecl("mech.deflection.tip", "m"),
     )
     _ = ports_result.danger_ok
     for info, fn in (

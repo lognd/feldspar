@@ -47,7 +47,7 @@ plate is stiffer and lower-stressed than the same simply-supported one).
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -267,10 +267,26 @@ def plate_circular_uniform_clamped_max_deflection(x):
     return Ok({"mech.plate.circular.clamped_max_deflection": y})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.plate.circular.q", "Pa"),
+    PortDecl("mech.plate.circular.a", "m"),
+    PortDecl("mech.plate.circular.t", "m"),
+    PortDecl("mech.plate.circular.e", "Pa"),
+    PortDecl("mech.plate.circular.nu", "1"),
+    PortDecl("mech.plate.circular.ss_max_stress", "Pa"),
+    PortDecl("mech.plate.circular.ss_max_deflection", "m"),
+    PortDecl("mech.plate.circular.clamped_max_stress", "Pa"),
+    PortDecl("mech.plate.circular.clamped_max_deflection", "m"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers the four circular-plate uniform-load directions
     (WO-111: simply-supported and clamped, max stress and max
-    deflection)."""
+    deflection). Declares this family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     for direction in (
         plate_circular_uniform_ss_max_stress,
         plate_circular_uniform_ss_max_deflection,

@@ -659,9 +659,16 @@ class TestFeaPayloadStepsRegistration:
         from feldspar.fea.payload_steps import (
             register as register_payload_steps,
         )
+        from feldspar.library.mech import declare_core_ports
 
         resolver = DictResolver()
         registry = SolverRegistry()
+        # WO111b: payload_steps no longer declares the shared mech core
+        # scalar ports its static direction references -- their one F12
+        # home is library.mech's declare_core_ports (in the full catalog
+        # library.mech registers first; standalone composition declares
+        # the core table explicitly, per payload_steps' docstring).
+        declare_core_ports(registry)
         register_payload_steps(registry, resolver)
         registry.freeze()
 

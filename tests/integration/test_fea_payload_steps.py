@@ -24,6 +24,7 @@ from feldspar.core import Interval
 from feldspar.fea.geometry import CantileverGeometry
 from feldspar.fea.payload_steps import GEOMETRY_PORT
 from feldspar.fea.payload_steps import register as register_payload_steps
+from feldspar.library.mech import declare_core_ports
 from feldspar.plan import PayloadStepCache, execute, plan
 from feldspar.solve import PayloadRef, SolveError, SolverRegistry
 
@@ -51,6 +52,10 @@ class DictResolver:
 def _setup() -> tuple[SolverRegistry, DictResolver, PayloadRef]:
     resolver = DictResolver()
     registry = SolverRegistry()
+    # WO111b: the shared mech core scalar ports payload_steps' static
+    # direction references live in library.mech's core table now
+    # (payload_steps declares only its own two payload ports).
+    declare_core_ports(registry)
     register_payload_steps(registry, resolver)
     registry.freeze()
     geometry = CantileverGeometry(length=0.5, width=0.04, height=0.06)

@@ -43,7 +43,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -163,9 +163,22 @@ def shaft_critical_speed_rayleigh_single_mass(x):
     return Ok({"mech.critical_speed.rayleigh_rpm": n_c})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.critical_speed.stiffness", "N/m"),
+    PortDecl("mech.critical_speed.mass", "kg"),
+    PortDecl("mech.critical_speed.rpm", "rev/min"),
+    PortDecl("mech.critical_speed.static_deflection", "m"),
+    PortDecl("mech.critical_speed.rayleigh_rpm", "rev/min"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers the two shaft-critical-speed directions (WO-111:
-    stiffness-based and Rayleigh single-mass)."""
+    stiffness-based and Rayleigh single-mass). Declares this family's
+    port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     stiffness_dir = shaft_critical_speed_from_stiffness.solver_direction  # ty: ignore[unresolved-attribute]
     _ = registry.register(*stiffness_dir).danger_ok
     rayleigh_dir = shaft_critical_speed_rayleigh_single_mass.solver_direction  # ty: ignore[unresolved-attribute]

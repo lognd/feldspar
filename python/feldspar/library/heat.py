@@ -18,7 +18,7 @@ report -- not silently dropped."""
 from typani import Ok
 
 from feldspar import _feldspar
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 
@@ -248,8 +248,40 @@ def coefficient_from_nusselt(x):
     )
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("heat.wall.thickness", "m"),
+    PortDecl("heat.wall.conductivity", "W/(m*K)"),
+    PortDecl("heat.wall.area", "m^2"),
+    PortDecl("heat.wall.resistance", "K/W"),
+    PortDecl("heat.cylinder.inner_radius", "m"),
+    PortDecl("heat.cylinder.outer_radius", "m"),
+    PortDecl("heat.cylinder.conductivity", "W/(m*K)"),
+    PortDecl("heat.cylinder.length", "m"),
+    PortDecl("heat.cylinder.resistance", "K/W"),
+    PortDecl("heat.convection.coefficient", "W/(m^2*K)"),
+    PortDecl("heat.convection.area", "m^2"),
+    PortDecl("heat.convection.resistance", "K/W"),
+    PortDecl("heat.convection.nusselt", "1"),
+    PortDecl("heat.network.r1", "K/W"),
+    PortDecl("heat.network.r2", "K/W"),
+    PortDecl("heat.network.r_series", "K/W"),
+    PortDecl("heat.network.resistance", "K/W"),
+    PortDecl("heat.network.delta_temp", "K"),
+    PortDecl("heat.network.rate", "W"),
+    PortDecl("heat.internal_flow.reynolds", "1"),
+    PortDecl("heat.internal_flow.prandtl", "1"),
+    PortDecl("heat.internal_flow.nusselt", "1"),
+    PortDecl("heat.fluid.conductivity", "W/(m*K)"),
+    PortDecl("heat.pipe.diameter", "m"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
-    """Registers every heat Phase 2 direction (WO-20)."""
+    """Registers every heat Phase 2 direction (WO-20). Declares this
+    family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     directions = [
         plane_wall_resistance.solver_direction,  # ty: ignore[unresolved-attribute]
         cylindrical_wall_resistance.solver_direction,  # ty: ignore[unresolved-attribute]

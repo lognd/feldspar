@@ -106,72 +106,19 @@ _MAX_MARGIN_ATTEMPTS = 4
 
 
 def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistry:
-    """The full closed-form + FEA + payload-step engine registry
-    (WO-07/WO-08/WO-12), built fresh per call. Building a
-    `SolverRegistry` and calling `@solver`-decorated `register()`
-    functions only adds Python-side metadata (no gmsh/ccx probing
-    happens until a route actually executes), so this stays import-cheap
-    and freeze-safe to call lazily at estimate time (FINV-3/10: no tool
-    probing at `pack.register()` time).
-
-    F12 ordering (WO-12's close-out note, resolved here as WO-14
-    boundary work): `feldspar.fea.payload_steps.register()` calls
-    `declare_ports()`, which arms the registry's port-table guard for
-    every LATER `register()` call -- so the declaration-free WO-07/
-    WO-08 modules (`library.mech`, `fea.solver`) MUST register first,
-    while the port table is still empty, and `payload_steps` last. This
-    is the ONE combined catalog every pack model builds against, so the
-    ordering constraint has exactly one home."""
-    # Function-local imports: keeps `feldspar.pack` import-cheap (no
-    # `feldspar.fea`/`feldspar.library` module-load cost paid until an
-    # `estimate()` actually runs).
-    from feldspar.fea import payload_steps
-    from feldspar.fea.solver import register as register_fea
-    from feldspar.library.bearing_life import register as register_bearing_life
-    from feldspar.library.bolted_joints import register as register_bolted_joints
-    from feldspar.library.critical_speed import register as register_critical_speed
-    from feldspar.library.drive import register as register_drive
-    from feldspar.library.fatigue import register as register_fatigue
-    from feldspar.library.fluids import register as register_fluids
-    from feldspar.library.fluids import register_network as register_fluids_network
-    from feldspar.library.heat import register as register_heat
-    from feldspar.library.leadscrew import register as register_leadscrew
-    from feldspar.library.mech import register as register_mech
-    from feldspar.library.member_capacity import register as register_member_capacity
-    from feldspar.library.plate import register as register_plate
-    from feldspar.library.signal_integrity import register as register_signal_integrity
-    from feldspar.library.thermal_transient import register as register_thermal
-    from feldspar.library.thermo import register as register_thermo
-    from feldspar.library.weld_groups import register as register_weld_groups
+    """The full closed-form + FEA + payload-step engine registry,
+    built fresh per call. The composition itself (module list, F12
+    registration order, freeze) lives in `feldspar.catalog.
+    build_engine_catalog` -- the regolith-free one home the unit-level
+    composition test drives (WO111b composition fix); this wrapper
+    only supplies the pack's `NoStoreResolver` default. Import-cheap
+    and freeze-safe to call lazily at estimate time (FINV-3/10: no
+    tool probing at `pack.register()` time -- the catalog module's own
+    imports are function-local)."""
+    from feldspar.catalog import build_engine_catalog
 
     engine_resolver = resolver if resolver is not None else NoStoreResolver()
-
-    registry = SolverRegistry()
-    register_mech(registry)
-    register_member_capacity(registry)
-    register_bolted_joints(registry)
-    register_weld_groups(registry)
-    register_bearing_life(registry)
-    register_fatigue(registry, engine_resolver)
-    register_leadscrew(registry)
-    register_critical_speed(registry)
-    register_drive(registry)
-    register_plate(registry)
-    register_signal_integrity(registry)
-    register_fluids(registry)
-    register_heat(registry)
-    register_thermal(registry)
-    register_thermo(registry)
-    register_fea(registry)
-    payload_steps.register(registry, engine_resolver)
-    # WO-20 residual: the Hardy-Cross `flownet` solver declares its own
-    # payload ports (F12), so it registers last, same as
-    # `payload_steps` -- order relative to `payload_steps` itself does
-    # not matter (disjoint port namespaces), only relative to the
-    # declaration-free modules above.
-    register_fluids_network(registry, engine_resolver)
-    registry.freeze()
-    return registry
+    return build_engine_catalog(engine_resolver)
 
 
 def _structured_coverage(request: DischargeRequest) -> "tuple[CoverageAxis, ...]":

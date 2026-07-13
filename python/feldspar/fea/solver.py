@@ -544,7 +544,17 @@ cylinder_bore.solver_direction[1].probe_tools = _probe_tools  # ty: ignore[unres
 
 
 def register(registry: SolverRegistry) -> None:
-    """Registers both FEA (discretized-tier) directions (WO-08)."""
+    """Registers both FEA (discretized-tier) directions (WO-08).
+
+    WO111b port-declaration note: this module declares NO ports of its
+    own -- every port its two directions reference belongs to the
+    shared mech core vocabulary whose one F12 home is
+    `feldspar.library.mech.declare_core_ports`. In the full catalog
+    (`feldspar.catalog.build_engine_catalog`) `library.mech` registers
+    first, so the table is populated by the time this runs; a caller
+    composing this module WITHOUT `library.mech` must call
+    `declare_core_ports(registry)` first (or declare nothing at all
+    anywhere, leaving the F12 guard unarmed)."""
     result_a = registry.register(*cantilever.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*cylinder_bore.solver_direction)  # ty: ignore[unresolved-attribute]

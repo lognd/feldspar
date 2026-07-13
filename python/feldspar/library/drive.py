@@ -43,7 +43,7 @@ cases (`N=1` -> direct-drive `J_motor+J_load` sum; `J_load=0` ->
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -129,9 +129,24 @@ def drive_acceleration_torque(x):
     return Ok({"mech.drive.accel.torque_required": t_required})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.drive.accel.j_motor", "kg*m^2"),
+    PortDecl("mech.drive.accel.j_load", "kg*m^2"),
+    PortDecl("mech.drive.accel.gear_ratio", "1"),
+    PortDecl("mech.drive.accel.efficiency", "1"),
+    PortDecl("mech.drive.accel.alpha", "rad/s^2"),
+    PortDecl("mech.drive.accel.t_load", "N*m"),
+    PortDecl("mech.drive.accel.torque_required", "N*m"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers the reflected-inertia acceleration-torque direction
-    (WO-111 drive sizing)."""
+    (WO-111 drive sizing). Declares this family's port table first
+    (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result = registry.register(*drive_acceleration_torque.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result.danger_ok
     _log.info("drive: registered %d solver direction(s)", 1)

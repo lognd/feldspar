@@ -1309,3 +1309,82 @@ textbook relations composed; the two limiting cases (19.1) are the
 independent cross-checks.
 
 ---
+
+## 20. Fatigue depth: S-N cycles-to-failure + Miner's-rule cumulative
+damage (feldspar WO111b, lithos WO-110-F6/F4)
+
+CALIBRATION HONESTY (WO111B-F2): both directions below land under the
+calibration-first law's SECOND path (spec 12 sec. 3.1): no
+independently citable published worked-example NUMBER is transcribed
+here (a page/example-number citation this dispatch could not
+independently re-verify carries real fabrication risk, refused per
+spec 12 sec. 3.1/D224). Instead each closed form is checked against
+its OWN defining algebraic boundary condition -- an identity that
+holds for ANY valid input, not a fitted numeric coincidence.
+
+### 20.1 S-N log-log knee-line cycles-to-failure
+
+Shigley's Mechanical Engineering Design, 11th ed., ch. 6 eqs. 6-13/
+6-14: the S-N diagram's log-log line through `(10^3 cycles, f*Sut)`
+and `(10^6 cycles, Se)`, `f` the Fig. 6-18-family fraction of Sut at
+the 10^3-cycle knee (caller-supplied, same "caller-resolved constant"
+seam `fatigue_marin_surface_factor`'s `a`/`b` use):
+
+```
+a = (f*Sut)^2 / Se
+b = -(1/3)*log10(f*Sut/Se)
+N = (sigma_a / a)^(1/b)
+```
+
+DERIVATION OF THE SELF-CHECK: let `r = f*Sut/Se > 1` (a real knee
+requires `f*Sut > Se`). Substituting `sigma_a = f*Sut = r*Se`:
+
+`sigma_a/a = r*Se / (r^2*Se^2/Se) = r*Se/(r^2*Se) = 1/r`, and
+`1/b = -3/log10(r)`, so `N = (1/r)^(-3/log10 r) = r^(3/log10 r)`.
+`log10(N) = (3/log10 r) * log10 r = 3` exactly, i.e. `N = 1000` for
+ANY valid `r > 1` -- not a coincidence of chosen numbers, an identity
+of the two-point line's own construction. Substituting
+`sigma_a = Se`: `sigma_a/a = Se/(r^2*Se) = 1/r^2`, giving
+`N = (1/r^2)^(-3/log10 r) = r^(6/log10 r)`, `log10(N) = 6` exactly,
+`N = 1e6`.
+
+Concrete numeric instance (module `python/feldspar/library/fatigue.py`,
+tests `tests/unit/test_library_fatigue.py`): `Sut = 700 MPa`,
+`Se = 350 MPa`, `f = 0.9` (knee `f*Sut = 630 MPa`) ->
+`a = 630e6^2/350e6 = 1.134e9`, `b = -0.085091` -> `N(630 MPa) = 1000.0`,
+`N(350 MPa) = 1.0e6` (both to float precision), `N(490 MPa) =
+19172.6` (a third, non-endpoint hand-computed cross-check, same
+formula). Valid range enforced `[1e3, 1e6]` (the knee line's own
+honest domain -- below is low-cycle fatigue, above is the Se-plateau
+region, neither this line's scope, named cuts).
+
+### 20.2 Miner's-rule cumulative damage over a declared load-block
+spectrum
+
+Shigley 11e ch. 6 sec. 6-16 eq. 6-58, the linear damage hypothesis:
+`D = sum(n_i / N_i)`, failure at `D >= 1`, each block's `N_i` from
+this module's OWN 20.1 S-N line (`_sn_knee_params`/
+`_sn_cycles_to_failure`, NO DUPLICATION). Blocks at or below `Se` are
+infinite life (Shigley's own stated convention) -- zero damage
+contribution.
+
+DERIVATION OF THE SELF-CHECK: a single block whose declared applied
+cycle count `n` equals its OWN computed life `N_f` (from 20.1) gives
+`D = n/N_f = N_f/N_f = 1.0` by definition -- the linear sum's
+defining boundary, not a transcribed number. Two blocks each supplied
+at exactly HALF their own life sum to `D = 0.5 + 0.5 = 1.0`
+(superposition, eq. 6-58's own defining linearity). Both checked in
+`tests/unit/test_library_fatigue.py` and (payload-channel wrapper)
+`tests/regolith/test_pack_wo111b_exposure.py`.
+
+Consumes a `spectrum`-kind payload (`{"sigma_a": [...], "cycles":
+[...]}`, parallel Pa/count lists, one entry per declared load block --
+the lithos `mech.fatigue.damage(<part>, over=<spectrum>) < 1.0` call
+form's spectrum). Module `python/feldspar/library/fatigue.py`
+(`MINER_SPECTRUM_PORT`, `mech.fatigue.miner_damage`); regolith
+exposure `feldspar.pack.models.FatigueMinerDamageModel` (the D96/09
+sec. 4 payload channel, same shape `FeaStaticDeflectionFromGeometryModel`
+uses -- honest indeterminate with no `PayloadStore` resolver threaded,
+proceeds through the closed-form Miner sum once one is).
+
+---

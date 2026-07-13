@@ -22,8 +22,8 @@ from feldspar.fea.geometry import Material
 from feldspar.fea.mesh import MeshData
 from feldspar.fea.payload_steps import MESH_PORT
 from feldspar.fea.results import first_mode_frequency, parse_dat_frequencies
-from feldspar.library.vibe import FIRST_MODE_PORT
 from feldspar.logging_setup import get_logger
+from feldspar.mech.vibe import FIRST_MODE_PORT
 from feldspar.solve import Citation, Ok, SolveOutput, SolverRegistry, make_direction
 from feldspar.solve.digest import canonical_digest
 from feldspar.solve.payload import PayloadResolver
@@ -32,7 +32,7 @@ _log = get_logger(__name__)
 
 __all__ = ["register"]
 
-# FIRST_MODE_PORT (Hz) is declared once in `library/vibe.py` -- both the
+# FIRST_MODE_PORT (Hz) is declared once in `mech/vibe.py` -- both the
 # closed-form beam direction there and this ccx direction target it
 # (the planner picks whichever is cheaper/in-domain, 04). Re-exported
 # via the import above so callers that only need the port name are not
@@ -122,7 +122,7 @@ def _make_modal_direction(resolver: PayloadResolver):
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Registers the ccx modal direction only (WO-16); the port table
     (`FIRST_MODE_PORT`, `mech.material.density`) and the mesh/geometry
-    ports are declared by `library/vibe.py`/`payload_steps.py` -- this
+    ports are declared by `mech/vibe.py`/`payload_steps.py` -- this
     module follows the same F12 accumulated-table rule those modules
     document (register/declare in a consistent order across a
     catalog)."""

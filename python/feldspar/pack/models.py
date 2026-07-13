@@ -1293,12 +1293,12 @@ class FatigueSnCyclesToFailureModel(_ClosedFormEngineModel):
 
 def _miner_spectrum_payload_port() -> str:
     """The Miner-damage spectrum payload port name AT THE REGOLITH
-    BOUNDARY: a function-local import of `feldspar.library.fatigue.
+    BOUNDARY: a function-local import of `feldspar.mech.fatigue.
     MINER_SPECTRUM_PORT` (single home for the literal, NO DUPLICATION
     -- mirrors this module's own `_engine_registry()` convention of
-    keeping `feldspar.library`/`feldspar.fea` imports function-local,
+    keeping `feldspar.mech`/`feldspar.fea` imports function-local,
     FINV-3/10 import-cheap posture)."""
-    from feldspar.library.fatigue import MINER_SPECTRUM_PORT
+    from feldspar.mech.fatigue import MINER_SPECTRUM_PORT
 
     return MINER_SPECTRUM_PORT
 

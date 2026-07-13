@@ -208,7 +208,7 @@ contract is pinned by `tests/regolith/test_pack_closed_form_models.py`,
 `tests/regolith/test_pack_wo25_exposure.py`, and
 `python/feldspar/pack/models.py`. `feldspar.pack.register()`
 (the `regolith.plugins` entry point target, `feldspar.pack:MANIFEST`)
-registers nineteen `regolith.harness.Model` instances:
+registers thirty `regolith.harness.Model` instances:
 
 | model | claim kind | sense | required inputs |
 |---|---|---|---|
@@ -224,6 +224,15 @@ registers nineteen `regolith.harness.Model` instances:
 | `BoltLoadFactorModel` | `mech.joint.bolt_load_factor` | lower bound (floor) | `mech.joint.bolt.{cb,cp,fv,fa}` (VDI 2230 Blatt 1) |
 | `WeldUtilizationModel` | `mech.weld.utilization` | upper bound (ceiling) | `mech.weld.group.{inplane_line_force,bending_line_force,leg_size,allowable_stress}` (Shigley/Blodgett/AWS D1.1) |
 | `BearingRatingLifeModel` | `mech.bearing.rating_life_hours` | lower bound (floor) | `mech.bearing.{l10,speed_rpm}` (ISO 281:2007) |
+| `FatigueGoodmanFactorOfSafetyModel` | `mech.fatigue.factor_of_safety` | lower bound (floor) | `mech.fatigue.goodman.{se,sut,sigma_a,sigma_m}` (Shigley 11e eq. 6-46) |
+| `FatigueGerberFactorOfSafetyModel` | `mech.fatigue.gerber_factor_of_safety` | lower bound (floor) | `mech.fatigue.gerber.{se,sut,sigma_a,sigma_m}` (Shigley 11e Table 6-7 / eq. 6-48) |
+| `LeadscrewTorqueRaiseModel` | `mech.drive.leadscrew_torque_raise` | upper bound (ceiling) | `mech.drive.leadscrew.{force,dm,lead,friction}` (Shigley 11e sec. 8-2) |
+| `DriveAccelTorqueModel` | `mech.drive.accel_torque` | upper bound (ceiling) | `mech.drive.accel.{j_motor,j_load,gear_ratio,efficiency,alpha,t_load}` (Norton/Slocum, memo sec. 19) |
+| `ShaftCriticalSpeedModel` | `mech.critical_speed` | lower bound (floor) | `mech.critical_speed.{stiffness,mass}` (Shigley 11e eq. 7-22) |
+| `PlateMaxStressModel` | `mech.plate.max_stress` | upper bound (ceiling) | `mech.plate.circular.{q,a,t,e,nu}` (Roark 8e Table 11.2 case 10a) |
+| `PlateMaxDeflectionModel` | `mech.plate.max_deflection` | upper bound (ceiling) | `mech.plate.circular.{q,a,t,e,nu}` (Roark 8e Table 11.2 case 10a) |
+| `ThermalTransientStepTemperatureModel` | `thermo.junction_temperature_transient` | upper bound (ceiling) | `heat.transient.{t_amb,power,r_th,c_th,time,biot_number}` (Incropera ch. 5) |
+| `ThermalTransientDutyCyclePeakTemperatureModel` | `thermo.junction_temperature_duty_cycle` | upper bound (ceiling) | `heat.transient.{t_amb,power,r_th,c_th,t_on,t_off,biot_number}` (Incropera ch. 5) |
 | `MicrostripImpedanceModel` (lo) | `elec.si.microstrip_z0.lo` | lower bound | `elec.si.microstrip.{w,h,t,er}` (Hammerstad-Jensen, Wadell 1991) |
 | `MicrostripImpedanceModel` (hi) | `elec.si.microstrip_z0.hi` | upper bound | `elec.si.microstrip.{w,h,t,er}` (Hammerstad-Jensen, Wadell 1991) |
 | `StriplineImpedanceModel` (lo) | `elec.si.stripline_z0.lo` | lower bound | `elec.si.stripline.{w,b,er}` (Cohn 1954 exact) |

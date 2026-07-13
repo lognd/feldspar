@@ -22,8 +22,10 @@ from feldspar.pack.models import (  # noqa: E402
     AcShuntResistorModel,
     BearingRatingLifeModel,
     BoltLoadFactorModel,
+    DriveAccelTorqueModel,
     ElecRailModel,
     EulerBucklingLoadModel,
+    FatigueGerberFactorOfSafetyModel,
     FatigueGoodmanFactorOfSafetyModel,
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
@@ -33,8 +35,13 @@ from feldspar.pack.models import (  # noqa: E402
     MemberAxialCapacityModel,
     MemberFlexuralCapacityModel,
     MicrostripImpedanceModel,
+    PlateMaxDeflectionModel,
+    PlateMaxStressModel,
     SeriesTerminationModel,
+    ShaftCriticalSpeedModel,
     StriplineImpedanceModel,
+    ThermalTransientDutyCyclePeakTemperatureModel,
+    ThermalTransientStepTemperatureModel,
     TheveninTerminationR1Model,
     TheveninTerminationR2Model,
     WeldUtilizationModel,
@@ -130,6 +137,17 @@ def register(registry: Any) -> None:
     registry.register(BearingRatingLifeModel())
     registry.register(FatigueGoodmanFactorOfSafetyModel())
     registry.register(LeadscrewTorqueRaiseModel())
+    # WO-111 cycle-35 Class-C model growth (D223): fatigue Gerber
+    # parabola, thermal-transient junction temperature (step + duty
+    # cycle, the 85-waive gap), shaft critical speed, reflected-inertia
+    # drive torque, Roark circular-plate stress + deflection.
+    registry.register(FatigueGerberFactorOfSafetyModel())
+    registry.register(ThermalTransientStepTemperatureModel())
+    registry.register(ThermalTransientDutyCyclePeakTemperatureModel())
+    registry.register(ShaftCriticalSpeedModel())
+    registry.register(DriveAccelTorqueModel())
+    registry.register(PlateMaxStressModel())
+    registry.register(PlateMaxDeflectionModel())
     registry.register(
         MicrostripImpedanceModel(
             claim_kind=DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND,
@@ -159,7 +177,7 @@ def register(registry: Any) -> None:
     registry.register(TheveninTerminationR2Model())
     registry.register(AcShuntResistorModel())
     registry.register(AcShuntCapacitorModel())
-    _log.info("feldspar.pack: registered 21 regolith model(s)")
+    _log.info("feldspar.pack: registered 30 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

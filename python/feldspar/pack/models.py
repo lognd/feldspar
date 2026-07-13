@@ -52,6 +52,15 @@ __all__ = [
     "BoltLoadFactorModel",
     "WeldUtilizationModel",
     "BearingRatingLifeModel",
+    "FatigueGoodmanFactorOfSafetyModel",
+    "FatigueGerberFactorOfSafetyModel",
+    "LeadscrewTorqueRaiseModel",
+    "ThermalTransientStepTemperatureModel",
+    "ThermalTransientDutyCyclePeakTemperatureModel",
+    "ShaftCriticalSpeedModel",
+    "DriveAccelTorqueModel",
+    "PlateMaxStressModel",
+    "PlateMaxDeflectionModel",
     "MicrostripImpedanceModel",
     "StriplineImpedanceModel",
     "SeriesTerminationModel",
@@ -120,6 +129,8 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.fea.solver import register as register_fea
     from feldspar.library.bearing_life import register as register_bearing_life
     from feldspar.library.bolted_joints import register as register_bolted_joints
+    from feldspar.library.critical_speed import register as register_critical_speed
+    from feldspar.library.drive import register as register_drive
     from feldspar.library.fatigue import register as register_fatigue
     from feldspar.library.fluids import register as register_fluids
     from feldspar.library.fluids import register_network as register_fluids_network
@@ -127,6 +138,7 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     from feldspar.library.leadscrew import register as register_leadscrew
     from feldspar.library.mech import register as register_mech
     from feldspar.library.member_capacity import register as register_member_capacity
+    from feldspar.library.plate import register as register_plate
     from feldspar.library.signal_integrity import register as register_signal_integrity
     from feldspar.library.thermal_transient import register as register_thermal
     from feldspar.library.thermo import register as register_thermo
@@ -142,6 +154,9 @@ def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistr
     register_bearing_life(registry)
     register_fatigue(registry)
     register_leadscrew(registry)
+    register_critical_speed(registry)
+    register_drive(registry)
+    register_plate(registry)
     register_signal_integrity(registry)
     register_fluids(registry)
     register_heat(registry)
@@ -990,7 +1005,20 @@ DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND = "mech.joint.bolt_load_factor"
 DEFAULT_WELD_UTILIZATION_CLAIM_KIND = "mech.weld.utilization"
 DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND = "mech.bearing.rating_life_hours"
 DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND = "mech.fatigue.factor_of_safety"
+DEFAULT_FATIGUE_GERBER_FACTOR_OF_SAFETY_CLAIM_KIND = (
+    "mech.fatigue.gerber_factor_of_safety"
+)
 DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND = "mech.drive.leadscrew_torque_raise"
+DEFAULT_DRIVE_ACCEL_TORQUE_CLAIM_KIND = "mech.drive.accel_torque"
+DEFAULT_JUNCTION_TEMPERATURE_TRANSIENT_CLAIM_KIND = (
+    "thermo.junction_temperature_transient"
+)
+DEFAULT_JUNCTION_TEMPERATURE_DUTY_CYCLE_CLAIM_KIND = (
+    "thermo.junction_temperature_duty_cycle"
+)
+DEFAULT_SHAFT_CRITICAL_SPEED_CLAIM_KIND = "mech.critical_speed"
+DEFAULT_PLATE_MAX_STRESS_CLAIM_KIND = "mech.plate.max_stress"
+DEFAULT_PLATE_MAX_DEFLECTION_CLAIM_KIND = "mech.plate.max_deflection"
 
 
 class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
@@ -1236,6 +1264,43 @@ class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
         )
 
 
+class FatigueGerberFactorOfSafetyModel(_ClosedFormEngineModel):
+    """Gerber-parabola fatigue factor of safety
+    (`library.fatigue.fatigue_gerber_factor_of_safety`, Shigley 11e
+    Table 6-7 / eq. 6-48, memo sec. 18), a floor claim: the Gerber
+    factor of safety must stay AT OR ABOVE the caller's stated margin
+    (typically `1.0`). The less-conservative parabolic sibling of
+    `FatigueGoodmanFactorOfSafetyModel`; same caller-resolved inputs
+    (Marin-composed `Se`, Kf-pre-multiplied `sigma_a`/`sigma_m`)."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_FATIGUE_GERBER_FACTOR_OF_SAFETY_CLAIM_KIND,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.fatigue.gerber.factor_of_safety",
+            inputs=(
+                "mech.fatigue.gerber.se",
+                "mech.fatigue.gerber.sut",
+                "mech.fatigue.gerber.sigma_a",
+                "mech.fatigue.gerber.sigma_m",
+            ),
+            engine_tags=frozenset({"steel", "hcf", "fatigue_governs"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_fatigue_gerber_factor_of_safety",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("steel", "hcf", "fatigue_governs", "kf_pre_applied", "gerber"),
+        )
+
+
 class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
     """Square-thread power-screw torque to raise a load
     (`library.leadscrew.leadscrew_torque_raise`), a ceiling claim: the
@@ -1272,6 +1337,265 @@ class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
             sense=ClaimSense.upper_bound(),
             inputs=self._inputs,
             domain=("square_thread", "no_collar", "no_acme_correction"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# WO-111 cycle-35 Class-C wave: model growth the fleet's undischarged
+# claims actually need (lithos design-log 2026-07-13-cycle-35 D223,
+# F130's CLASS C). Two families are pure EXPOSURE of already-landed,
+# already-calibrated library directions (thermal transient, WO-24
+# deliverable 6, memo sec. 12); three are NEW physics landed this WO
+# (shaft critical speed, Roark flat plate, Gerber fatigue, drive accel
+# torque -- see their `library/*.py` modules and memo secs. 16-19).
+# Every subclass below is the same thin `_ClosedFormEngineModel` bind
+# -- no physics duplicated here.
+#
+# Thermal transient: dispatch #5's WO-24 close-out DECIDED these two
+# lithos-side claim-kind names (`thermo.junction_temperature_transient`
+# / `_duty_cycle`) and deferred registration to "a future lithos-side
+# model pack". D223 supersedes that deferral: the transient junction-
+# temperature physics belongs in the solver pack and is exposed HERE
+# (85 corpus `thermo.junction_temperature_inputs_missing` waives, the
+# largest single Class-D/C model-routing gap F130 measured). Both are
+# UPPER-bound claims: a junction temperature must stay AT OR BELOW the
+# device's rated limit, so the model reports the conservative-HIGH
+# corner (INV-9), the obligation states the limit.
+# ---------------------------------------------------------------------------
+
+
+class ThermalTransientStepTemperatureModel(_ClosedFormEngineModel):
+    """Single-node lumped-capacitance step-response junction temperature
+    (`library.thermal_transient.step_temperature`, Incropera ch. 5 sec.
+    5.2, memo sec. 12.1), an upper-bound claim: `T(t)` at the queried
+    elapsed time must stay AT OR BELOW the rated limit. The transient
+    generalization of lithos's steady `thermo.junction_temperature`
+    built-in (its `t -> infinity` limit). Constant `R_th`/`C_th` and a
+    caller-asserted Biot number below 0.1 are the lumped-capacitance
+    preconditions the wrapped direction enforces in-function."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_JUNCTION_TEMPERATURE_TRANSIENT_CLAIM_KIND,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="heat.transient.temperature",
+            inputs=(
+                "heat.transient.t_amb",
+                "heat.transient.power",
+                "heat.transient.r_th",
+                "heat.transient.c_th",
+                "heat.transient.time",
+                "heat.transient.biot_number",
+            ),
+            engine_tags=frozenset(
+                {"lumped_capacitance", "single_node", "constant_properties"}
+            ),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="thermo_junction_temperature_transient",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("lumped_capacitance", "single_node", "constant_properties"),
+        )
+
+
+class ThermalTransientDutyCyclePeakTemperatureModel(_ClosedFormEngineModel):
+    """Periodic-steady-state peak junction temperature under a square-
+    wave (duty-cycled) power pulse train
+    (`library.thermal_transient.duty_cycle_peak_temperature`, memo sec.
+    12.3, the VRM case), an upper-bound claim: the periodic PEAK must
+    stay AT OR BELOW the rated limit. Reports the conservative-HIGH
+    corner over the input box."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_JUNCTION_TEMPERATURE_DUTY_CYCLE_CLAIM_KIND,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="heat.transient.duty_peak_temperature",
+            inputs=(
+                "heat.transient.t_amb",
+                "heat.transient.power",
+                "heat.transient.r_th",
+                "heat.transient.c_th",
+                "heat.transient.t_on",
+                "heat.transient.t_off",
+                "heat.transient.biot_number",
+            ),
+            engine_tags=frozenset(
+                {
+                    "lumped_capacitance",
+                    "single_node",
+                    "constant_properties",
+                    "periodic_steady_state",
+                }
+            ),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="thermo_junction_temperature_duty_cycle",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=(
+                "lumped_capacitance",
+                "single_node",
+                "constant_properties",
+                "periodic_steady_state",
+            ),
+        )
+
+
+class ShaftCriticalSpeedModel(_ClosedFormEngineModel):
+    """Single-mass shaft first critical (whirl) speed from lateral
+    stiffness and lumped mass (`library.critical_speed.
+    shaft_critical_speed_from_stiffness`, Shigley 11e eq. 7-22, memo
+    sec. 16.1), a FLOOR claim: the critical speed must stay AT OR ABOVE
+    the operating speed (a running shaft must not reach whirl). Reports
+    the conservative-LOW corner (INV-9), the obligation states the
+    operating-speed floor. Rayleigh's static-deflection view is a second
+    registered direction (`shaft_critical_speed_rayleigh_single_mass`),
+    a named residual a caller reaches directly when it has `delta`
+    instead of `k`,`m`."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_SHAFT_CRITICAL_SPEED_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.critical_speed.rpm",
+            inputs=("mech.critical_speed.stiffness", "mech.critical_speed.mass"),
+            engine_tags=frozenset({"single_mass", "undamped", "first_mode"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_shaft_critical_speed",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("single_mass", "undamped", "first_mode", "shigley_ch7"),
+        )
+
+
+class DriveAccelTorqueModel(_ClosedFormEngineModel):
+    """Reflected-inertia acceleration torque for a geared motion axis
+    (`library.drive.drive_acceleration_torque`, Norton/Slocum, memo sec.
+    19), a CEILING claim: the required motor torque must stay AT OR BELOW
+    the motor's available torque (the obligation states the supply, this
+    model reports the demand). Reports the conservative-HIGH corner."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_DRIVE_ACCEL_TORQUE_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.drive.accel.torque_required",
+            inputs=(
+                "mech.drive.accel.j_motor",
+                "mech.drive.accel.j_load",
+                "mech.drive.accel.gear_ratio",
+                "mech.drive.accel.efficiency",
+                "mech.drive.accel.alpha",
+                "mech.drive.accel.t_load",
+            ),
+            engine_tags=frozenset(
+                {"rigid_drivetrain", "single_stage", "constant_efficiency"}
+            ),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_drive_accel_torque",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("rigid_drivetrain", "single_stage", "constant_efficiency"),
+        )
+
+
+class PlateMaxStressModel(_ClosedFormEngineModel):
+    """Peak bending stress in a uniformly loaded simply-supported
+    circular flat plate (`library.plate.
+    plate_circular_uniform_ss_max_stress`, Roark 8th ed. Table 11.2
+    case 10a, memo sec. 17.1), a CEILING claim: peak stress must stay AT
+    OR BELOW the allowable. Simply-supported is the conservative choice
+    under uncertain edge fixity (higher stress than clamped); the clamped
+    direction is a registered residual a caller reaches when the edge is
+    truly built-in. Reports the conservative-HIGH corner."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_PLATE_MAX_STRESS_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.plate.circular.ss_max_stress",
+            inputs=(
+                "mech.plate.circular.q",
+                "mech.plate.circular.a",
+                "mech.plate.circular.t",
+                "mech.plate.circular.e",
+                "mech.plate.circular.nu",
+            ),
+            engine_tags=frozenset({"thin_plate", "small_deflection", "circular"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_plate_circular_ss_max_stress",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("thin_plate", "small_deflection", "circular", "roark_11.2_10a"),
+        )
+
+
+class PlateMaxDeflectionModel(_ClosedFormEngineModel):
+    """Center deflection of a uniformly loaded simply-supported circular
+    flat plate (`library.plate.plate_circular_uniform_ss_max_deflection`,
+    Roark 8th ed. Table 11.2 case 10a, memo sec. 17.2), a CEILING claim:
+    deflection must stay AT OR BELOW a serviceability limit. Simply-
+    supported is the conservative choice; reports the conservative-HIGH
+    corner."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_PLATE_MAX_DEFLECTION_CLAIM_KIND
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.plate.circular.ss_max_deflection",
+            inputs=(
+                "mech.plate.circular.q",
+                "mech.plate.circular.a",
+                "mech.plate.circular.t",
+                "mech.plate.circular.e",
+                "mech.plate.circular.nu",
+            ),
+            engine_tags=frozenset({"thin_plate", "small_deflection", "circular"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_plate_circular_ss_max_deflection",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=self._inputs,
+            domain=("thin_plate", "small_deflection", "circular", "roark_11.2_10a"),
         )
 
 

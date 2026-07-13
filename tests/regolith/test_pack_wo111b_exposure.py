@@ -147,6 +147,42 @@ def test_miner_damage_no_resolver_is_honest_indeterminate() -> None:
     assert "regolith.orchestrator.payload_store" in result.danger_err.message
 
 
+def test_miner_damage_no_resolver_stays_honest_after_a_resolver_run_cached(
+    tmp_path,
+) -> None:
+    """Regression (integration failure at WO-118 close, found via
+    `SolveCache`'s key not folding resolver participation): run the
+    SAME request first WITH a working resolver (a real `Ok` populates
+    `.feldspar/cache`), then WITHOUT one -- the no-resolver call must
+    still honestly indeterminate, never a stale cache hit replaying the
+    resolver-run's `Ok`. The `_isolate_feldspar_cache` autouse fixture
+    already chdirs into a fresh `tmp_path`; this test additionally
+    asserts a cache entry actually exists there after the first call,
+    so a future change that silently disables caching cannot make this
+    test pass for the wrong reason."""
+    model = FatigueMinerDamageModel()
+    resolver = _fake_lithos_resolver({_DIGEST: _valid_spectrum_envelope()})
+
+    with_resolver = model.estimate(_damage_request(), resolver=resolver)
+    assert with_resolver.is_ok, (
+        f"expected the priming resolver-run to succeed: {with_resolver}"
+    )
+
+    cache_dir = tmp_path / ".feldspar" / "cache"
+    assert list(cache_dir.glob("*.json")), (
+        "expected the resolver-run to have populated the on-disk solve "
+        "cache -- otherwise this test cannot exercise the leak it guards "
+        "against"
+    )
+
+    without_resolver = model.estimate(_damage_request())
+    assert without_resolver.is_err, (
+        f"a stale cache entry from the resolver-run leaked into the "
+        f"no-resolver call: {without_resolver}"
+    )
+    assert "regolith.orchestrator.payload_store" in without_resolver.danger_err.message
+
+
 def test_miner_damage_working_resolver_matches_hand_computed() -> None:
     """A WORKING lithos resolver threaded: the spectrum resolves and
     the accumulated damage matches the D=1.0 construction (block

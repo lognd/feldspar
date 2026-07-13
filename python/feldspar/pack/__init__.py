@@ -27,6 +27,8 @@ from feldspar.pack.models import (  # noqa: E402
     EulerBucklingLoadModel,
     FatigueGerberFactorOfSafetyModel,
     FatigueGoodmanFactorOfSafetyModel,
+    FatigueMinerDamageModel,
+    FatigueSnCyclesToFailureModel,
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
@@ -53,7 +55,7 @@ __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
 def register(registry: Any) -> None:
-    """Registers feldspar's twenty-one regolith models on `registry` (a
+    """Registers feldspar's regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)
     ... registers the models below and nothing else").
 
@@ -137,6 +139,12 @@ def register(registry: Any) -> None:
     registry.register(BearingRatingLifeModel())
     registry.register(FatigueGoodmanFactorOfSafetyModel())
     registry.register(LeadscrewTorqueRaiseModel())
+    # WO111b (lithos WO-110-F6/F4, D223 feldspar fatigue depth): S-N
+    # cycles-to-failure (scalar) + Miner's-rule cumulative damage over
+    # a declared load-block spectrum payload (the `mech.fatigue.
+    # damage(<part>, over=<spectrum>) < 1.0` fleet call form).
+    registry.register(FatigueSnCyclesToFailureModel())
+    registry.register(FatigueMinerDamageModel())
     # WO-111 cycle-35 Class-C model growth (D223): fatigue Gerber
     # parabola, thermal-transient junction temperature (step + duty
     # cycle, the 85-waive gap), shaft critical speed, reflected-inertia
@@ -177,7 +185,7 @@ def register(registry: Any) -> None:
     registry.register(TheveninTerminationR2Model())
     registry.register(AcShuntResistorModel())
     registry.register(AcShuntCapacitorModel())
-    _log.info("feldspar.pack: registered 30 regolith model(s)")
+    _log.info("feldspar.pack: registered 32 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

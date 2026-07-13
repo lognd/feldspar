@@ -89,6 +89,49 @@ numbers self-assigned)
   in that citation (keeping the same closed form) is a small
   follow-up, not a re-derivation.
 
+## Composition fix (coordinator integration finding, same branch)
+
+The first slice's `fatigue.py` `declare_ports` call armed the F12
+accumulated-table guard EARLY in the pack catalog's registration
+order, refusing every later-registering module whose ports were not
+declared (`RegistryError.UnknownPort(port='mech.drive.leadscrew.
+force')`, 48/97 regolith tests) -- the catalog had previously
+survived on import-order luck (the pre-existing declarers all
+registered last). Fixed on this branch, principled form:
+
+1. EVERY module the full composition registers now declares its own
+   family port table in its `register()` (units from each module's
+   own domain-box documentation): `member_capacity`, `bolted_joints`,
+   `weld_groups`, `bearing_life`, `leadscrew`, `critical_speed`,
+   `drive`, `plate`, `signal_integrity`, `fluids.incompressible`,
+   `fluids.compressible`, `heat`, `thermal_transient`, `thermo`
+   (generated per-fluid, same loop as its directions), plus
+   `library.elec` (not in the pack catalog, but composed with
+   `library.mech` in unit tests -- same rule). `fatigue`,
+   `fluids.network`, `struct`, `vibe`, `payload_steps` already
+   declared.
+2. The shared cross-family mech core vocabulary (14 ports:
+   `mech.material.*`, `mech.geom.cantilever/cylinder.*`,
+   `mech.load.*`, `mech.section.*`, `mech.deflection.tip`,
+   `mech.stress.von_mises`) gets ONE home:
+   `feldspar.library.mech.declare_core_ports` (called by
+   `library.mech.register`, which registers FIRST in the catalog).
+   `fea.payload_steps` dropped its four now-duplicate core
+   declarations; `fea.solver` declares nothing (all its ports are
+   core). Standalone compositions without `library.mech` call
+   `declare_core_ports(registry)` explicitly (the two fea-marked
+   integration tests now do).
+3. The catalog composition itself moved to a regolith-free one home,
+   `feldspar.catalog.build_engine_catalog` (`pack.models.
+   _engine_registry` is a thin delegate), so
+   `tests/unit/test_catalog_composition.py` drives the EXACT pack
+   composition path without lithos: full 83-direction id-list match,
+   an every-port-declared invariant, determinism, and freeze checks.
+   Red/green evidence: with the catalog extracted but declarations
+   not yet added, the new test failed with exactly the integration
+   error (`UnknownPort(port='mech.drive.leadscrew.force')`); green
+   after the declarations landed.
+
 ## Verification
 
 `make check` green in this worktree (fmt, lint, import-lint, ty

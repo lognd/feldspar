@@ -106,72 +106,19 @@ _MAX_MARGIN_ATTEMPTS = 4
 
 
 def _engine_registry(resolver: "PayloadResolver | None" = None) -> SolverRegistry:
-    """The full closed-form + FEA + payload-step engine registry
-    (WO-07/WO-08/WO-12), built fresh per call. Building a
-    `SolverRegistry` and calling `@solver`-decorated `register()`
-    functions only adds Python-side metadata (no gmsh/ccx probing
-    happens until a route actually executes), so this stays import-cheap
-    and freeze-safe to call lazily at estimate time (FINV-3/10: no tool
-    probing at `pack.register()` time).
-
-    F12 ordering (WO-12's close-out note, resolved here as WO-14
-    boundary work): `feldspar.fea.payload_steps.register()` calls
-    `declare_ports()`, which arms the registry's port-table guard for
-    every LATER `register()` call -- so the declaration-free WO-07/
-    WO-08 modules (`library.mech`, `fea.solver`) MUST register first,
-    while the port table is still empty, and `payload_steps` last. This
-    is the ONE combined catalog every pack model builds against, so the
-    ordering constraint has exactly one home."""
-    # Function-local imports: keeps `feldspar.pack` import-cheap (no
-    # `feldspar.fea`/`feldspar.library` module-load cost paid until an
-    # `estimate()` actually runs).
-    from feldspar.fea import payload_steps
-    from feldspar.fea.solver import register as register_fea
-    from feldspar.library.bearing_life import register as register_bearing_life
-    from feldspar.library.bolted_joints import register as register_bolted_joints
-    from feldspar.library.critical_speed import register as register_critical_speed
-    from feldspar.library.drive import register as register_drive
-    from feldspar.library.fatigue import register as register_fatigue
-    from feldspar.library.fluids import register as register_fluids
-    from feldspar.library.fluids import register_network as register_fluids_network
-    from feldspar.library.heat import register as register_heat
-    from feldspar.library.leadscrew import register as register_leadscrew
-    from feldspar.library.mech import register as register_mech
-    from feldspar.library.member_capacity import register as register_member_capacity
-    from feldspar.library.plate import register as register_plate
-    from feldspar.library.signal_integrity import register as register_signal_integrity
-    from feldspar.library.thermal_transient import register as register_thermal
-    from feldspar.library.thermo import register as register_thermo
-    from feldspar.library.weld_groups import register as register_weld_groups
+    """The full closed-form + FEA + payload-step engine registry,
+    built fresh per call. The composition itself (module list, F12
+    registration order, freeze) lives in `feldspar.catalog.
+    build_engine_catalog` -- the regolith-free one home the unit-level
+    composition test drives (WO111b composition fix); this wrapper
+    only supplies the pack's `NoStoreResolver` default. Import-cheap
+    and freeze-safe to call lazily at estimate time (FINV-3/10: no
+    tool probing at `pack.register()` time -- the catalog module's own
+    imports are function-local)."""
+    from feldspar.catalog import build_engine_catalog
 
     engine_resolver = resolver if resolver is not None else NoStoreResolver()
-
-    registry = SolverRegistry()
-    register_mech(registry)
-    register_member_capacity(registry)
-    register_bolted_joints(registry)
-    register_weld_groups(registry)
-    register_bearing_life(registry)
-    register_fatigue(registry)
-    register_leadscrew(registry)
-    register_critical_speed(registry)
-    register_drive(registry)
-    register_plate(registry)
-    register_signal_integrity(registry)
-    register_fluids(registry)
-    register_heat(registry)
-    register_thermal(registry)
-    register_thermo(registry)
-    register_fea(registry)
-    payload_steps.register(registry, engine_resolver)
-    # WO-20 residual: the Hardy-Cross `flownet` solver declares its own
-    # payload ports (F12), so it registers last, same as
-    # `payload_steps` -- order relative to `payload_steps` itself does
-    # not matter (disjoint port namespaces), only relative to the
-    # declaration-free modules above.
-    register_fluids_network(registry, engine_resolver)
-    registry.freeze()
-    return registry
+    return build_engine_catalog(engine_resolver)
 
 
 def _structured_coverage(request: DischargeRequest) -> "tuple[CoverageAxis, ...]":
@@ -1008,6 +955,12 @@ DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND = "mech.fatigue.factor_of_sa
 DEFAULT_FATIGUE_GERBER_FACTOR_OF_SAFETY_CLAIM_KIND = (
     "mech.fatigue.gerber_factor_of_safety"
 )
+# WO111b (lithos WO-110-F6/F4): S-N cycles-to-failure (scalar) and
+# Miner's-rule cumulative damage over a declared load-block spectrum
+# payload -- the fleet's `mech.fatigue.damage(<part>, over=<spectrum>)
+# < 1.0` call form (D223 feldspar-side fatigue depth).
+DEFAULT_FATIGUE_CYCLES_TO_FAILURE_CLAIM_KIND = "mech.fatigue.cycles_to_failure"
+DEFAULT_FATIGUE_DAMAGE_CLAIM_KIND = "mech.fatigue.damage"
 DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND = "mech.drive.leadscrew_torque_raise"
 DEFAULT_DRIVE_ACCEL_TORQUE_CLAIM_KIND = "mech.drive.accel_torque"
 DEFAULT_JUNCTION_TEMPERATURE_TRANSIENT_CLAIM_KIND = (
@@ -1298,6 +1251,174 @@ class FatigueGerberFactorOfSafetyModel(_ClosedFormEngineModel):
             sense=ClaimSense.lower_bound(),
             inputs=self._inputs,
             domain=("steel", "hcf", "fatigue_governs", "kf_pre_applied", "gerber"),
+        )
+
+
+class FatigueSnCyclesToFailureModel(_ClosedFormEngineModel):
+    """S-N log-log knee-line cycles-to-failure
+    (`library.fatigue.fatigue_sn_cycles_to_failure`, Shigley 11e eqs.
+    6-13/6-14, memo sec. 20.1), a floor claim: the computed `N` must
+    stay AT OR ABOVE the caller's stated required-life bound. Scalar
+    inputs only (no spectrum payload -- one alternating-stress level);
+    `FatigueMinerDamageModel` is the multi-block sibling over a
+    declared spectrum payload (WO111b, lithos WO-110-F6/F4)."""
+
+    def __init__(
+        self,
+        *,
+        claim_kind: str = DEFAULT_FATIGUE_CYCLES_TO_FAILURE_CLAIM_KIND,
+    ) -> None:
+        super().__init__(
+            claim_kind=claim_kind,
+            target="mech.fatigue.sn.cycles_to_failure",
+            inputs=(
+                "mech.fatigue.sn.sigma_a",
+                "mech.fatigue.sn.sut",
+                "mech.fatigue.sn.se",
+                "mech.fatigue.sn.f",
+            ),
+            engine_tags=frozenset({"steel", "hcf"}),
+        )
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="mech_fatigue_sn_cycles_to_failure",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.lower_bound(),
+            inputs=self._inputs,
+            domain=("steel", "hcf", "kf_pre_applied", "sn_knee_line"),
+        )
+
+
+def _miner_spectrum_payload_port() -> str:
+    """The Miner-damage spectrum payload port name AT THE REGOLITH
+    BOUNDARY: a function-local import of `feldspar.library.fatigue.
+    MINER_SPECTRUM_PORT` (single home for the literal, NO DUPLICATION
+    -- mirrors this module's own `_engine_registry()` convention of
+    keeping `feldspar.library`/`feldspar.fea` imports function-local,
+    FINV-3/10 import-cheap posture)."""
+    from feldspar.library.fatigue import MINER_SPECTRUM_PORT
+
+    return MINER_SPECTRUM_PORT
+
+
+class FatigueMinerDamageModel(Model):
+    """The D96 payload-channel Miner's-rule cumulative-damage model
+    (06 "Planned (09 M4)", same shape `FeaStaticDeflectionFromGeometryModel`
+    uses): consumes a `spectrum` payload ref
+    (`{"sigma_a": [...], "cycles": [...]}`) on `DischargeRequest.
+    payloads` instead of scalar load inputs, routing through
+    `feldspar.library.fatigue`'s `mech.fatigue.miner_damage` direction.
+    Serves the fleet's `mech.fatigue.damage(<part>, over=<spectrum>) <
+    1.0` call form (lithos WO-110-F6/F4, WO111b deliverable 1).
+
+    Payload-kind matching in signature selection: a request missing
+    the spectrum payload is an honest `no_model`/non-match
+    (`ModelSignature.accepts_payloads`) -- this class never assumes a
+    default spectrum. Resolution follows the SAME D154 keyword-only
+    `resolver` opt-in `FeaStaticDeflectionFromGeometryModel` uses (NO
+    DUPLICATION of that threading logic -- both classes independently
+    implement the same small opt-in shape since neither is a common
+    base of the other; see that class's own docstring for the full
+    resolver-threading reasoning). With no resolver threaded (every
+    pre-D154 caller, or a build with no `PayloadStore` configured),
+    this honestly indeterminates via `NoStoreResolver` -- never a
+    silent success, never an exception."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_FATIGUE_DAMAGE_CLAIM_KIND) -> None:
+        """`claim_kind` defaults to the vocabulary-owned kind (lithos
+        WO-110's `mech.fatigue.damage` call form)."""
+        self._claim_kind = claim_kind
+
+    @property
+    def signature(self) -> ModelSignature:
+        """Upper-bound cumulative-damage claim (`D < limit`, typically
+        `1.0`) over a spectrum PAYLOAD plus the S-N scalar inputs
+        `feldspar.library.fatigue._make_miner_damage_direction` needs."""
+        return ModelSignature(
+            name="mech_fatigue_miner_damage",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=(
+                "mech.fatigue.miner.sut",
+                "mech.fatigue.miner.se",
+                "mech.fatigue.miner.f",
+            ),
+            domain=("steel", "hcf"),
+            payload_kinds={_miner_spectrum_payload_port(): "spectrum"},
+        )
+
+    @property
+    def version(self) -> str:
+        """The model's own version id (bump on any physics/eps change)."""
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Same payload tier as `FeaStaticDeflectionFromGeometryModel`
+        (spectrum-block accumulation is cheap per se, but the payload
+        channel itself is the costlier tier, 06 "cost declares the
+        honest relative expense")."""
+        return _PAYLOAD_TIER_COST
+
+    def estimate(
+        self,
+        request: DischargeRequest,
+        *,
+        resolver: Callable[[str], Result[bytes, object]] | None = None,
+    ) -> Result[Prediction, HarnessError]:
+        """Convert the spectrum `PayloadRef` and scalar S-N inputs,
+        then run the engine's Miner-damage direction through
+        `solve()`. `resolver` (D154) mirrors
+        `FeaStaticDeflectionFromGeometryModel.estimate`'s keyword-only
+        opt-in verbatim -- see that method's docstring for the full
+        threading reasoning (NO DUPLICATION of the explanation, this
+        is the same mechanism applied to a different payload port)."""
+        known = {
+            name: to_feldspar_interval(interval)
+            for name, interval in request.inputs.items()
+        }
+        spectrum_port = _miner_spectrum_payload_port()
+        spectrum_ref = request.payloads[spectrum_port]
+        payloads = {spectrum_port: to_feldspar_payload_ref(spectrum_ref)}
+        sense = ClaimSenses.UPPER if self.signature.sense.upper else ClaimSenses.LOWER
+        engine_resolver: PayloadResolver = (
+            RegolithResolverAdapter(resolver)
+            if resolver is not None
+            else NoStoreResolver()
+        )
+        registry = _engine_registry(engine_resolver)
+        result = solve(
+            registry,
+            known,
+            frozenset({"steel", "hcf"}),
+            "mech.fatigue.miner.damage",
+            _EPS_BUDGET,
+            sense=sense,
+            payloads=payloads,
+        )
+        if result.is_err:
+            _log.info(
+                "%s: engine solve deferred for claim_kind=%s: %r",
+                self.model_id,
+                self._claim_kind,
+                result.danger_err,
+            )
+            return Err(map_engine_error(self.model_id, result.danger_err))
+
+        solution = result.danger_ok
+        value = solution.value.hi if self.signature.sense.upper else solution.value.lo
+        return Ok(
+            Prediction(
+                value=value,
+                eps=solution.eps,
+                coverage=1.0,
+                coverage_axes=_structured_coverage(request),
+                in_domain=True,
+                solver_version=f"feldspar {__version__} / closed-form",
+                settings_digest=solution.settings_digest,
+            )
         )
 
 

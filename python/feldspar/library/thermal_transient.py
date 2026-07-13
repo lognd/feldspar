@@ -107,7 +107,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -510,10 +510,33 @@ def duty_cycle_peak_temperature(x):
     return Ok({"heat.transient.duty_peak_temperature": t_amb + rise})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("heat.transient.convection_coefficient", "W/(m^2*K)"),
+    PortDecl("heat.transient.characteristic_length", "m"),
+    PortDecl("heat.transient.conductivity", "W/(m*K)"),
+    PortDecl("heat.transient.biot_number", "1"),
+    PortDecl("heat.transient.t_amb", "K"),
+    PortDecl("heat.transient.power", "W"),
+    PortDecl("heat.transient.r_th", "K/W"),
+    PortDecl("heat.transient.c_th", "J/K"),
+    PortDecl("heat.transient.time", "s"),
+    PortDecl("heat.transient.temperature", "K"),
+    PortDecl("heat.transient.t_threshold", "K"),
+    PortDecl("heat.transient.time_to_threshold", "s"),
+    PortDecl("heat.transient.t_on", "s"),
+    PortDecl("heat.transient.t_off", "s"),
+    PortDecl("heat.transient.duty_peak_temperature", "K"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all four thermal-transient directions (WO-24
     deliverable 6: Biot-number convenience form, step response,
-    time-to-threshold, and periodic duty-cycle peak temperature)."""
+    time-to-threshold, and periodic duty-cycle peak temperature).
+    Declares this family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     directions = [
         biot_number_from_convection.solver_direction,  # ty: ignore[unresolved-attribute]
         step_temperature.solver_direction,  # ty: ignore[unresolved-attribute]

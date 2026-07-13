@@ -53,7 +53,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -305,10 +305,34 @@ def weld_group_utilization(x):
     )
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.weld.group.vx", "N"),
+    PortDecl("mech.weld.group.vy", "N"),
+    PortDecl("mech.weld.group.torque", "N*m"),
+    PortDecl("mech.weld.group.aw", "m"),
+    PortDecl("mech.weld.group.jw", "m^3"),
+    PortDecl("mech.weld.group.xi", "m"),
+    PortDecl("mech.weld.group.yi", "m"),
+    PortDecl("mech.weld.group.inplane_line_force", "N/m"),
+    PortDecl("mech.weld.group.moment", "N*m"),
+    PortDecl("mech.weld.group.iw", "m^3"),
+    PortDecl("mech.weld.group.c", "m"),
+    PortDecl("mech.weld.group.bending_line_force", "N/m"),
+    PortDecl("mech.weld.group.leg_size", "m"),
+    PortDecl("mech.weld.group.allowable_stress", "Pa"),
+    PortDecl("mech.weld.group.peak_stress", "Pa"),
+    PortDecl("mech.weld.group.utilization_ratio", "1"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all three weld-group directions (WO-24 deliverable
     2: in-plane shear/torsion + out-of-plane bending + the combined
-    vector-summed peak-line-force-vs-allowable utilization check)."""
+    vector-summed peak-line-force-vs-allowable utilization check).
+    Declares this family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result_a = registry.register(*weld_group_inplane_shear_torsion.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*weld_group_outofplane_bending.solver_direction)  # ty: ignore[unresolved-attribute]

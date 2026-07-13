@@ -19,7 +19,7 @@ the ngspice tier calibrates against, not the other way around."""
 from typani import Err, Ok
 
 from feldspar import _feldspar
-from feldspar.core import Accuracy, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -258,8 +258,46 @@ def nmos_bias(x):
     return Ok({"elec.nmos.id": drain_current})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note). `elec.rlc.q` is the
+#: dimensionless quality factor; `elec.nmos.k` is the saturation
+#: transconductance parameter (A/V^2).
+_PORT_DECLS = (
+    PortDecl("elec.source.vin", "V"),
+    PortDecl("elec.divider.r1", "Ohm"),
+    PortDecl("elec.divider.r2", "Ohm"),
+    PortDecl("elec.divider.rl", "Ohm"),
+    PortDecl("elec.divider.vout", "V"),
+    PortDecl("elec.rc.vf", "V"),
+    PortDecl("elec.rc.resistance", "Ohm"),
+    PortDecl("elec.rc.capacitance", "F"),
+    PortDecl("elec.rc.time", "s"),
+    PortDecl("elec.rc.vc", "V"),
+    PortDecl("elec.rlc.resistance", "Ohm"),
+    PortDecl("elec.rlc.inductance", "H"),
+    PortDecl("elec.rlc.capacitance", "F"),
+    PortDecl("elec.rlc.f0", "Hz"),
+    PortDecl("elec.rlc.q", "1"),
+    PortDecl("elec.bjt.vcc", "V"),
+    PortDecl("elec.bjt.r1", "Ohm"),
+    PortDecl("elec.bjt.r2", "Ohm"),
+    PortDecl("elec.bjt.re", "Ohm"),
+    PortDecl("elec.bjt.rc", "Ohm"),
+    PortDecl("elec.bjt.beta", "1"),
+    PortDecl("elec.bjt.vbe", "V"),
+    PortDecl("elec.bjt.ic", "A"),
+    PortDecl("elec.bjt.vc", "V"),
+    PortDecl("elec.nmos.k", "A/V^2"),
+    PortDecl("elec.nmos.vgs", "V"),
+    PortDecl("elec.nmos.vth", "V"),
+    PortDecl("elec.nmos.id", "A"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
-    """Registers every elec closed-form direction (WO-17)."""
+    """Registers every elec closed-form direction (WO-17). Declares
+    this family's port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result_a = registry.register(*divider_loaded.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*rc_step.solver_direction)  # ty: ignore[unresolved-attribute]

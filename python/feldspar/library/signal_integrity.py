@@ -83,7 +83,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Accuracy, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -579,10 +579,39 @@ def ac_shunt_sizing_c(x):
     return Ok({"elec.si.ac_shunt.c": c})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("elec.si.microstrip.w", "m"),
+    PortDecl("elec.si.microstrip.h", "m"),
+    PortDecl("elec.si.microstrip.t", "m"),
+    PortDecl("elec.si.microstrip.er", "1"),
+    PortDecl("elec.si.microstrip.z0", "Ohm"),
+    PortDecl("elec.si.stripline.w", "m"),
+    PortDecl("elec.si.stripline.b", "m"),
+    PortDecl("elec.si.stripline.er", "1"),
+    PortDecl("elec.si.stripline.z0", "Ohm"),
+    PortDecl("elec.si.series_termination.z0", "Ohm"),
+    PortDecl("elec.si.series_termination.ro", "Ohm"),
+    PortDecl("elec.si.series_termination.rs", "Ohm"),
+    PortDecl("elec.si.thevenin_termination.z0", "Ohm"),
+    PortDecl("elec.si.thevenin_termination.vcc", "V"),
+    PortDecl("elec.si.thevenin_termination.vbias", "V"),
+    PortDecl("elec.si.thevenin_termination.r1", "Ohm"),
+    PortDecl("elec.si.thevenin_termination.r2", "Ohm"),
+    PortDecl("elec.si.ac_shunt.z0", "Ohm"),
+    PortDecl("elec.si.ac_shunt.r", "Ohm"),
+    PortDecl("elec.si.ac_shunt.rise_time", "s"),
+    PortDecl("elec.si.ac_shunt.c", "F"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all eight WO-25 signal-integrity directions (two
     impedance forms, two termination families, `diff_pair_z` NAMED CUT
-    per this module's own docstring)."""
+    per this module's own docstring). Declares this family's port
+    table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     directions = (
         microstrip_z0,
         stripline_z0,

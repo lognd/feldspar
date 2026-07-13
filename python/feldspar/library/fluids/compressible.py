@@ -27,7 +27,7 @@ close-out report -- not silently dropped."""
 from typani import Ok
 
 from feldspar import _feldspar
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 
@@ -192,8 +192,25 @@ def fanno_function(x):
     )
 
 
+#: This family's port table (WO111b composition fix; see
+#: `library/member_capacity.py`'s `_PORT_DECLS` note). All
+#: compressible-flow quantities here are dimensionless ratios.
+_PORT_DECLS = (
+    PortDecl("fluids.compressible.mach", "1"),
+    PortDecl("fluids.compressible.mach_upstream", "1"),
+    PortDecl("fluids.compressible.mach_downstream", "1"),
+    PortDecl("fluids.compressible.stagnation_temp_ratio", "1"),
+    PortDecl("fluids.compressible.stagnation_pressure_ratio", "1"),
+    PortDecl("fluids.compressible.shock_pressure_ratio", "1"),
+    PortDecl("fluids.compressible.fanno_function", "1"),
+    PortDecl("fluids.gas.gamma", "1"),
+)
+
+
 def register(registry: SolverRegistry) -> int:
-    """Registers every compressible fluids direction (D141); returns the count."""
+    """Registers every compressible fluids direction (D141); declares
+    this family's port table first (WO111b); returns the count."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     directions = [
         isentropic_stagnation_temp_ratio.solver_direction,  # ty: ignore[unresolved-attribute]
         isentropic_stagnation_pressure_ratio.solver_direction,  # ty: ignore[unresolved-attribute]

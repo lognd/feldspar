@@ -10,22 +10,45 @@ benchmarks-memo.md sec. 14): a 40 mm diameter AISI-1045 CD machined
 bar, fluctuating tensile load 0..100 kN, Kf=1.85 pre-applied by the
 caller."""
 
+import hashlib
+import json
 import math
+from typing import Dict
 
 import pytest
+from typani import Err, Ok
 
-from feldspar.library.fatigue import register
-from feldspar.solve import SolverRegistry
+from feldspar.library.fatigue import MINER_SPECTRUM_PORT, register
+from feldspar.solve import PayloadRef, SolveError, SolverRegistry
 
 
-def _registry() -> SolverRegistry:
+class DictResolver:
+    """In-memory orchestrator store stand-in (D96/OPEN-2 handle);
+    mirrors `tests/unit/test_library_struct.py`'s fixture verbatim."""
+
+    def __init__(self) -> None:
+        self._blobs: Dict[str, bytes] = {}
+
+    def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
+        digest = hashlib.sha256(content).hexdigest()
+        self._blobs[digest] = content
+        return PayloadRef(kind=kind, digest=digest, origin=origin)
+
+    def resolve(self, ref: PayloadRef):
+        blob = self._blobs.get(ref.digest)
+        if blob is None:
+            return Err(SolveError.DanglingDigest(digest=ref.digest))
+        return Ok(blob)
+
+
+def _registry(resolver=None) -> SolverRegistry:
     registry = SolverRegistry()
-    register(registry)
+    register(registry, resolver if resolver is not None else DictResolver())
     return registry
 
 
-def _solvers() -> dict:
-    registry = _registry()
+def _solvers(resolver=None) -> dict:
+    registry = _registry(resolver)
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
@@ -295,6 +318,218 @@ def test_gerber_negative_mean_stress_is_honest_indeterminate():
             "mech.fatigue.gerber.sut": 400.0e6,
             "mech.fatigue.gerber.sigma_a": 50.0e6,
             "mech.fatigue.gerber.sigma_m": -1.0e6,
+        }
+    )
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+
+
+# ---------------------------------------------------------------------------
+# fatigue_sn_cycles_to_failure: eqs. 6-13/6-14 log-log S-N knee line
+# (WO111b, lithos WO-110-F6/F4) -- ANALYTIC SELF-CHECK calibration
+# (docs/benchmarks-memo.md sec. 20.1): the knee line's own two defining
+# boundary conditions, checked as an exact algebraic identity, not a
+# transcribed textbook number.
+# ---------------------------------------------------------------------------
+
+_SN_SUT = 700.0e6
+_SN_SE = 350.0e6
+_SN_F = 0.9
+_SN_KNEE = _SN_F * _SN_SUT  # 630 MPa
+
+
+def test_sn_cycles_to_failure_at_knee_is_1000_by_construction():
+    """sigma_a = f*Sut (the knee point) -> N = 1e3 EXACTLY, for any
+    valid (Sut, Se, f) -- the log-log line's own defining condition
+    (docs/benchmarks-memo.md sec. 20.1 derivation)."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_sn_cycles_to_failure"]
+    result = fn(
+        {
+            "mech.fatigue.sn.sigma_a": _SN_KNEE,
+            "mech.fatigue.sn.sut": _SN_SUT,
+            "mech.fatigue.sn.se": _SN_SE,
+            "mech.fatigue.sn.f": _SN_F,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values[
+        "mech.fatigue.sn.cycles_to_failure"
+    ] == pytest.approx(1.0e3, rel=1e-9)
+
+
+def test_sn_cycles_to_failure_at_se_is_1e6_by_construction():
+    """sigma_a = Se -> N = 1e6 EXACTLY, the line's other defining
+    point."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_sn_cycles_to_failure"]
+    result = fn(
+        {
+            "mech.fatigue.sn.sigma_a": _SN_SE,
+            "mech.fatigue.sn.sut": _SN_SUT,
+            "mech.fatigue.sn.se": _SN_SE,
+            "mech.fatigue.sn.f": _SN_F,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values[
+        "mech.fatigue.sn.cycles_to_failure"
+    ] == pytest.approx(1.0e6, rel=1e-6)
+
+
+def test_sn_cycles_to_failure_midpoint_matches_hand_computed():
+    """A concrete third point, hand-computed from the SAME closed form
+    (not an independent source -- an internal-consistency check that
+    the registered direction reproduces its own documented algebra)."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_sn_cycles_to_failure"]
+    sigma_a = (_SN_KNEE + _SN_SE) / 2.0
+    a = (_SN_KNEE**2) / _SN_SE
+    b = -(1.0 / 3.0) * math.log10(_SN_KNEE / _SN_SE)
+    expected = (sigma_a / a) ** (1.0 / b)
+    assert expected == pytest.approx(19172.6, rel=1e-3)
+    result = fn(
+        {
+            "mech.fatigue.sn.sigma_a": sigma_a,
+            "mech.fatigue.sn.sut": _SN_SUT,
+            "mech.fatigue.sn.se": _SN_SE,
+            "mech.fatigue.sn.f": _SN_F,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values[
+        "mech.fatigue.sn.cycles_to_failure"
+    ] == pytest.approx(expected, rel=1e-9)
+
+
+def test_sn_cycles_to_failure_outside_knee_range_is_honest_indeterminate():
+    """A stress far above the knee drives N below 1e3 -- outside the
+    line's honest validity range (named cut)."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_sn_cycles_to_failure"]
+    result = fn(
+        {
+            "mech.fatigue.sn.sigma_a": _SN_SUT,  # well above the knee
+            "mech.fatigue.sn.sut": _SN_SUT,
+            "mech.fatigue.sn.se": _SN_SE,
+            "mech.fatigue.sn.f": _SN_F,
+        }
+    )
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+
+
+def test_sn_cycles_to_failure_degenerate_knee_is_honest_indeterminate():
+    """f*Sut <= Se: not a real knee line (non-positive slope)."""
+    _info, fn = _solvers()["mech.fatigue.fatigue_sn_cycles_to_failure"]
+    result = fn(
+        {
+            "mech.fatigue.sn.sigma_a": 400.0e6,
+            "mech.fatigue.sn.sut": _SN_SUT,
+            "mech.fatigue.sn.se": _SN_KNEE,  # se == f*sut, degenerate
+            "mech.fatigue.sn.f": _SN_F,
+        }
+    )
+    assert result.is_err
+    assert result.err.kind == "OutOfDomain"
+
+
+# ---------------------------------------------------------------------------
+# mech.fatigue.miner_damage: eq. 6-58 Miner's rule over a declared
+# load-block spectrum payload (WO111b, lithos WO-110-F6/F4)
+# ---------------------------------------------------------------------------
+
+
+def _store_spectrum(resolver: DictResolver, sigma_a: list, cycles: list) -> PayloadRef:
+    content = json.dumps({"sigma_a": sigma_a, "cycles": cycles}).encode()
+    return resolver.store("spectrum", content, "test_library_fatigue")
+
+
+def test_miner_damage_single_block_at_life_is_1_by_construction():
+    """ANALYTIC SELF-CHECK (docs/benchmarks-memo.md sec. 20.2): a single
+    block whose applied cycle count equals its OWN S-N life (n = N_f)
+    must give D = 1.0 exactly -- Miner's rule's own defining boundary,
+    not a transcribed textbook number."""
+    resolver = DictResolver()
+    registry = _registry(resolver)
+    solvers = {info.solver_id: (info, fn) for info, fn in registry}
+    _info, fn = solvers["mech.fatigue.miner_damage"]
+    a = (_SN_KNEE**2) / _SN_SE
+    b = -(1.0 / 3.0) * math.log10(_SN_KNEE / _SN_SE)
+    sigma_a = (_SN_KNEE + _SN_SE) / 2.0
+    n_life = (sigma_a / a) ** (1.0 / b)
+    ref = _store_spectrum(resolver, [sigma_a], [n_life])
+    result = fn(
+        {
+            "mech.fatigue.miner.sut": _SN_SUT,
+            "mech.fatigue.miner.se": _SN_SE,
+            "mech.fatigue.miner.f": _SN_F,
+            MINER_SPECTRUM_PORT: ref,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values["mech.fatigue.miner.damage"] == pytest.approx(
+        1.0, rel=1e-9
+    )
+
+
+def test_miner_damage_accumulates_across_blocks():
+    """Two blocks each at half their own life sum to D = 1.0 (linear
+    superposition -- eq. 6-58's own defining property)."""
+    resolver = DictResolver()
+    registry = _registry(resolver)
+    solvers = {info.solver_id: (info, fn) for info, fn in registry}
+    _info, fn = solvers["mech.fatigue.miner_damage"]
+    a = (_SN_KNEE**2) / _SN_SE
+    b = -(1.0 / 3.0) * math.log10(_SN_KNEE / _SN_SE)
+    sigma_a1, sigma_a2 = _SN_KNEE, (_SN_KNEE + _SN_SE) / 2.0
+    n_life1 = (sigma_a1 / a) ** (1.0 / b)
+    n_life2 = (sigma_a2 / a) ** (1.0 / b)
+    ref = _store_spectrum(
+        resolver, [sigma_a1, sigma_a2], [n_life1 / 2.0, n_life2 / 2.0]
+    )
+    result = fn(
+        {
+            "mech.fatigue.miner.sut": _SN_SUT,
+            "mech.fatigue.miner.se": _SN_SE,
+            "mech.fatigue.miner.f": _SN_F,
+            MINER_SPECTRUM_PORT: ref,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values["mech.fatigue.miner.damage"] == pytest.approx(
+        1.0, rel=1e-9
+    )
+
+
+def test_miner_damage_below_endurance_limit_contributes_zero():
+    """A block at or below Se is infinite life -- zero damage
+    contribution (Shigley sec. 6-16's stated convention)."""
+    resolver = DictResolver()
+    registry = _registry(resolver)
+    solvers = {info.solver_id: (info, fn) for info, fn in registry}
+    _info, fn = solvers["mech.fatigue.miner_damage"]
+    ref = _store_spectrum(resolver, [_SN_SE * 0.5], [1.0e9])
+    result = fn(
+        {
+            "mech.fatigue.miner.sut": _SN_SUT,
+            "mech.fatigue.miner.se": _SN_SE,
+            "mech.fatigue.miner.f": _SN_F,
+            MINER_SPECTRUM_PORT: ref,
+        }
+    )
+    assert result.is_ok
+    assert result.danger_ok.values["mech.fatigue.miner.damage"] == 0.0
+
+
+def test_miner_damage_mismatched_block_lengths_is_honest_indeterminate():
+    resolver = DictResolver()
+    registry = _registry(resolver)
+    solvers = {info.solver_id: (info, fn) for info, fn in registry}
+    _info, fn = solvers["mech.fatigue.miner_damage"]
+    ref = _store_spectrum(resolver, [_SN_KNEE, _SN_SE], [1.0e3])
+    result = fn(
+        {
+            "mech.fatigue.miner.sut": _SN_SUT,
+            "mech.fatigue.miner.se": _SN_SE,
+            "mech.fatigue.miner.f": _SN_F,
+            MINER_SPECTRUM_PORT: ref,
         }
     )
     assert result.is_err

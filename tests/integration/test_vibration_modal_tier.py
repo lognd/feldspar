@@ -23,11 +23,12 @@ from typing import Dict
 import pytest
 from typani import Err, Ok
 
-from feldspar.core import Interval, PortDecl
+from feldspar.core import Interval
 from feldspar.fea.geometry import CantileverGeometry
 from feldspar.fea.modal import register as register_modal
 from feldspar.fea.payload_steps import GEOMETRY_PORT
 from feldspar.fea.payload_steps import register as register_payload_steps
+from feldspar.library.mech import declare_core_ports
 from feldspar.library.vibe import FIRST_MODE_PORT
 from feldspar.library.vibe import register as register_vibe
 from feldspar.plan import PayloadStepCache, execute, plan
@@ -58,18 +59,14 @@ class DictResolver:
 def _setup() -> tuple[SolverRegistry, DictResolver, PayloadRef]:
     resolver = DictResolver()
     registry = SolverRegistry()
-    # Order matters (F12 accumulated-table rule, `vibe.register`'s
-    # docstring): payload_steps declares GEOMETRY_PORT/MESH_PORT/
-    # material.youngs_modulus/poisson first; the two ports vibe's beam
-    # direction needs that neither module declares (length,
-    # second_moment) are declared here, once, by the composing catalog
-    # -- exactly the composition responsibility both modules' docstrings
-    # describe.
+    # Order matters (F12 accumulated-table rule): the shared mech core
+    # vocabulary (youngs_modulus/poisson/cantilever.length/
+    # section.second_moment/...) has its ONE home in library.mech's
+    # declare_core_ports (WO111b) -- declared here first, exactly once,
+    # by the composing catalog; payload_steps and vibe then declare
+    # only their own family ports.
+    declare_core_ports(registry)
     register_payload_steps(registry, resolver)
-    assert registry.declare_ports(
-        PortDecl("mech.geom.cantilever.length", "m"),
-        PortDecl("mech.section.second_moment", "m^4"),
-    ).is_ok
     register_vibe(registry, resolver)
     register_modal(registry, resolver)
     registry.freeze()

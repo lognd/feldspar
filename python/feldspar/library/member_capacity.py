@@ -56,7 +56,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -298,10 +298,32 @@ def euler_critical_buckling_load(x):
     return Ok({"mech.member.euler.pcr": pcr})
 
 
+#: This family's port table (WO111b composition fix: every module
+#: declares its own ports so the F12 accumulated-table guard holds at
+#: any composition position, never by import-order luck).
+_PORT_DECLS = (
+    PortDecl("mech.member.flexure.fy", "Pa"),
+    PortDecl("mech.member.flexure.zx", "m^3"),
+    PortDecl("mech.member.flexure.capacity", "N*m"),
+    PortDecl("mech.member.axial.fy", "Pa"),
+    PortDecl("mech.member.axial.ag", "m^2"),
+    PortDecl("mech.member.axial.e", "Pa"),
+    PortDecl("mech.member.axial.kl_over_r", "1"),
+    PortDecl("mech.member.axial.capacity", "N"),
+    PortDecl("mech.member.euler.e", "Pa"),
+    PortDecl("mech.member.euler.i", "m^4"),
+    PortDecl("mech.member.euler.k", "1"),
+    PortDecl("mech.member.euler.length", "m"),
+    PortDecl("mech.member.euler.pcr", "N"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all three member-capacity directions (WO-24
     deliverables 0 + 8: F2 flexural yield, E3 axial yield/buckling,
-    Euler elastic column buckling)."""
+    Euler elastic column buckling). Declares this family's port table
+    first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result_a = registry.register(*flexural_yield_capacity_f2.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*axial_yield_buckling_capacity_e3.solver_direction)  # ty: ignore[unresolved-attribute]

@@ -23,7 +23,7 @@ flagged in the WO-20 close-out report -- not silently dropped."""
 from typani import Ok
 
 from feldspar import _feldspar
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, Relation, SolverRegistry, solver
 
@@ -420,10 +420,52 @@ def joukowsky_dp(x):
     )
 
 
+#: This family's port table (WO111b composition fix; see
+#: `library/member_capacity.py`'s `_PORT_DECLS` note). `fluids.pump.
+#: a_coeff`/`fluids.system.r_coeff` are the quadratic pump/system
+#: curve coefficients (head per flow-rate squared, s^2/m^5).
+_PORT_DECLS = (
+    PortDecl("fluids.pipe.reynolds", "1"),
+    PortDecl("fluids.pipe.relative_roughness", "1"),
+    PortDecl("fluids.pipe.friction_factor", "1"),
+    PortDecl("fluids.pipe.friction_factor.haaland", "1"),
+    PortDecl("fluids.pipe.length", "m"),
+    PortDecl("fluids.pipe.diameter", "m"),
+    PortDecl("fluids.pipe.velocity", "m/s"),
+    PortDecl("fluids.pipe.dp", "Pa"),
+    PortDecl("fluids.fitting.k_factor", "1"),
+    PortDecl("fluids.fitting.dp", "Pa"),
+    PortDecl("fluids.fluid.density", "kg/m^3"),
+    PortDecl("fluids.fluid.p_vapor", "Pa"),
+    PortDecl("fluids.env.p_atm", "Pa"),
+    PortDecl("fluids.env.gravity", "m/s^2"),
+    PortDecl("fluids.suction.static_head", "m"),
+    PortDecl("fluids.suction.friction_head", "m"),
+    PortDecl("fluids.npsh_margin", "m"),
+    PortDecl("fluids.network.dp1", "Pa"),
+    PortDecl("fluids.network.dp2", "Pa"),
+    PortDecl("fluids.network.dp_series", "Pa"),
+    PortDecl("fluids.network.q1", "m^3/s"),
+    PortDecl("fluids.network.q2", "m^3/s"),
+    PortDecl("fluids.network.q_parallel", "m^3/s"),
+    PortDecl("fluids.pump.h0", "m"),
+    PortDecl("fluids.pump.a_coeff", "s^2/m^5"),
+    PortDecl("fluids.pump.q_star", "m^3/s"),
+    PortDecl("fluids.pump.h_star", "m"),
+    PortDecl("fluids.system.h_static", "m"),
+    PortDecl("fluids.system.r_coeff", "s^2/m^5"),
+    PortDecl("fluids.transient.wave_speed", "m/s"),
+    PortDecl("fluids.transient.delta_velocity", "m/s"),
+    PortDecl("fluids.transient.hammer_dp", "Pa"),
+)
+
+
 def register(registry: SolverRegistry) -> int:
     """Registers every incompressible fluids Phase 2 direction (WO-20).
+    Declares this family's port table first (WO111b).
 
     Returns the count of directions registered."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     directions = [
         laminar_friction_factor.solver_direction,  # ty: ignore[unresolved-attribute]
         colebrook_friction_factor.solver_direction,  # ty: ignore[unresolved-attribute]

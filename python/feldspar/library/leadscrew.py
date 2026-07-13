@@ -52,7 +52,7 @@ import math
 
 from typani import Err, Ok
 
-from feldspar.core import Domain, Interval
+from feldspar.core import Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import EXACT, Citation, SolverRegistry, solver
 from feldspar.solve.errors import SolveError
@@ -308,10 +308,29 @@ def leadscrew_collar_torque(x):
     return Ok({"mech.drive.leadscrew.collar_torque": tc})
 
 
+#: This family's port table (WO111b composition fix; see
+#: `member_capacity.py`'s `_PORT_DECLS` note).
+_PORT_DECLS = (
+    PortDecl("mech.drive.leadscrew.force", "N"),
+    PortDecl("mech.drive.leadscrew.dm", "m"),
+    PortDecl("mech.drive.leadscrew.lead", "m"),
+    PortDecl("mech.drive.leadscrew.friction", "1"),
+    PortDecl("mech.drive.leadscrew.torque_raise", "N*m"),
+    PortDecl("mech.drive.leadscrew.torque_lower", "N*m"),
+    PortDecl("mech.drive.leadscrew.efficiency", "1"),
+    PortDecl("mech.drive.leadscrew.self_locking_margin", "1"),
+    PortDecl("mech.drive.leadscrew.collar_friction", "1"),
+    PortDecl("mech.drive.leadscrew.collar_dc", "m"),
+    PortDecl("mech.drive.leadscrew.collar_torque", "N*m"),
+)
+
+
 def register(registry: SolverRegistry) -> None:
     """Registers all five leadscrew directions (WO-24 deliverable 7,
     leadscrew half only: torque to raise/lower, efficiency, self-
-    locking margin, collar friction torque)."""
+    locking margin, collar friction torque). Declares this family's
+    port table first (WO111b)."""
+    _ = registry.declare_ports(*_PORT_DECLS).danger_ok
     result_a = registry.register(*leadscrew_torque_raise.solver_direction)  # ty: ignore[unresolved-attribute]
     _ = result_a.danger_ok
     result_b = registry.register(*leadscrew_torque_lower.solver_direction)  # ty: ignore[unresolved-attribute]

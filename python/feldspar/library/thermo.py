@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from typani import Ok
 
-from feldspar.core import Accuracy, Domain, Interval
+from feldspar.core import Accuracy, Domain, Interval, PortDecl
 from feldspar.logging_setup import get_logger
 from feldspar.solve import Citation, Err, SolveError, SolverRegistry, solver
 
@@ -201,10 +201,30 @@ def _make_property_direction(fluid_key: str, prop_code: str, prop_name: str, acc
     return info, wrapped_fn
 
 
+#: Per-property (unit) table for this family's generated ports
+#: (WO111b composition fix; the ports themselves are generated per
+#: fluid in `register`, so the declarations are generated in the same
+#: loop rather than hand-enumerated -- one source for the port names).
+_PROPERTY_UNITS = {
+    "temperature": "K",
+    "pressure": "Pa",
+    "density": "kg/m^3",
+    "specific_heat_cp": "J/(kg*K)",
+    "viscosity": "Pa*s",
+}
+
+
 def register(registry: SolverRegistry) -> int:
     """Registers every `thermo.<fluid>.<property>` direction (density,
-    specific heat, viscosity) for every calibrated fluid. Returns the
-    count of directions registered."""
+    specific heat, viscosity) for every calibrated fluid. Declares the
+    generated per-fluid port table first (WO111b). Returns the count
+    of directions registered."""
+    decls = [
+        PortDecl(f"thermo.{fluid_key}.{prop}", unit)
+        for fluid_key in _FLUIDS
+        for prop, unit in _PROPERTY_UNITS.items()
+    ]
+    _ = registry.declare_ports(*decls).danger_ok
     directions = []
     for fluid_key in _FLUIDS:
         directions.append(

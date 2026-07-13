@@ -48,7 +48,7 @@ from feldspar.solve import (
     make_direction,
 )
 from feldspar.solve.digest import canonical_digest
-from feldspar.solve.payload import PayloadResolver
+from feldspar.solve.payload import PayloadResolver, resolver_cache_identity
 
 _log = get_logger(__name__)
 
@@ -93,6 +93,19 @@ _ELEMENT_CITATION = Citation(
 # deliberately LOOSER than the WO-08 measured twin's ceiling, since a
 # one-mesh solve carries no convergence evidence of its own.
 _STATIC_ACCURACY = {"mech.deflection.tip": Accuracy(eps_abs=1e-4, eps_rel=2e-2)}
+
+
+def _settings_digest_with_resolver(resolver: PayloadResolver) -> str:
+    """The shared `_MESH_SETTINGS` digest, PLUS the resolver's own kind
+    (bug fix, cycle-35 WO-118 integration): both payload directions in
+    this module close over `resolver` and must never collide in
+    `SolveCache` between a no-resolver honest-Err run and a working-
+    resolver Ok run over the identical mesh settings (see
+    `resolver_cache_identity`'s docstring). ONE home for both
+    directions' settings digest, not two copies (house rule)."""
+    return canonical_digest(
+        {"mesh": _MESH_SETTINGS, "resolver": resolver_cache_identity(resolver)}
+    )
 
 
 def _probe_gmsh():
@@ -157,7 +170,7 @@ def _make_mesh_direction(resolver: PayloadResolver):
         citations=(_GMSH_CITATION,),
         version="1",
         tier="discretized",
-        settings=canonical_digest(_MESH_SETTINGS),
+        settings=_settings_digest_with_resolver(resolver),
         fn=mesh_fn,
     )
     fn.probe_tools = _probe_gmsh  # ty: ignore[unresolved-attribute]
@@ -221,7 +234,7 @@ def _make_static_from_mesh_direction(resolver: PayloadResolver):
         citations=(_ELEMENT_CITATION,),
         version="1",
         tier="discretized",
-        settings=canonical_digest(_MESH_SETTINGS),
+        settings=_settings_digest_with_resolver(resolver),
         fn=static_fn,
     )
     fn.probe_tools = ccx.probe_tools  # ty: ignore[unresolved-attribute]

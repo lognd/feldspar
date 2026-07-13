@@ -73,7 +73,12 @@ from feldspar.solve import (
     SolverRegistry,
     make_direction,
 )
-from feldspar.solve.payload import PayloadResolver, payload_feature_violation
+from feldspar.solve.digest import canonical_digest
+from feldspar.solve.payload import (
+    PayloadResolver,
+    payload_feature_violation,
+    resolver_cache_identity,
+)
 
 if TYPE_CHECKING:
     from typani import Result
@@ -556,6 +561,10 @@ def _make_hardy_cross_direction(resolver: PayloadResolver):
         citations=(_HARDY_CROSS_CITATION, _WHITE_NETWORK_CITATION),
         version="1",
         tier="discretized",
+        # Bug fix (cycle-35 WO-118 integration): fold the resolver's own
+        # kind into the settings digest -- see
+        # `feldspar.solve.payload.resolver_cache_identity`'s docstring.
+        settings=canonical_digest({"resolver": resolver_cache_identity(resolver)}),
         fn=hardy_cross_fn,
     )
     return info, fn

@@ -22,10 +22,12 @@ F12 ordering rules (accumulated-port-table guard,
 - The shared cross-family mech core vocabulary
   (`mech.material.*`, `mech.geom.*`, `mech.load.*`, `mech.section.*`,
   `mech.deflection.tip`, `mech.stress.von_mises`) has its ONE
-  declaration home in `feldspar.library.mech.declare_core_ports`,
-  which `library.mech.register` calls -- and `library.mech` registers
-  FIRST here precisely so every later module referencing that
-  vocabulary (fea, payload_steps) finds it declared.
+  declaration home in `feldspar.mech.closed_form.declare_core_ports`,
+  which `mech.closed_form.register` calls -- and `mech.closed_form`
+  registers FIRST here precisely so every later module referencing
+  that vocabulary (fea, payload_steps) finds it declared. (WO-118,
+  spec 12 sec. 1: this used to be `feldspar.library.mech`; the
+  `feldspar.library` package now only carries compat shims.)
 - Payload-port modules (`fea.payload_steps`, `fluids.network`) keep
   their established last-ish slots; their ports are disjoint from
   everything before them."""
@@ -44,27 +46,27 @@ def build_engine_catalog(resolver: PayloadResolver) -> SolverRegistry:
     engine registry (WO-07/WO-08/WO-12 lineage). Import-cheap callers
     (FINV-3/10): the module imports below are function-local so
     importing `feldspar.catalog` (or `feldspar.pack`) never pays the
-    `feldspar.fea`/`feldspar.library` module-load cost until a catalog
+    `feldspar.fea`/`feldspar.mech`/etc. module-load cost until a catalog
     is actually built; building one only adds Python-side metadata (no
     gmsh/ccx probing until a route executes)."""
+    from feldspar.elec.signal_integrity import register as register_signal_integrity
     from feldspar.fea import payload_steps
     from feldspar.fea.solver import register as register_fea
-    from feldspar.library.bearing_life import register as register_bearing_life
-    from feldspar.library.bolted_joints import register as register_bolted_joints
-    from feldspar.library.critical_speed import register as register_critical_speed
-    from feldspar.library.drive import register as register_drive
-    from feldspar.library.fatigue import register as register_fatigue
-    from feldspar.library.fluids import register as register_fluids
-    from feldspar.library.fluids import register_network as register_fluids_network
-    from feldspar.library.heat import register as register_heat
-    from feldspar.library.leadscrew import register as register_leadscrew
-    from feldspar.library.mech import register as register_mech
-    from feldspar.library.member_capacity import register as register_member_capacity
-    from feldspar.library.plate import register as register_plate
-    from feldspar.library.signal_integrity import register as register_signal_integrity
-    from feldspar.library.thermal_transient import register as register_thermal
-    from feldspar.library.thermo import register as register_thermo
-    from feldspar.library.weld_groups import register as register_weld_groups
+    from feldspar.fluids import register as register_fluids
+    from feldspar.fluids import register_network as register_fluids_network
+    from feldspar.heat.closed_form import register as register_heat
+    from feldspar.heat.thermal_transient import register as register_thermal
+    from feldspar.mech.bearing_life import register as register_bearing_life
+    from feldspar.mech.bolted_joints import register as register_bolted_joints
+    from feldspar.mech.closed_form import register as register_mech
+    from feldspar.mech.critical_speed import register as register_critical_speed
+    from feldspar.mech.drive import register as register_drive
+    from feldspar.mech.fatigue import register as register_fatigue
+    from feldspar.mech.leadscrew import register as register_leadscrew
+    from feldspar.mech.member_capacity import register as register_member_capacity
+    from feldspar.mech.plate import register as register_plate
+    from feldspar.mech.weld_groups import register as register_weld_groups
+    from feldspar.thermo.properties import register as register_thermo
 
     registry = SolverRegistry()
     # library.mech FIRST: `declare_core_ports` (the shared mech core

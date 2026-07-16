@@ -293,6 +293,34 @@ Worked parallel: two identical branches each passing Q = 0.006 m^3/s
 at delta-h = 4.0 m -> Q_total = 0.012 m^3/s at delta-h = 4.0 m [exact].
 Hardy-Cross convergence check: loop correction dQ -> 0 to |dQ| < 1e-6.
 
+### 3.2a Pack query models over the solved network (feldspar WO-141)  [exact]
+
+`feldspar.pack.models.FluidsMdotModel`/`FluidsFlowImbalanceModel`/
+`FluidsDpModel` wrap the SAME Hardy-Cross solve as 3.2, exposed as
+regolith `Model`s for the `fluids.mdot`/`fluids.flow_imbalance`/
+multi-path `fluids.dp` claim kinds (lithos F126.1 waiver family).
+
+Worked (asymmetric two-branch, independent Hagen-Poiseuille oracle,
+White 8th ed. sec. 6.4): branches A (L=1.0 m) and B (L=2.0 m), both
+D=0.02 m, rho=1000 kg/m^3, mu=1e-3 Pa s, splitting Q_total=1e-5 m^3/s.
+R = 128 mu L / (pi D^4); Q_A/Q_B = R_B/R_A. `FluidsMdotModel` on edge
+A must match `Q_total * R_B / (R_A + R_B)` [exact, rel 1e-3].
+`FluidsFlowImbalanceModel({A, B})` must match `(max-min)/mean` of the
+two branch flows [exact]. `FluidsDpModel(src -> sink)` must match
+branch A's Hagen-Poiseuille `dp = Q_A * R_A` (both branches converge
+to the SAME dp -- that is what "parallel" means once Hardy-Cross has
+converged) [exact, rel 1e-2]. See `tests/regolith/
+test_pack_wo141_fluids_network.py` for the full fixture and
+`tests/unit/test_fluids_network_query.py` for the regolith-free
+solve/path-search helper tests.
+
+Edge/node selection (which edge `fluids.mdot` means, which nodes
+`fluids.dp`'s path spans) has no lithos schema field yet -- these
+models read extra `DischargeRequest.inputs` keys that match live
+flownet edge/node ids, a convention documented in `pack.models`'s own
+WO-141 section comment, flagged there for the lithos-side translate
+half of this bridge to confirm or adapt.
+
 ### 3.3 Pump operating point  [exact]
 
 Pump curve H_p = H0 - a Q^2; system curve H_s = H_static + R Q^2.

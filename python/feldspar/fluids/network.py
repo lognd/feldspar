@@ -85,7 +85,15 @@ if TYPE_CHECKING:
 
 _log = get_logger(__name__)
 
-__all__ = ["FLOWNET_PORT", "SOLUTION_PORT", "register"]
+__all__ = [
+    "FLOWNET_PORT",
+    "SOLUTION_PORT",
+    "SolvedNetwork",
+    "edge_dp",
+    "find_path_edges",
+    "register",
+    "solve_flownet_bytes",
+]
 
 #: The flownet payload input port (kind `flownet`, D154).
 FLOWNET_PORT = "fluids.network.flownet"
@@ -516,6 +524,135 @@ def _hardy_cross_solve(
         max_dq,
     )
     return Err(SolveError.NoConvergence(iterations=_HC_MAX_ITER, residual=max_dq))
+
+
+class SolvedNetwork:
+    """The parsed + Hardy-Cross-converged network (WO-141 pack bridge):
+    wraps the SAME solved `_Edge` list `hardy_cross_fn` serializes to
+    its `table` output (NO DUPLICATION -- re-solving per query model
+    would be a second copy of the loop-correction call), plus by-id
+    and by-node indexes the query models in `feldspar.pack.models`
+    (`FluidsMdotModel`/`FluidsFlowImbalanceModel`/`FluidsDpModel`) use
+    to answer a single-edge flow, a sibling-edge-set imbalance, or a
+    multi-segment path pressure drop without re-parsing the payload."""
+
+    __slots__ = ("payload", "edges", "by_id", "incidence")
+
+    def __init__(self, payload: _FlownetPayload, edges: list[_Edge]) -> None:
+        self.payload = payload
+        self.edges = edges
+        self.by_id: dict[str, _Edge] = {e.id: e for e in edges}
+        incidence: dict[str, list[tuple[_Edge, int]]] = {n: [] for n in payload.nodes}
+        for e in edges:
+            incidence[e.a].append((e, -1))  # e.flow > 0 = outflow from a
+            incidence[e.b].append((e, 1))  # and inflow to b
+        self.incidence = incidence
+
+
+def solve_flownet_bytes(data: bytes) -> "Result[SolvedNetwork, SolveError]":
+    """Parses `data` as a `_FlownetPayload` (D154 wire subset, this
+    module's own field-name-compatible schema) and runs the Hardy-Cross
+    solve (`_hardy_cross_solve`, NO DUPLICATION -- the exact function
+    `hardy_cross_fn` itself calls), returning a `SolvedNetwork` the
+    pack query models index by edge id / node id. Never imports
+    regolith (FINV-3/10): this takes raw bytes, already resolved by the
+    caller (`feldspar.pack.models`, under the FINV-3 boundary) through
+    whatever `PayloadResolver` it has -- the parse boundary here is the
+    same one `hardy_cross_fn` uses, just exposed as a standalone
+    function instead of inlined in a solver-direction closure.
+
+    Any bytes that do not validate against the `_FlownetPayload` shape
+    are an honest `SolveError.ParseFailed`, never a silent partial
+    parse; a solve failure (unsupported edge kind, disconnected net,
+    unbalanced/overconstrained demand, non-convergence) is whatever
+    `_hardy_cross_solve` itself reports, unchanged."""
+    try:
+        payload = _FlownetPayload.model_validate_json(data)
+    except Exception as exc:  # noqa: BLE001 -- any parse failure is an honest ParseFailed
+        _log.info("solve_flownet_bytes: flownet payload parse failed: %s", exc)
+        return Err(SolveError.ParseFailed(context=f"flownet payload: {exc}"))
+    solved = _hardy_cross_solve(payload)
+    if solved.is_err:
+        return Err(solved.danger_err)
+    return Ok(SolvedNetwork(payload, solved.danger_ok))
+
+
+def edge_dp(edge: "_Edge") -> float:
+    """The converged signed pressure drop across one solved edge (a->b
+    positive sense): pipes via Darcy-Weisbach at the converged flow
+    (`_pipe_dp_and_k`, NO DUPLICATION -- the same helper `hardy_cross_
+    fn`'s own row-building loop calls); imposer edges report `0.0` --
+    the module's own named cut (no head-loss model for a fixed-flow
+    branch, see `_hardy_cross_solve`'s all-imposer-loop refusal for the
+    same admission stated as a hard error there; here, on an edge that
+    is merely PART of a longer queried path rather than the whole loop,
+    a zero contribution is the honest "this branch's head loss is not
+    modeled" statement, not a fabricated number)."""
+    if edge.kind != "pipe":
+        return 0.0
+    dp, _k = _pipe_dp_and_k(edge, edge.flow)
+    return dp
+
+
+def find_path_edges(
+    solved: SolvedNetwork, node_a: str, node_b: str
+) -> "Result[list[tuple[_Edge, int]], SolveError]":
+    """BFS shortest path (by edge count) from `node_a` to `node_b` over
+    the FULL solved edge set (pipe + imposer), returned as `(edge,
+    sign)` pairs where `sign=+1` means the path traverses the edge in
+    its own `a->b` sense, `-1` the reverse.
+
+    Once Hardy-Cross has converged, the network's node heads form a
+    consistent potential field (White, Fluid Mechanics, 8th ed., sec.
+    6.8): the total head difference between any two nodes is the same
+    regardless of which connecting path sums it, so BFS-shortest is
+    just the cheapest path to compute, never a physically-privileged
+    one. `Err(SolveError.OutOfDomain(...))` names an unknown node id or
+    a genuinely disconnected pair (unreachable in practice once the
+    overall solve already refused a disconnected graph, but checked
+    honestly rather than assumed)."""
+    if node_a not in solved.incidence or node_b not in solved.incidence:
+        return Err(
+            SolveError.OutOfDomain(
+                payload_feature_violation(FLOWNET_PORT, "unknown_node")
+            )
+        )
+    if node_a == node_b:
+        return Ok([])
+    adjacency: dict[str, list[tuple[str, _Edge, int]]] = {
+        n: [] for n in solved.payload.nodes
+    }
+    for e in solved.edges:
+        adjacency[e.a].append((e.b, e, 1))
+        adjacency[e.b].append((e.a, e, -1))
+
+    visited = {node_a}
+    parent: dict[str, tuple[str, _Edge, int]] = {}
+    queue = [node_a]
+    while queue:
+        node = queue.pop(0)
+        if node == node_b:
+            break
+        for neighbor, e, sign in adjacency[node]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                parent[neighbor] = (node, e, sign)
+                queue.append(neighbor)
+
+    if node_b not in visited:
+        return Err(
+            SolveError.OutOfDomain(
+                payload_feature_violation(FLOWNET_PORT, "disconnected_query_path")
+            )
+        )
+    path: list[tuple[_Edge, int]] = []
+    cur = node_b
+    while cur != node_a:
+        prev, e, sign = parent[cur]
+        path.append((e, sign))
+        cur = prev
+    path.reverse()
+    return Ok(path)
 
 
 def _make_hardy_cross_direction(resolver: PayloadResolver):

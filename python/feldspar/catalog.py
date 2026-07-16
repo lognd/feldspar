@@ -30,7 +30,21 @@ F12 ordering rules (accumulated-port-table guard,
   `feldspar.library` package now only carries compat shims.)
 - Payload-port modules (`fea.payload_steps`, `fluids.network`) keep
   their established last-ish slots; their ports are disjoint from
-  everything before them."""
+  everything before them.
+
+To add a NEW solver library domain (e.g. a fresh `feldspar.<domain>`
+package): implement `register(registry)` (or `register(registry,
+resolver)` if the domain owns payload ports, matching `fea.
+payload_steps`/`fluids.network`) in that domain module, import it at
+the top of `build_engine_catalog` (function-local, like every import
+below, to keep this module import-cheap), and add ONE call to it in
+the `registry = SolverRegistry()` .. `registry.freeze()` block below --
+HERE is the one composition home (this docstring's F12 ordering rules
+above govern where in the call sequence it goes). This is a distinct
+seam from `feldspar.pack.register(registry)` (`pack/__init__.py`),
+which registers regolith `Model` wrappers on a regolith
+`ModelRegistry`, not raw `@solver` directions on this engine
+`SolverRegistry`."""
 
 from feldspar.logging_setup import get_logger
 from feldspar.solve.payload import PayloadResolver

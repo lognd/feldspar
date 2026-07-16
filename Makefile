@@ -1,4 +1,4 @@
-.PHONY: install install-regolith build test regolith-test lint import-lint fmt-check format typecheck coverage check keys clean sync-examples
+.PHONY: install install-regolith build test regolith-test lint import-lint fmt-check format typecheck coverage check check-consistency keys clean sync-examples
 
 # Default install works WITHOUT a sibling lithos checkout: the
 # `regolith` extra is an editable path dependency on ../lithos and only
@@ -44,6 +44,9 @@ coverage:
 check: fmt-check lint import-lint typecheck test
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo test --workspace
+
+check-consistency: ## Report stray git worktrees whose branch is already merged into main (separate leg, not part of `check`)
+	bash scripts/consistency_sweep.sh
 
 keys:
 	mkdir -p keys

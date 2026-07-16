@@ -12,6 +12,8 @@ from regolith.harness.signature import ClaimSense  # noqa: E402
 from feldspar.__about__ import __version__  # noqa: E402
 from feldspar.logging_setup import get_logger  # noqa: E402
 from feldspar.pack.models import (  # noqa: E402
+    DEFAULT_FLUIDS_MDOT_HI_CLAIM_KIND,
+    DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND,
     DEFAULT_MICROSTRIP_Z0_HI_CLAIM_KIND,
     DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND,
     DEFAULT_RAIL_HI_CLAIM_KIND,
@@ -32,6 +34,9 @@ from feldspar.pack.models import (  # noqa: E402
     FeaStaticDeflectionFromGeometryModel,
     FeaStaticDeflectionModel,
     FeaStaticStressModel,
+    FluidsDpModel,
+    FluidsFlowImbalanceModel,
+    FluidsMdotModel,
     LeadscrewTorqueRaiseModel,
     MechStiffnessModel,
     MemberAxialCapacityModel,
@@ -185,7 +190,32 @@ def register(registry: Any) -> None:
     registry.register(TheveninTerminationR2Model())
     registry.register(AcShuntResistorModel())
     registry.register(AcShuntCapacitorModel())
-    _log.info("feldspar.pack: registered 32 regolith model(s)")
+    # WO-141 (feldspar fluids pack bridge): the Hardy-Cross network
+    # solver (`feldspar.fluids.network`) wrapped as three regolith
+    # models -- burns the F126.1 "no registered harness model"
+    # waiver family for `fluids.mdot`/`fluids.flow_imbalance`/
+    # multi-path `fluids.dp`. `FluidsMdotModel` registers twice (lo/hi,
+    # the `ElecRailModel` two-instance shape) for a window claim's two
+    # obligation halves; `FluidsFlowImbalanceModel`/`FluidsDpModel`
+    # are upper-bound-only (an imbalance fraction and a pressure drop
+    # both have exactly one sense-bearing direction). See `pack.models`'
+    # own WO-141 section comment for the edge/node selection
+    # convention these three share.
+    registry.register(
+        FluidsMdotModel(
+            claim_kind=DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND,
+            sense=ClaimSense.lower_bound(),
+        )
+    )
+    registry.register(
+        FluidsMdotModel(
+            claim_kind=DEFAULT_FLUIDS_MDOT_HI_CLAIM_KIND,
+            sense=ClaimSense.upper_bound(),
+        )
+    )
+    registry.register(FluidsFlowImbalanceModel())
+    registry.register(FluidsDpModel())
+    _log.info("feldspar.pack: registered 37 regolith model(s)")
 
 
 # The one discovery seam's target (lithos WO-44/AD-26): the entry point

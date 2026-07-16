@@ -25,6 +25,13 @@ from typani.result import Err, Ok, Result
 
 from feldspar import _feldspar
 from feldspar.__about__ import __version__
+from feldspar.fluids.network import (
+    FLOWNET_PORT,
+    SolvedNetwork,
+    edge_dp,
+    find_path_edges,
+    solve_flownet_bytes,
+)
 from feldspar.logging_setup import get_logger
 from feldspar.pack.converters import to_feldspar_interval, to_feldspar_payload_ref
 from feldspar.pack.errors import map_engine_error, margin_exhausted_error
@@ -69,6 +76,13 @@ __all__ = [
     "TheveninTerminationR2Model",
     "AcShuntResistorModel",
     "AcShuntCapacitorModel",
+    "DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND",
+    "DEFAULT_FLUIDS_MDOT_HI_CLAIM_KIND",
+    "DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND",
+    "DEFAULT_FLUIDS_DP_CLAIM_KIND",
+    "FluidsMdotModel",
+    "FluidsFlowImbalanceModel",
+    "FluidsDpModel",
 ]
 
 # Vocabulary-owned default claim kinds (06 "Models", DECIDED D94/WO-30
@@ -2037,3 +2051,362 @@ class AcShuntCapacitorModel(_ClosedFormEngineModel):
             inputs=self._inputs,
             domain=("ac_shunt", "quarter_rise_time_heuristic", "johnson_graham_ch4"),
         )
+
+
+# ---------------------------------------------------------------------------
+# WO-141 "feldspar fluids pack bridge": wraps `feldspar.fluids.network`'s
+# Hardy-Cross loop solver (already consuming the lithos `FlownetPayload`,
+# `network.py`'s own module doc) as three regolith `Model`s, so the
+# fluid corpus's `fluids.mdot`/`fluids.flow_imbalance`/multi-path
+# `fluids.dp` claims stop honestly-waiving for want of ANY registered
+# model (lithos recon `scratch_recon_thermo_fluids.md` sec. 1.5/5,
+# F126.1) and start discharging for real when this pack is installed.
+#
+# EDGE/NODE SELECTION CONVENTION (the one piece of wiring this WO
+# invents, since it has no lithos-side counterpart yet -- flagged for
+# the lithos-side translate work, WO-141's other half, to confirm or
+# adapt): the `FlownetPayload` schema (fluorite/03 sec. 2) has no
+# "which edge/node does this claim mean" field, and `DischargeRequest`
+# has no string-valued channel beyond payload refs -- `inputs` is
+# `Mapping[str, Interval]` (regolith/07, `harness/model.py`), floats
+# only. Rather than invent a NEW lithos-side payload kind or schema
+# field (out of this WO's scope -- schemas are single-sourced Rust,
+# `lithos:CLAUDE.md`), these models reuse the ONE existing dynamic
+# channel `ModelSignature.accepts` already permits: `accepts()` only
+# requires the DECLARED `inputs` tuple's ports be PRESENT (a subset
+# check, `harness/signature.py:74-82`), so a request MAY carry
+# additional named scalar entries beyond what any signature declares.
+# The convention: the translate side names the SELECTED edge/node ids
+# themselves as EXTRA keys in `DischargeRequest.inputs` (any pinned
+# `Interval`, e.g. `Interval(lo=1.0, hi=1.0)`, as a presence flag) --
+# `estimate()` here intersects `request.inputs.keys()` against the
+# resolved network's actual edge/node ids to recover the selection,
+# never guessing which edge a claim means. This needs ZERO lithos
+# schema changes: it is ordinary `given:` scalar data from the
+# translate side's point of view, just keyed by the domain identifier
+# instead of a physical-quantity name.
+# ---------------------------------------------------------------------------
+
+DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND = "fluids.mdot.lo"
+DEFAULT_FLUIDS_MDOT_HI_CLAIM_KIND = "fluids.mdot.hi"
+DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND = "fluids.flow_imbalance"
+DEFAULT_FLUIDS_DP_CLAIM_KIND = "fluids.dp"
+
+#: `fluids.dp`'s two path-endpoint selector keys carry a fixed role
+#: value (0.0 for the "from" node, 1.0 for the "to" node) so direction
+#: survives even though the endpoints arrive as unordered dict keys --
+#: see `FluidsDpModel`'s own docstring.
+_DP_FROM_ROLE = 0.0
+_DP_TO_ROLE = 1.0
+
+
+def _resolve_solved_network(
+    request: DischargeRequest,
+    resolver: "Callable[[str], Result[bytes, object]] | None",
+    model_id: str,
+) -> "Result[SolvedNetwork, HarnessError]":
+    """Shared plumbing (NO DUPLICATION) for the three flownet-query
+    models below: resolves `request.payloads[FLOWNET_PORT]` through
+    the D154 resolver-threading convention
+    (`FeaStaticDeflectionFromGeometryModel`/`FatigueMinerDamageModel`'s
+    own opt-in verbatim -- see either docstring for the full threading
+    reasoning, not repeated here) and runs the Hardy-Cross solve. A
+    request with no `FLOWNET_PORT` payload never reaches this function
+    (`ModelSignature.accepts_payloads` already filtered it out as a
+    non-match at selection time); an unresolvable digest, a schema-
+    version mismatch, or a solve failure (unsupported edge kind,
+    disconnected net, non-convergence) is the honest `DomainError`
+    the caller returns as-is (06 "Failures"), never a raised
+    exception."""
+    flownet_ref = request.payloads[FLOWNET_PORT]
+    engine_resolver = (
+        RegolithResolverAdapter(resolver) if resolver is not None else NoStoreResolver()
+    )
+    resolved = engine_resolver.resolve(to_feldspar_payload_ref(flownet_ref))
+    if resolved.is_err:
+        _log.info("%s: flownet payload unresolvable: %r", model_id, resolved.danger_err)
+        return Err(map_engine_error(model_id, resolved.danger_err))
+    solved = solve_flownet_bytes(resolved.danger_ok)
+    if solved.is_err:
+        _log.info("%s: hardy-cross solve failed: %r", model_id, solved.danger_err)
+        return Err(map_engine_error(model_id, solved.danger_err))
+    return Ok(solved.danger_ok)
+
+
+class FluidsMdotModel(Model):
+    """Single-edge mass/volumetric flow-rate query over a solved
+    Hardy-Cross network (`fluids.mdot(<edge>)`), one instance per
+    bound half (lo/hi, the `ElecRailModel` two-instance shape --
+    `pack.register()` would instantiate this twice for a window claim
+    `fluids.mdot(edge) in [lo, hi]`, once for a single-direction
+    comparison `fluids.mdot(edge) >= lo`).
+
+    Reports the converged `flow_rate` (m^3/s, signed by the edge's own
+    `a->b` sense) of whichever ONE edge in the resolved flownet the
+    request's extra `inputs` keys select (see this file's WO-141
+    section-comment for the selection convention). Exactly one
+    matching edge id is required to close the claim; zero or more than
+    one is an honest `DomainError` naming the ambiguity -- never a
+    guess at which edge was meant."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND, sense: ClaimSense
+    ) -> None:
+        """`claim_kind` defaults to the lower-bound vocabulary kind;
+        `sense` is required (mirrors `ElecRailModel`'s constructor --
+        `pack.register()` binds one lo/hi pair explicitly, no implicit
+        default direction)."""
+        self._claim_kind = claim_kind
+        self._sense = sense
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name=f"fluids_mdot_{'hi' if self._sense.upper else 'lo'}",
+            claim_kind=self._claim_kind,
+            sense=self._sense,
+            inputs=(),
+            domain=("incompressible", "network", "hardy_cross"),
+            payload_kinds={FLOWNET_PORT: "flownet"},
+        )
+
+    @property
+    def version(self) -> str:
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Payload-tier cost (mirrors `FeaStaticDeflectionFromGeometryModel`
+        /`FatigueMinerDamageModel`): a full network solve is costlier
+        than any scalar closed form, so a cheaper declared-`mdot`
+        closed form (if one is ever registered under the same kind)
+        keeps winning when it applies."""
+        return _PAYLOAD_TIER_COST
+
+    def estimate(
+        self,
+        request: DischargeRequest,
+        *,
+        resolver: Callable[[str], Result[bytes, object]] | None = None,
+    ) -> Result[Prediction, HarnessError]:
+        network_result = _resolve_solved_network(request, resolver, self.model_id)
+        if network_result.is_err:
+            return Err(network_result.danger_err)
+        network = network_result.danger_ok
+
+        selected = [edge_id for edge_id in request.inputs if edge_id in network.by_id]
+        if len(selected) != 1:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=(
+                        f"fluids.mdot needs exactly one selected edge id among "
+                        f"the request's inputs to match a flownet edge; found "
+                        f"{len(selected)}: {sorted(selected)}"
+                    ),
+                )
+            )
+        edge = network.by_id[selected[0]]
+        _log.info(
+            "%s: edge=%s flow_rate=%s (sense.upper=%s)",
+            self.model_id,
+            edge.id,
+            edge.flow,
+            self._sense.upper,
+        )
+        return Ok(Prediction(value=edge.flow, eps=0.0, coverage=1.0, in_domain=True))
+
+
+class FluidsFlowImbalanceModel(Model):
+    """Sibling-branch flow-distribution-uniformity query over a solved
+    Hardy-Cross network (`fluids.flow_imbalance([e1, e2, ...])`), an
+    upper-bound claim: `(max - min) / mean` of `|flow|` over the
+    SELECTED sibling edges must stay AT OR BELOW the caller's stated
+    fraction (the fluorite corpus's `balance: fluids.flow_imbalance(...)
+    < 5%` shape, `docs/guide/03-fluorite-guide.md:239` -- read there,
+    not reproduced here).
+
+    The selected edge SET is whichever two-or-more edge ids the
+    request's extra `inputs` keys name (this file's WO-141 section
+    comment); fewer than two matching edges cannot express an
+    imbalance and is an honest `DomainError`, not a fabricated `0%`."""
+
+    def __init__(
+        self, *, claim_kind: str = DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND
+    ) -> None:
+        self._claim_kind = claim_kind
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="fluids_flow_imbalance",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=(),
+            domain=("incompressible", "network", "hardy_cross"),
+            payload_kinds={FLOWNET_PORT: "flownet"},
+        )
+
+    @property
+    def version(self) -> str:
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        return _PAYLOAD_TIER_COST
+
+    def estimate(
+        self,
+        request: DischargeRequest,
+        *,
+        resolver: Callable[[str], Result[bytes, object]] | None = None,
+    ) -> Result[Prediction, HarnessError]:
+        network_result = _resolve_solved_network(request, resolver, self.model_id)
+        if network_result.is_err:
+            return Err(network_result.danger_err)
+        network = network_result.danger_ok
+
+        selected = sorted(
+            edge_id for edge_id in request.inputs if edge_id in network.by_id
+        )
+        if len(selected) < 2:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=(
+                        f"fluids.flow_imbalance needs at least two selected "
+                        f"edge ids among the request's inputs that match "
+                        f"flownet edges; found {len(selected)}: {selected}"
+                    ),
+                )
+            )
+        flows = [abs(network.by_id[edge_id].flow) for edge_id in selected]
+        mean_flow = sum(flows) / len(flows)
+        if mean_flow <= 0.0:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=(
+                        f"fluids.flow_imbalance over edges {selected} has zero "
+                        "mean flow -- imbalance fraction is undefined, not "
+                        "reportable as 0%"
+                    ),
+                )
+            )
+        imbalance = (max(flows) - min(flows)) / mean_flow
+        _log.info(
+            "%s: edges=%s flows=%s imbalance=%s",
+            self.model_id,
+            selected,
+            flows,
+            imbalance,
+        )
+        return Ok(Prediction(value=imbalance, eps=0.0, coverage=1.0, in_domain=True))
+
+
+class FluidsDpModel(Model):
+    """Multi-segment (multi-path) pressure-drop query over a solved
+    Hardy-Cross network (`fluids.dp(<from> -> <to>)`), an upper-bound
+    claim: the summed signed pressure drop along the network path
+    connecting the two named nodes must stay AT OR BELOW the caller's
+    stated limit -- the F132.3 refusal this WO burns
+    (`examples/flagships/espresso_machine/brew_water.fluo:169`, lithos
+    recon sec. 1.4/2b): a flowmeter-plus-check-valve span (or any
+    multi-component path) that the single-segment
+    `FluidPressureDropModel` (lithos harness, one Darcy-Weisbach edge
+    only) cannot express.
+
+    Registers under the SAME claim kind (`fluids.dp`, default) the
+    lithos single-segment closed form uses (D94: multiple models MAY
+    compete under one kind) -- this payload-tier model only wins the
+    cost competition when the single-segment model's declared inputs
+    are absent AND a flownet payload is present, i.e. exactly the
+    multi-path case the single-segment model cannot cover.
+
+    Path endpoints: the request's extra `inputs` keys name exactly TWO
+    node ids present in the resolved flownet (this file's WO-141
+    section comment); each carries a fixed ROLE value distinguishing
+    direction -- `_DP_FROM_ROLE` (0.0) for the origin, `_DP_TO_ROLE`
+    (1.0) for the destination (an unordered pair of dict keys alone
+    cannot carry direction, and `fluids.dp(a -> b)` is directional:
+    `dp(a -> b) == -dp(b -> a)`). Anything other than exactly one
+    origin and one destination match is an honest `DomainError`."""
+
+    def __init__(self, *, claim_kind: str = DEFAULT_FLUIDS_DP_CLAIM_KIND) -> None:
+        self._claim_kind = claim_kind
+
+    @property
+    def signature(self) -> ModelSignature:
+        return ModelSignature(
+            name="fluids_dp_multipath",
+            claim_kind=self._claim_kind,
+            sense=ClaimSense.upper_bound(),
+            inputs=(),
+            domain=("incompressible", "network", "hardy_cross", "multi_path"),
+            payload_kinds={FLOWNET_PORT: "flownet"},
+        )
+
+    @property
+    def version(self) -> str:
+        return "1"
+
+    @property
+    def cost(self) -> int:
+        """Costlier than the single-segment closed form (a full
+        network solve + path search vs. one declared-input formula),
+        so the cheaper single-segment model keeps winning whenever its
+        own scalar inputs are actually supplied (06 "cost declares the
+        honest relative expense")."""
+        return _PAYLOAD_TIER_COST
+
+    def estimate(
+        self,
+        request: DischargeRequest,
+        *,
+        resolver: Callable[[str], Result[bytes, object]] | None = None,
+    ) -> Result[Prediction, HarnessError]:
+        network_result = _resolve_solved_network(request, resolver, self.model_id)
+        if network_result.is_err:
+            return Err(network_result.danger_err)
+        network = network_result.danger_ok
+
+        from_nodes = [
+            node_id
+            for node_id, interval in request.inputs.items()
+            if node_id in network.incidence
+            and interval.lo == interval.hi == _DP_FROM_ROLE
+        ]
+        to_nodes = [
+            node_id
+            for node_id, interval in request.inputs.items()
+            if node_id in network.incidence
+            and interval.lo == interval.hi == _DP_TO_ROLE
+        ]
+        if len(from_nodes) != 1 or len(to_nodes) != 1:
+            return Err(
+                DomainError(
+                    model_id=self.model_id,
+                    message=(
+                        "fluids.dp needs exactly one 'from' node "
+                        f"(role={_DP_FROM_ROLE}) and one 'to' node "
+                        f"(role={_DP_TO_ROLE}) among the request's inputs "
+                        f"matching flownet node ids; found "
+                        f"from={sorted(from_nodes)} to={sorted(to_nodes)}"
+                    ),
+                )
+            )
+
+        path_result = find_path_edges(network, from_nodes[0], to_nodes[0])
+        if path_result.is_err:
+            return Err(map_engine_error(self.model_id, path_result.danger_err))
+        path = path_result.danger_ok
+        total_dp = sum(sign * edge_dp(edge) for edge, sign in path)
+        _log.info(
+            "%s: path %s -> %s (%d edges) total dp=%s",
+            self.model_id,
+            from_nodes[0],
+            to_nodes[0],
+            len(path),
+            total_dp,
+        )
+        return Ok(Prediction(value=total_dp, eps=0.0, coverage=1.0, in_domain=True))

@@ -13,8 +13,9 @@ regolith `Prediction`. All regolith imports live here, under
 `feldspar.pack` (FINV-3/10)."""
 
 
+import itertools
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from regolith._schema.models import CoverageAxis, CoverageDomain1, CoverageMethod1
 from regolith.harness.errors import DomainError, HarnessError
@@ -673,6 +674,53 @@ _STIFFNESS_INPUTS = ("e_modulus", "i_area", "length")
 _RAIL_INPUTS = ("vin", "r1", "r2", "rload")
 
 
+def _finite_corner_sweep(
+    *,
+    model_id: str,
+    corner_names: Sequence[str],
+    corner_bounds: Sequence[tuple[float, float]],
+    compute: Callable[..., tuple[float, float]],
+    is_bad: Callable[[float], bool],
+    metric_name: str,
+    bad_description: str,
+) -> Result[tuple[float, float], DomainError]:
+    """Exhaustive corner sweep shared by `MechStiffnessModel.estimate`
+    and `ElecRailModel.estimate` -- the two closed-form models that
+    call `_feldspar` FFI directly instead of routing through
+    `_FeaModel`/`solve()` (NO DUPLICATION for the sweep/finiteness/hull
+    mechanics both hand-rolled the same way).
+
+    For every corner combination (lo/hi per input in `corner_bounds`,
+    `2**len(corner_bounds)` total), calls `compute(*combo)` -> `(guard_value,
+    fold_value)`: `guard_value` is checked by `is_bad` and named in the
+    error message on failure (`metric_name`/`bad_description` give the
+    exact wording), `fold_value` is the value hulled into the returned
+    `(lo_hull, hi_hull)`. Returns `Err(DomainError)` naming the first
+    offending corner, or `Ok((lo_hull, hi_hull))` across every corner."""
+    value_sets = [sorted({lo, hi}) for lo, hi in corner_bounds]
+    lo_hull = math.inf
+    hi_hull = -math.inf
+    for combo in itertools.product(*value_sets):
+        guard_value, fold_value = compute(*combo)
+        if is_bad(guard_value):
+            named = " ".join(
+                f"{name}={value}"
+                for name, value in zip(corner_names, combo, strict=True)
+            )
+            return Err(
+                DomainError(
+                    model_id=model_id,
+                    message=(
+                        f"{metric_name} {bad_description} at {named}: "
+                        f"{metric_name}={guard_value}"
+                    ),
+                )
+            )
+        lo_hull = min(lo_hull, fold_value)
+        hi_hull = max(hi_hull, fold_value)
+    return Ok((lo_hull, hi_hull))
+
+
 class MechStiffnessModel(Model):
     """Closed-form cantilever tip stiffness `k = 3*E*I/L**3`, a floor
     claim (`mech.stiffness`, `value >= limit`).
@@ -748,26 +796,33 @@ class MechStiffnessModel(Model):
                 )
             )
 
-        worst = math.inf
-        for e in sorted({e_modulus.lo, e_modulus.hi}):
-            for i in sorted({i_area.lo, i_area.hi}):
-                for length_corner in sorted({length.lo, length.hi}):
-                    deflection = _feldspar.mech_cantilever_tip_deflection(
-                        1.0, length_corner, e, i
-                    )
-                    if not math.isfinite(deflection) or deflection <= 0.0:
-                        return Err(
-                            DomainError(
-                                model_id=self.model_id,
-                                message=(
-                                    f"deflection non-finite or non-positive at "
-                                    f"e_modulus={e} i_area={i} "
-                                    f"length={length_corner}: deflection={deflection}"
-                                ),
-                            )
-                        )
-                    stiffness = 1.0 / deflection
-                    worst = min(worst, stiffness)
+        def _compute(e: float, i: float, length_corner: float) -> tuple[float, float]:
+            """One corner: FFI deflection at unit force is the guard
+            value, its reciprocal (stiffness) is the folded value."""
+            deflection = _feldspar.mech_cantilever_tip_deflection(
+                1.0, length_corner, e, i
+            )
+            stiffness = 1.0 / deflection if deflection != 0.0 else math.inf
+            return deflection, stiffness
+
+        sweep = _finite_corner_sweep(
+            model_id=self.model_id,
+            corner_names=("e_modulus", "i_area", "length"),
+            corner_bounds=(
+                (e_modulus.lo, e_modulus.hi),
+                (i_area.lo, i_area.hi),
+                (length.lo, length.hi),
+            ),
+            compute=_compute,
+            is_bad=(
+                lambda deflection: not math.isfinite(deflection) or deflection <= 0.0
+            ),
+            metric_name="deflection",
+            bad_description="non-finite or non-positive",
+        )
+        if sweep.is_err:
+            return Err(sweep.danger_err)
+        worst, _ = sweep.danger_ok
 
         _log.info(
             "%s: worst-corner stiffness=%s over e_modulus=%s i_area=%s length=%s",
@@ -862,25 +917,29 @@ class ElecRailModel(Model):
                 )
             )
 
-        lo_hull = math.inf
-        hi_hull = -math.inf
-        for v in sorted({vin.lo, vin.hi}):
-            for a in sorted({r1.lo, r1.hi}):
-                for b in sorted({r2.lo, r2.hi}):
-                    for c in sorted({rload.lo, rload.hi}):
-                        vout = _feldspar.elec_divider_loaded_vout(v, a, b, c)
-                        if not math.isfinite(vout):
-                            return Err(
-                                DomainError(
-                                    model_id=self.model_id,
-                                    message=(
-                                        f"vout non-finite at vin={v} r1={a} r2={b} "
-                                        f"rload={c}: vout={vout}"
-                                    ),
-                                )
-                            )
-                        lo_hull = min(lo_hull, vout)
-                        hi_hull = max(hi_hull, vout)
+        def _compute(v: float, a: float, b: float, c: float) -> tuple[float, float]:
+            """One corner: FFI vout is both the guard value and the
+            folded value (no transform, unlike the stiffness model)."""
+            vout = _feldspar.elec_divider_loaded_vout(v, a, b, c)
+            return vout, vout
+
+        sweep = _finite_corner_sweep(
+            model_id=self.model_id,
+            corner_names=("vin", "r1", "r2", "rload"),
+            corner_bounds=(
+                (vin.lo, vin.hi),
+                (r1.lo, r1.hi),
+                (r2.lo, r2.hi),
+                (rload.lo, rload.hi),
+            ),
+            compute=_compute,
+            is_bad=lambda vout: not math.isfinite(vout),
+            metric_name="vout",
+            bad_description="non-finite",
+        )
+        if sweep.is_err:
+            return Err(sweep.danger_err)
+        lo_hull, hi_hull = sweep.danger_ok
 
         value = hi_hull if self._sense.upper else lo_hull
         _log.info(

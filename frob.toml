@@ -1,0 +1,66 @@
+check_base = "main"
+# feldspar is a mixed pyo3-library repo (Cargo.toml at root + python/): frob
+# auto-detects a single check type per invocation and Cargo.toml wins, so
+# `frob check .` alone would silently skip the entire Python stage (ruff/
+# ty/gates/exports/...). Pin to python here since that is where the gates
+# obligations (COV/TEST/DRIFT/SCOPE) and the bulk of the annotatable
+# surface live; feldspar's own `make check` continues to run the Rust
+# stage (cargo check/clippy/fmt/test) separately -- see README/Makefile.
+check_type = "python"
+
+[graph]
+exclude = [
+    "target/**",
+    ".venv/**",
+    "htmlcov/**",
+    ".idea/**",
+    ".feldspar/**",
+    "keys/**",
+    "fixtures/**",
+    "examples/lithos/**",
+    ".import_linter_cache/**",
+    "python/feldspar/_feldspar*",
+]
+
+[gates.severity]
+# Legacy-adoption baseline: snapshot-wide obligations warn on the
+# un-annotated legacy surface; diff-scoped and drift rules stay hard
+# errors. Tighten as annotation coverage grows.
+COV001 = "warn"
+TEST001 = "warn"
+TEST002 = "warn"
+TEST003 = "warn"
+TEST005 = "warn"
+TEST006 = "warn"
+
+[gates.docs]
+# DOC001 posture: feldspar's docs/ tree (spec/, workflow/) is a mature,
+# pre-existing corpus with its own README.md as the reading-order index,
+# not markdown-linked docs/index.md navigation. Retrofitting frob:describes
+# anchors or docs-index links across the whole spec/workflow tree is a
+# separate, deliberate pass -- see ticket. Disable the DOC001 obligation
+# for now rather than mass-editing docs.
+include = []
+
+[testing]
+min_unit_cases = 1
+min_integration = 1
+unit_branch_cov = 90
+module_line_cov = 85
+system_line_cov = 80
+
+[[test.runner]]
+language = "python"
+command = ["uv", "run", "pytest", "-q", "{ids}"]
+all_command = ["uv", "run", "pytest", "tests/", "-n", "auto", "-m", "not regolith and not fea and not spice"]
+cwd = "."
+
+[check]
+# ruff and ty both fail on the pre-existing legacy surface (4 ruff errors,
+# 10 files needing reformat, 256 ty diagnostics -- mostly PyO3 stub /
+# gradual-typing debt predating frob adoption). Fixing that is a source
+# change, out of scope for the adoption baseline itself; see ticket.
+# import-linter and cargo/rust tooling are not wired into frob's check
+# stages; feldspar drives those via `make check`/`make import-lint`
+# separately.
+skip = ["ruff", "ty"]

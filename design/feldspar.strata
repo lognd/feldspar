@@ -1,0 +1,374 @@
+// feldspar.strata -- feldspar's real topology, modeled honestly from the
+// code. feldspar is a typed graph of engineering solvers: a pyo3 Rust
+// core (quantity/domain/accuracy types + closed-form library), a Python
+// solver registry and planner above it, domain packages (mech, fluids,
+// thermo, heat, calib) contributing closed-form solvers, an FEA pipeline
+// (gmsh + CalculiX/ccx subprocess) and a spice pipeline (ngspice
+// subprocess), and a regolith model pack discovered by lithos through the
+// regolith.plugins entry point (the dependency arrow is one-way: lithos
+// calls in, feldspar never imports lithos' orchestrator).
+//
+// Sources read to build this model:
+//   - python/feldspar/core.py: `from feldspar import _feldspar` -- the
+//     pyo3 FFI surface (compiled from crates/feldspar-py).
+//   - python/feldspar/*/: import blocks per package (the flow edges
+//     below mirror the real matrix, see docs/workflow/
+//     strata-system-model.md for the runtime-dispatch exceptions).
+//   - python/feldspar/fea/ccx.py: FELDSPAR_CCX env probe + ccx
+//     subprocess; python/feldspar/elec/ngspice.py: FELDSPAR_NGSPICE env
+//     probe + ngspice subprocess (the ONLY two exec sites in the
+//     package).
+//   - python/feldspar/plan/cache.py: the .feldspar/cache on-disk plan
+//     cache (fs read/write).
+//   - scripts/gen_keys.py: writes keys/dev_ed25519.{key,pub} and
+//     refuses to overwrite the private key.
+//
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+module feldspar
+
+// -- nodes ------------------------------------------------------------
+
+// The Rust workspace: crates/feldspar-core (types), feldspar-library
+// (closed forms), feldspar-py (pyo3 bindings). Pure compute -- no
+// process/net/fs I/O in library code (the only std::process hit in
+// crates/** is feldspar-library/tests/extern_c_smoke.rs, a test).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node rust_core : trusted {
+    clearance Internal;
+    code "crates/**";
+}
+
+// The Python base surface everyone imports: package init, core.py (the
+// FFI re-export), the .pyi stub, and the shared logging setup.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node core_api : trusted {
+    clearance Internal;
+    code "python/feldspar/__init__.py" "python/feldspar/__about__.py"
+        "python/feldspar/core.py" "python/feldspar/_feldspar.pyi"
+        "python/feldspar/logging_setup/**";
+    // ffi: core.py imports the compiled _feldspar pyo3 module. Real but
+    // scanner-invisible (no needle for compiled-extension imports) --
+    // kept declared, see docs/workflow/strata-system-model.md#known-
+    // gaps-not-gamed-away.
+    may "ffi";
+    // fs: logging_setup/logger.py opens config.toml for dictConfig.
+    may "fs";
+}
+
+// The solver registry layer: typed ports, registry freeze, solver
+// packs, payload resolution, digests.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node solve : trusted {
+    clearance Internal;
+    code "python/feldspar/solve/**";
+    // eval: solve/packs.py loads solver packs through importlib.metadata
+    // entry points -- genuine dynamic code loading, declared honestly.
+    // (The scanner ALSO flags solve/sugar.py's `.eval(` method call on
+    // feldspar's own Expr type; that hit alone would be a false
+    // positive, but the entry-point loading makes the kind real.)
+    may "eval";
+}
+
+// The planner: route search under an error budget, execution (incl.
+// parallel workers), and the on-disk plan cache.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node plan : trusted {
+    clearance Internal;
+    code "python/feldspar/plan/**";
+    // fs: plan/cache.py reads/writes .feldspar/cache.
+    may "fs";
+}
+
+// Pure closed-form domain packages: mech, fluids, thermo, heat, calib.
+// No subprocess/env/fs anywhere in these trees (verified by grep), so
+// no `may` at all.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node domains : trusted {
+    clearance Internal;
+    code "python/feldspar/mech/**" "python/feldspar/fluids/**"
+        "python/feldspar/thermo/**" "python/feldspar/heat/**"
+        "python/feldspar/calib/**";
+    // fs: calib/store.py writes calibration records (write_text) --
+    // caught by the sys audit's own SYS100 scan after the first model
+    // draft missed it. NOTE the audit also reports 'eval' observed on
+    // this node: that is calib/harness.py's `.eval(` METHOD calls on
+    // feldspar's own expression type, not builtin eval -- a scanner
+    // false positive, deliberately NOT declared (see the wiring
+    // report's FROB GAPS).
+    may "fs";
+}
+
+// The FEA pipeline: deck generation, gmsh meshing (in-process C++
+// binding), ccx solving (subprocess), Richardson extrapolation.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node fea : trusted {
+    clearance Internal;
+    code "python/feldspar/fea/**";
+    // exec: fea/ccx.py runs the ccx binary (fixed argv).
+    may "exec";
+    // env: fea/ccx.py probes FELDSPAR_CCX and forwards os.environ to
+    // the solver process.
+    may "env";
+    // fs: deck files and mesh/result artifacts under the work dir.
+    may "fs";
+}
+
+// The spice pipeline: deck generation and ngspice runs.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node elec : trusted {
+    clearance Internal;
+    code "python/feldspar/elec/**";
+    // exec: elec/ngspice.py runs the ngspice binary (fixed argv).
+    may "exec";
+    // env: elec/ngspice.py probes FELDSPAR_NGSPICE.
+    may "env";
+    // fs: spice decks/results under the work dir.
+    may "fs";
+}
+
+// The aggregation surface: python/feldspar/library/** (registers the
+// closed-form solver set) and catalog.py (payload/registry catalog).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node library : trusted {
+    clearance Internal;
+    code "python/feldspar/library/**" "python/feldspar/catalog.py";
+}
+
+// The regolith bridge: pack/** wraps selected engine routes as
+// regolith.harness.Model subclasses, exposed via the regolith.plugins
+// entry point.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node pack : trusted {
+    clearance Internal;
+    code "python/feldspar/pack/**";
+}
+
+// Test helpers shipped in the package (python/feldspar/testing/**).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node testing_helpers : trusted {
+    clearance Internal;
+    code "python/feldspar/testing/**";
+}
+
+// Dev scripts: keypair generation and the lithos examples mirror.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+node scripts : trusted {
+    clearance Internal;
+    code "scripts/**";
+    // fs: gen_keys.py writes keys/, sync_lithos_examples.py rewrites
+    // examples/lithos/.
+    may "fs";
+}
+
+// lithos/regolith: the external consumer that discovers pack via the
+// regolith.plugins entry point and calls its models. External code
+// (sibling ../lithos checkout), no code glob here -- see
+// docs/workflow/strata-system-model.md#known-gaps-not-gamed-away.
+// frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+// frob:ticket T-0008
+node regolith_consumer : trusted {
+    clearance Internal;
+}
+
+// CalculiX (ccx): external FEA solver binary, resolved via PATH or
+// FELDSPAR_CCX.
+// frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+// frob:ticket T-0008
+node ccx_solver : trusted {
+    clearance Internal;
+}
+
+// ngspice: external spice solver binary, resolved via PATH or
+// FELDSPAR_NGSPICE.
+// frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+// frob:ticket T-0008
+node ngspice_solver : trusted {
+    clearance Internal;
+}
+
+// The on-disk plan cache (.feldspar/cache, plan/cache.py).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+store plan_cache : trusted {
+    clearance Internal;
+}
+
+// The dev signing keypair under keys/ (gen_keys.py). The private key
+// is a real secret on disk; nothing in python/feldspar/ reads it today
+// (verified by grep -- key use is dev tooling only).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+store dev_keys : trusted {
+    clearance Secret;
+}
+
+// -- flows ------------------------------------------------------------
+
+// The FFI edge: core.py imports the compiled _feldspar module built
+// from crates/feldspar-py.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_core_rust : core_api -> rust_core { label Internal; }
+
+// Import edges (verified against each package's import blocks).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_solve_core : solve -> core_api { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_plan_solve : plan -> solve { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_plan_core : plan -> core_api { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_domains_solve : domains -> solve { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_domains_core : domains -> core_api { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_fea_solve : fea -> solve { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_fea_core : fea -> core_api { label Internal; }
+// fea imports mech (beam/cylinder parametric families).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_fea_domains : fea -> domains { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_elec_solve : elec -> solve { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_elec_core : elec -> core_api { label Internal; }
+// elec imports fea (shared deck/runner plumbing).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_elec_fea : elec -> fea { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_library_domains : library -> domains { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_library_elec : library -> elec { label Internal; }
+// catalog.py imports solve (payload resolver, registry).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_library_solve : library -> solve { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_pack_plan : pack -> plan { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_pack_solve : pack -> solve { label Internal; }
+// pack imports fluids (pack bridge models, WO-141).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_pack_domains : pack -> domains { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_pack_core : pack -> core_api { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_testing_core : testing_helpers -> core_api { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_testing_solve : testing_helpers -> solve { label Internal; }
+
+// Runtime-dispatch edges (NOT imports): plan.execute() calls solver
+// functions through the frozen SolverRegistry, so the planner really
+// drives fea/elec work registered by those packages -- see
+// docs/workflow/strata-system-model.md#what-this-is for why these are
+// declared despite no import edge existing.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_plan_fea : plan -> fea { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_plan_elec : plan -> elec { label Internal; }
+
+// The engine subprocess edges.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_fea_ccx : fea -> ccx_solver { label Internal; }
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_elec_ngspice : elec -> ngspice_solver { label Internal; }
+
+// The plan cache store edge.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_plan_cache : plan -> plan_cache { label Internal; }
+
+// The consumer edge: lithos discovers pack via the regolith.plugins
+// entry point and calls its Model subclasses.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_regolith_pack : regolith_consumer -> pack { label Internal; }
+
+// Dev tooling writes the keypair.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+flow f_scripts_keys : scripts -> dev_keys { label Secret; }
+
+// -- claims -----------------------------------------------------------
+
+// 1. The whole point of the pack bridge: a regolith consumer can reach
+// the Rust closed-form core (pack -> plan -> solve -> core_api ->
+// rust_core).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+assert c_consumer_reaches_rust reach regolith_consumer -> rust_core
+
+// 2. And the FEA engine: pack models can route through the planner to
+// ccx (pack -> plan -> fea -> ccx_solver, via registry dispatch).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+assert c_consumer_reaches_ccx reach regolith_consumer -> ccx_solver
+
+// 3. The Rust core is a pure-compute leaf: no path from rust_core to
+// any engine binary.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+assert c_rust_pure noflow rust_core -> ccx_solver
+
+// 4. The dev signing key is reachable ONLY from dev scripts -- no path
+// from the consumer surface (and hence from any package code) to the
+// key store.
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+assert c_keys_only_scripts noflow regolith_consumer -> dev_keys
+
+// 5. Engines do not call back: no path from ccx_solver into the
+// registry/planner (results come back as files fea reads, not as a
+// control edge).
+// frob:doc docs/workflow/strata-system-model.md#what-this-is
+// frob:ticket T-0008
+assert c_ccx_no_callback noflow ccx_solver -> solve
+
+// -- assumptions (capability-driven obligations, honestly discharged) --
+
+// fea's and elec's `may "exec"` drag in CWE-78 (command injection).
+// Verified: both call sites build fixed argv lists from a resolved
+// binary path (PATH probe or FELDSPAR_CCX/FELDSPAR_NGSPICE) plus
+// deck-file paths generated by this package; shell=False, no
+// user-supplied string ever joins the argv. There is no foreign node
+// in this model (feldspar is a library; its callers are trusted
+// toolchain code), so the claim bodies name the outermost caller.
+// frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+assume "weakness:CWE-78:fea" noflow regolith_consumer -> fea owner logan review "2026-10-16"
+// frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+assume "weakness:CWE-78:elec" noflow regolith_consumer -> elec owner logan review "2026-10-16"

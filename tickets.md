@@ -132,3 +132,86 @@ attachments: []
 acceptance: []
 threat: null
 ```
+
+<!-- ticket:T-0008 -->
+```yaml
+id: T-0008
+title: 'strata pilot: design/feldspar.strata system model wired into frob sys'
+state: queued
+kind: feature
+origin: agent
+created: '2026-07-18'
+blocked_by: []
+parent: null
+scope:
+- design/** docs/workflow/strata-system-model.md
+evidence: []
+attachments: []
+acceptance:
+- given the committed design/feldspar.strata, when frob sys audit runs, then it exits
+  with PROVED or a named-gap state documented in docs/workflow/strata-system-model.md
+threat: null
+```
+Pilot agent task: model feldspar's real topology (pyo3 rust core, solver registry, planner, domain packages, FEA/spice engine subprocess boundaries, regolith pack bridge, dev key store) in strata and drive frob sys plan/doc/audit honestly.
+
+<!-- ticket:T-0009 -->
+```yaml
+id: T-0009
+title: Discharge CWE-78 at elec
+state: queued
+kind: security
+origin: agent
+created: '2026-07-18'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/elec/**
+evidence: []
+attachments: []
+acceptance: []
+threat: null
+```
+sys-plan:elec:CWE-78:threat
+
+claim 'weakness:CWE-78:elec' does not prove a mitigation chokepoint -- body must be NoFlow(src=<foreign source>, dst='elec')
+
+<!-- ticket:T-0010 -->
+```yaml
+id: T-0010
+title: Discharge CWE-78 at fea
+state: queued
+kind: security
+origin: agent
+created: '2026-07-18'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/fea/**
+evidence: []
+attachments: []
+acceptance: []
+threat: null
+```
+sys-plan:fea:CWE-78:threat
+
+claim 'weakness:CWE-78:fea' does not prove a mitigation chokepoint -- body must be NoFlow(src=<foreign source>, dst='fea')
+
+<!-- ticket:T-0011 -->
+```yaml
+id: T-0011
+title: Bind secret dev_keys in code
+state: queued
+kind: security
+origin: agent
+created: '2026-07-18'
+blocked_by: []
+parent: null
+scope: []
+evidence: []
+attachments: []
+acceptance: []
+threat: info-disclosure
+```
+sys-plan:dev_keys:unbound
+
+secret `dev_keys` has no code binding; add `frob:secret dev_keys` at the enforcing site (docs/strata/surface.md#directives-t-0080).

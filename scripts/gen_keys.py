@@ -26,6 +26,7 @@ PUBLIC_KEY_PATH = KEYS_DIR / "dev_ed25519.pub"
 
 def main() -> None:
     """Writes a fresh dev keypair, refusing to overwrite an existing private key."""
+    # frob:secret dev_keys
     # frob:doc docs/workflow/dev-scripts.md#gen-keys
     # frob:ticket T-0007
     KEYS_DIR.mkdir(parents=True, exist_ok=True)

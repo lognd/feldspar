@@ -26,6 +26,8 @@ MARKER = "# MIRROR of lithos:examples/ -- do not edit; `make sync-examples` rege
 
 def sync(lithos_root: Path) -> int:
     """Copy lithos/examples into examples/lithos verbatim; returns file count."""
+    # frob:doc docs/workflow/dev-scripts.md
+    # frob:ticket T-0007
     src = lithos_root / "examples"
     if not src.is_dir():
         logger.error("lithos examples tree not found: %s", src)
@@ -41,6 +43,9 @@ def sync(lithos_root: Path) -> int:
 
 
 def main() -> int:
+    """CLI entry point: parses --lithos and syncs the examples mirror from it."""
+    # frob:doc docs/workflow/dev-scripts.md
+    # frob:ticket T-0007
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

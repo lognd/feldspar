@@ -23,6 +23,8 @@ PUBLIC_KEY_PATH = KEYS_DIR / "dev_ed25519.pub"
 
 def main() -> None:
     """Writes a fresh dev keypair, refusing to overwrite an existing private key."""
+    # frob:doc docs/workflow/dev-scripts.md
+    # frob:ticket T-0007
     KEYS_DIR.mkdir(parents=True, exist_ok=True)
     if PRIVATE_KEY_PATH.exists():
         print(f"keys: {PRIVATE_KEY_PATH} already exists, not overwriting")

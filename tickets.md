@@ -16,6 +16,8 @@ scope:
 - python/feldspar/**
 evidence: []
 attachments: []
+acceptance: []
+threat: null
 ```
 
 <!-- ticket:T-0002 -->
@@ -34,6 +36,8 @@ scope:
 - tests/**
 evidence: []
 attachments: []
+acceptance: []
+threat: null
 ```
 
 <!-- ticket:T-0003 -->
@@ -52,6 +56,8 @@ scope:
 - tests/**
 evidence: []
 attachments: []
+acceptance: []
+threat: null
 ```
 
 <!-- ticket:T-0004 -->
@@ -68,6 +74,8 @@ scope:
 - .frob/coverage-stamp
 evidence: []
 attachments: []
+acceptance: []
+threat: null
 ```
 
 <!-- ticket:T-0005 -->
@@ -84,6 +92,8 @@ scope:
 - python/feldspar/**
 evidence: []
 attachments: []
+acceptance: []
+threat: null
 ```
 
 <!-- ticket:T-0006 -->
@@ -101,4 +111,24 @@ scope:
 - docs/**
 evidence: []
 attachments: []
+acceptance: []
+threat: null
+```
+
+<!-- ticket:T-0007 -->
+```yaml
+id: T-0007
+title: 'frob compliance: zero warnings'
+state: in-progress
+kind: feature
+origin: agent
+created: '2026-07-17'
+blocked_by: []
+parent: null
+scope:
+- python/,crates/,scripts/,docs/
+evidence: []
+attachments: []
+acceptance: []
+threat: null
 ```

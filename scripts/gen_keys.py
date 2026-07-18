@@ -16,14 +16,17 @@ except ImportError:
     )
     sys.exit(1)
 
+# frob:doc docs/workflow/dev-scripts.md#gen-keys
 KEYS_DIR = Path(__file__).resolve().parent.parent / "keys"
+# frob:doc docs/workflow/dev-scripts.md#gen-keys
 PRIVATE_KEY_PATH = KEYS_DIR / "dev_ed25519.key"
+# frob:doc docs/workflow/dev-scripts.md#gen-keys
 PUBLIC_KEY_PATH = KEYS_DIR / "dev_ed25519.pub"
 
 
 def main() -> None:
     """Writes a fresh dev keypair, refusing to overwrite an existing private key."""
-    # frob:doc docs/workflow/dev-scripts.md
+    # frob:doc docs/workflow/dev-scripts.md#gen-keys
     # frob:ticket T-0007
     KEYS_DIR.mkdir(parents=True, exist_ok=True)
     if PRIVATE_KEY_PATH.exists():

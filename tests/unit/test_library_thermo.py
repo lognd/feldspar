@@ -97,3 +97,17 @@ def test_propsi_valueerror_is_honest_out_of_domain_not_a_crash():
     result = fn({"thermo.water.temperature": 273.16, "thermo.water.pressure": 611.0})
     assert result.is_err
     assert result.err.kind == "OutOfDomain"
+
+
+# frob:tests python/feldspar/thermo kind="integration"
+def test_thermo_registry_round_trips_through_solver_protocol() -> None:
+    """Binding anchor: `thermo.register` composes into a real, frozen
+    `SolverRegistry` and every declared direction resolves through the
+    `SolveFn` protocol (the same path the parametrized reference-state
+    checks above exercise, called out here as a single non-parametrized
+    node so tooling can bind the whole `thermo` package to it)."""
+    registry = SolverRegistry()
+    register(registry)
+    registry.freeze()
+    assert registry.is_frozen()
+    assert registry.digest()

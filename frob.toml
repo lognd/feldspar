@@ -55,6 +55,18 @@ command = ["uv", "run", "pytest", "-q", "{ids}"]
 all_command = ["uv", "run", "pytest", "tests/", "-n", "auto", "-m", "not regolith and not fea and not spice"]
 cwd = "."
 
+[[test.runner]]
+# Wired for when `check_type` gains multi-language gates support (see
+# FROBLEMS.md 2026-07-18): `check_type = "python"` above currently gates
+# which runner(s) the gates stage consults, so this entry does not yet
+# make Rust `frob:tests`/`// frob:tests` bindings collectible -- kept
+# here so `frob test`/`cargo test` wiring is ready the moment that
+# changes, mirroring lithos's frob.toml.
+language = "rust"
+command = ["cargo", "test", "--workspace", "{filters}"]
+all_command = ["cargo", "test", "--workspace"]
+cwd = "."
+
 [check]
 # ruff and ty both fail on the pre-existing legacy surface (4 ruff errors,
 # 10 files needing reformat, 256 ty diagnostics -- mostly PyO3 stub /

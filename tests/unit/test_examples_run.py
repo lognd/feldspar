@@ -27,6 +27,9 @@ def _run_example(name: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+# frob:tests examples kind="integration"
+# frob:tests crates/feldspar-py/src kind="integration"
+# frob:tests python/feldspar/core.py kind="integration"
 def test_01_register_and_solve_runs() -> None:
     """Minimal register/freeze/solve/explain happy path exits clean."""
     result = _run_example("01_register_and_solve.py")
@@ -34,6 +37,7 @@ def test_01_register_and_solve_runs() -> None:
     assert "explain" not in result.stderr  # no traceback leaked to stderr
 
 
+# frob:tests python/feldspar/plan kind="integration"
 def test_02_tier_competition_runs() -> None:
     """Loose budget picks the cheap chart tier, tight budget forces the
     exact closed form -- both routing outcomes exercised in one run."""
@@ -53,6 +57,7 @@ def test_03_fea_cantilever_runs() -> None:
 
 
 @pytest.mark.regolith
+# frob:tests python/feldspar/pack kind="integration"
 def test_04_pack_discharge_runs() -> None:
     """The regolith host-side seam: feldspar's pack loads through the
     real entry point and produces a (possibly indeterminate) Evidence

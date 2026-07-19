@@ -220,3 +220,16 @@ def test_cantilever_fea_solve_is_deterministic_across_two_runs():
 
     assert first.settings_digest == second.settings_digest
     assert first.value.lo == pytest.approx(second.value.lo, rel=1e-9)
+
+
+# frob:tests python/feldspar/fea kind="integration"
+def test_fea_registry_round_trips_through_solver_protocol() -> None:
+    """Binding anchor: `fea`'s registered directions compose into a
+    real, frozen `SolverRegistry` (the same registry the parametrized
+    cantilever/cylinder checks above route real ccx/gmsh solves
+    through), called out as a single non-parametrized node so tooling
+    can bind the whole `fea` package to it."""
+    registry = _registry()
+    registry.freeze()
+    assert registry.is_frozen()
+    assert registry.digest()

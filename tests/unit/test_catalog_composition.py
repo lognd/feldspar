@@ -139,6 +139,7 @@ class DictResolver:
         return Ok(blob)
 
 
+# frob:tests python/feldspar/catalog.py kind="integration"
 def test_full_catalog_composes_with_every_direction_registered():
     """The pack's exact composition path succeeds end-to-end: every
     module's `register()` lands every direction (each register()

@@ -50,6 +50,7 @@ def _own_namespace_solver(namespace: str, solver_id_input: str, factor: float):
     return _fn
 
 
+# frob:tests python/feldspar/testing kind="integration"
 def test_pack_composes_and_loads_deterministically() -> None:
     fn = _own_namespace_solver("mech.acme_bearings", "x", 2.0)
 

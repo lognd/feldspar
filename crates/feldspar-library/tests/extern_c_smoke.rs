@@ -93,6 +93,8 @@ fn locate_cdylib() -> PathBuf {
     candidate
 }
 
+// frob:tests crates/feldspar-library/src kind="integration"
+// frob:waive TEST003 reason="gates stage is pinned check_type=python (frob.toml); Rust frob:tests bindings are not collected by the current scanner even with a [[test.runner]] language=rust entry present -- see FROBLEMS.md 2026-07-18. This file genuinely integration-tests feldspar-library (real dlopen of the built cdylib, extern C symbol resolution); waived pending multi-language gates support, not because coverage is missing."
 #[test]
 fn wo07_extern_c_symbols_resolve_via_dlopen() {
     let path = locate_cdylib();

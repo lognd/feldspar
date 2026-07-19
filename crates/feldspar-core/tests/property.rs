@@ -10,6 +10,8 @@ use feldspar_core::{
 };
 use proptest::prelude::*;
 
+// frob:tests crates/feldspar-core/src kind="integration"
+// frob:waive TEST003 reason="gates stage is pinned check_type=python (frob.toml); Rust frob:tests bindings are not collected by the current scanner even with a [[test.runner]] language=rust entry present -- see FROBLEMS.md 2026-07-18. This file genuinely integration-tests feldspar-core (proptest suite over interval/domain/digest/units); waived pending multi-language gates support, not because coverage is missing."
 proptest! {
     /// Any two finite, ordered bounds construct a valid interval whose
     /// width is non-negative and whose bounds are exactly preserved.

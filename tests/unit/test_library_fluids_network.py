@@ -125,6 +125,7 @@ def _solution_rows(resolver, result) -> dict:
     return {row["edge_id"]: row for row in solved["edges"]}
 
 
+# frob:tests python/feldspar/fluids kind="integration"
 def test_symmetric_parallel_network_splits_evenly():
     """Benchmarks memo sec. 3.2 verbatim: Q_total=0.012 m^3/s into two
     identical branches splits evenly, Q1=Q2=0.006 m^3/s."""

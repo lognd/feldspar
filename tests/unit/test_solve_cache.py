@@ -62,6 +62,7 @@ def _patch_cache(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(solve_mod, "SolveCache", _make_cache)
 
 
+# frob:tests python/feldspar/solve kind="integration"
 def test_solve_twice_identical_digest_second_served_from_cache(
     monkeypatch, tmp_path, caplog: pytest.LogCaptureFixture
 ) -> None:

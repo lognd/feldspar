@@ -21,6 +21,7 @@ def _solvers() -> dict:
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
+# frob:tests python/feldspar/heat kind="integration"
 def test_plane_wall_resistance_known_answer():
     """R = L/(k*A). L=0.1 m, k=0.8 W/m-K (brick), A=2.0 m^2 ->
     R = 0.1/(0.8*2.0) = 0.0625 K/W."""

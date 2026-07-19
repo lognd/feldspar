@@ -63,6 +63,8 @@ def test_committed_self_calibration_record_reproduces_deterministically():
     assert fresh_record.worst_rel_error == 0.0
 
 
+# frob:tests python/feldspar/calib kind="integration"
+# frob:tests python/feldspar/mech kind="integration"
 def test_check_ceilings_passes_for_frozen_mech_registry():
     """`check_ceilings` must succeed against the fully registered, frozen
     mech registry: all four Phase 1 directions declare `accuracy=EXACT`

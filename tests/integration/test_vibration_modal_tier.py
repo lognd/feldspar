@@ -87,6 +87,7 @@ _BEAM_KNOWN = {
 _BUDGET = 1e13
 
 
+# frob:tests python/feldspar/mech kind="integration"
 def test_first_mode_discharges_at_closed_form_tier_on_a_clean_beam() -> None:
     """Acceptance: a mech.first_mode-shaped claim discharges at
     closed-form tier on a clean beam -- the planner picks the cheap

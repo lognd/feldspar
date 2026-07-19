@@ -58,6 +58,7 @@ def _ngspice_registry() -> SolverRegistry:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/elec kind="integration"
 def test_ngspice_divider_matches_closed_form_oracle():
     """`elec.ngspice.divider`'s realized value must fall within its OWN
     reported `measured_eps` of the closed-form `elec.divider_loaded`

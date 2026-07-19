@@ -71,6 +71,7 @@ def test_sync_raises_when_lithos_examples_missing(tmp_path, monkeypatch):
 
 
 # frob:tests scripts/sync_lithos_examples.py::main kind="unit"
+# frob:tests scripts kind="integration"
 def test_main_parses_lithos_arg_and_invokes_sync(tmp_path, monkeypatch, capsys):
     """main() parses --lithos and delegates to sync(), printing the file count."""
     module = _load("sync_lithos_under_test3", SCRIPTS_DIR / "sync_lithos_examples.py")

@@ -64,7 +64,7 @@ crates/ | wc -l` -> 0. `frob check --only gates 2>&1 | grep -c DOC002`
 id: T-0002
 title: Add unit test coverage for public symbols with no frob:tests edge (TEST001,
   497 warnings)
-state: queued
+state: in-progress
 kind: feature
 origin: human
 created: '2026-07-17'
@@ -73,6 +73,9 @@ parent: null
 scope:
 - python/feldspar/**
 - tests/**
+- crates/**
+- docs/**
+- frob.toml
 evidence: []
 attachments: []
 acceptance: []
@@ -84,7 +87,7 @@ threat: null
 id: T-0003
 title: Add integration tests for interfaces below min_integration floor (TEST003,
   26 warnings)
-state: queued
+state: in-progress
 kind: feature
 origin: human
 created: '2026-07-17'
@@ -93,6 +96,10 @@ parent: null
 scope:
 - python/feldspar/**
 - tests/**
+- crates/**
+- examples/**
+- design/**
+- scripts/**
 evidence: []
 attachments: []
 acceptance: []

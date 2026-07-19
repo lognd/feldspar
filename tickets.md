@@ -373,7 +373,7 @@ contract protecting the existing private key.
 id: T-0012
 title: Add docs/modules docs + frob:doc anchors for the crates/ Rust pub surface (COV001,
   ~291)
-state: queued
+state: done
 kind: docs
 origin: agent
 created: '2026-07-18'
@@ -382,12 +382,28 @@ parent: null
 scope:
 - crates/**
 - docs/modules/**
-evidence: []
+evidence:
+- cmd:bash -c 'test $(frob check --only gates 2>&1 | grep -c COV001) -eq 0' exit=0
+  sha256=e3b0c44298fc
 attachments: []
 acceptance: []
 threat: null
 ```
 T-0001/T-0002 discovered that frob's gates scanner walks crates/**/*.rs for COV001 even though frob.toml pins check_type=python; a fresh (non-cached) frob check --only gates shows 291 rust pub items across feldspar-core/feldspar-library/feldspar-py needing docs/modules/<crate>.md contract docs + frob:doc anchors, one file per crate mirroring the T-0001 python approach. Deferred out of F2 lane scope (effort/time budget) -- do not fake anchors; each needs real prose from the crate source.
+
+## Done report
+
+Before: 291 rust COV001 findings (crates/feldspar-core 85, crates/feldspar-library 45, crates/feldspar-py 161) -- every pub item across the three crates lacked a frob:doc edge.
+
+After: 0 rust COV001 findings (fresh, non-cached `frob check --only gates`).
+
+Work: created docs/modules/feldspar-core.md, docs/modules/feldspar-library.md, docs/modules/feldspar-py.md (one `## <slug>` section per source file, real contract prose distilled from each file's `//!`/`///` rustdoc plus docs/spec cross-refs, same convention as the existing python-side docs/modules/*.md), linked from docs/README.md's docs map. Inserted `// frob:doc docs/modules/<crate>.md#<slug>` above every flagged pub item, scripted per-file bottom-up so line numbers stayed valid across each file's own edit pass.
+
+Placement finding (undocumented behavior worth flagging for future lanes): a `// frob:doc` comment placed ABOVE a preceding `///` rustdoc block is NOT recognized by the gates scanner -- it must sit BELOW the rustdoc block, directly above the item's attribute stack (or the item itself if no attrs). First pass (comment above the rustdoc block, matching an earlier lane's placement note) got 291 -> 111 residual; repositioning every directive to sit below its rustdoc block fixed 111 -> 1; the last case (`mech_frame2d_solve_py`) had a trailing inline `// comment` on an intervening `#[allow(...)]` attribute line that also confused the adjacency scan -- moving the `frob:doc` line below the full attribute stack, directly above `pub fn`, fixed it (1 -> 0).
+
+Verification: `cargo fmt --check` clean; `cargo test --workspace` all green (32 tests total, incl. `extern_c_smoke`); fresh `frob check --only gates` shows 0 COV001 findings anywhere under `crates/**`.
+
+Evidence command: `bash -c 'test $(frob check --only gates 2>&1 | grep -c COV001) -eq 0'`
 
 <!-- ticket:T-0013 -->
 ```yaml

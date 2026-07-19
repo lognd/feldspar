@@ -95,7 +95,10 @@ docs/
                subpackage, one section per module, one anchor per
                symbol-group): calib.md, elec.md, examples.md, fea.md,
                fluids.md, heat.md, logging_setup.md, mech.md, pack.md,
-               plan.md, solve.md, testing.md, thermo.md, top.md
+               plan.md, solve.md, testing.md, thermo.md, top.md.
+               Rust crate contract docs, same convention (one section
+               per source file): feldspar-core.md, feldspar-library.md,
+               feldspar-py.md
 
 examples/          target-API pressure tests (written before code;
                    friction log -> spec changes in its README)

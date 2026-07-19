@@ -31,16 +31,35 @@ use crate::interval::Interval;
 pub const CANON_VERSION: u32 = 1;
 
 /// A named unary function around a subexpression. Open-ended by design
-/// (R1 "extend later without a breaking change"): adding `Sin`, `Exp`,
-/// `Ln`, ... appends variants and their inverse rules without touching
-/// the `Expr` shape. Only `Sqrt` is invertible in v1.
+/// (R1 "extend later without a breaking change"): each variant appends
+/// its own inverse/branch/admission rule without touching the `Expr`
+/// shape (T-0015 landed `Sin`/`Cos`/`Exp`/`Ln` additively beside v1's
+/// `Sqrt`, no `CANON_VERSION` bump -- these are new operations, not a
+/// change to canonical-form rules).
 // frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnaryFn {
     /// Principal (non-negative) square root; range constraint `arg >= 0`.
+    /// Inverts by squaring (single `Principal` branch, admission
+    /// `acc >= 0`).
     Sqrt,
-    // frob:todo T-0015 add Sin/Cos/Exp/Ln variants, each with its own
-    // inverse and branch/admission rules; additive, never a break.
+    /// Sine. No v1 closed-form inverse: `sin` is periodic (not globally
+    /// injective), so a target inside one is `NonInvertible` rather than
+    /// guessing a principal branch (11 sec. 3 "no invented physics").
+    /// Fully supported in `eval`/`differentiate`.
+    Sin,
+    /// Cosine. Same periodicity rationale as `Sin`: `NonInvertible` for
+    /// `invert_for`, fully supported in `eval`/`differentiate`.
+    Cos,
+    /// Natural exponential; range `(0, +inf)`. Inverts via `Ln` (single
+    /// `Principal` branch, admission `acc > 0` since `exp` never reaches
+    /// zero or below).
+    Exp,
+    /// Natural logarithm; domain `arg > 0` (an `EvalError::DomainFault`
+    /// at `eval` time for non-positive input, mirroring `Sqrt`). Inverts
+    /// via `Exp` (single `Principal` branch, no extra admission -- `Exp`
+    /// is total).
+    Ln,
 }
 
 /// A canonical symbolic expression over ports (11 sec. 1). This is the
@@ -244,6 +263,10 @@ impl Expr {
             Expr::Lit(x) => format!("L:{}", format_f64(*x)),
             Expr::Neg(e) => format!("(neg {})", e.canonical_string()),
             Expr::Unary(UnaryFn::Sqrt, e) => format!("(sqrt {})", e.canonical_string()),
+            Expr::Unary(UnaryFn::Sin, e) => format!("(sin {})", e.canonical_string()),
+            Expr::Unary(UnaryFn::Cos, e) => format!("(cos {})", e.canonical_string()),
+            Expr::Unary(UnaryFn::Exp, e) => format!("(exp {})", e.canonical_string()),
+            Expr::Unary(UnaryFn::Ln, e) => format!("(ln {})", e.canonical_string()),
             Expr::Pow(b, x) => format!("(pow {} {})", b.canonical_string(), x.canonical_string()),
             Expr::Add(v) => format!(
                 "(add {})",
@@ -310,6 +333,27 @@ impl Expr {
                     });
                 }
                 Ok(v.sqrt())
+            }
+            Expr::Unary(UnaryFn::Sin, e) => Ok(e.eval(inputs)?.sin()),
+            Expr::Unary(UnaryFn::Cos, e) => Ok(e.eval(inputs)?.cos()),
+            Expr::Unary(UnaryFn::Exp, e) => {
+                let v = e.eval(inputs)?;
+                let result = v.exp();
+                if !result.is_finite() {
+                    return Err(EvalError::DomainFault {
+                        detail: format!("exp of {v} overflowed to a non-finite value"),
+                    });
+                }
+                Ok(result)
+            }
+            Expr::Unary(UnaryFn::Ln, e) => {
+                let v = e.eval(inputs)?;
+                if v <= 0.0 {
+                    return Err(EvalError::DomainFault {
+                        detail: format!("ln of non-positive value {v}"),
+                    });
+                }
+                Ok(v.ln())
             }
         }
     }
@@ -682,16 +726,38 @@ fn peel(
                 })
             }
         }
-        // Currently unreachable (only `UnaryFn::Sqrt` exists), but kept so
-        // a future `UnaryFn` variant falls into a safe `NonInvertible`
-        // default rather than a missing-match compile error.
-        #[allow(unreachable_patterns)]
-        Expr::Unary(other, _) => Err(SymbolicError::NonInvertible {
-            variable: target.to_string(),
-            reason: NonInvertibleReason::NoInverse {
-                context: format!("{other:?}"),
-            },
-        }),
+        Expr::Unary(UnaryFn::Exp, inner) => {
+            // exp is total and strictly positive: acc = exp(x) => x =
+            // ln(acc), admission acc > 0 (exp's range never reaches 0).
+            admission.push(Predicate {
+                lhs: acc.clone(),
+                cmp: Cmp::Gt,
+                rhs: Expr::Lit(0.0),
+            });
+            *branch_taken = Some(Branch::Principal);
+            let new_acc = Expr::Unary(UnaryFn::Ln, Box::new(acc)).canonicalize();
+            peel(inner, target, new_acc, branch, admission, branch_taken)
+        }
+        Expr::Unary(UnaryFn::Ln, inner) => {
+            // ln's domain restriction (arg > 0) is enforced at `eval`
+            // time (`EvalError::DomainFault`); `exp` is total so no
+            // extra admission predicate is needed on the peeled side.
+            *branch_taken = Some(Branch::Principal);
+            let new_acc = Expr::Unary(UnaryFn::Exp, Box::new(acc)).canonicalize();
+            peel(inner, target, new_acc, branch, admission, branch_taken)
+        }
+        // `Sin`/`Cos` are periodic and not globally injective: no v1
+        // closed-form inverse exists (guessing a principal branch would
+        // be invented physics, 11 sec. 3). A target inside one is
+        // reported, never silently dropped.
+        Expr::Unary(other @ (UnaryFn::Sin | UnaryFn::Cos), _) => {
+            Err(SymbolicError::NonInvertible {
+                variable: target.to_string(),
+                reason: NonInvertibleReason::NoInverse {
+                    context: format!("a periodic function ({other:?}) with no unique v1 inverse"),
+                },
+            })
+        }
         Expr::Var(_) | Expr::Lit(_) => {
             unreachable!("occurrence gate guarantees the target lives in this subtree")
         }
@@ -781,6 +847,32 @@ pub fn differentiate(expr: &Expr, var: &str) -> Expr {
                     ])),
                     Box::new(Expr::Lit(-1.0)),
                 ),
+            ])
+        }
+        Expr::Unary(UnaryFn::Sin, inner) => {
+            // d/dx[sin(u)] = cos(u) * u'.
+            let d_inner = differentiate(inner, var);
+            Expr::Mul(vec![Expr::Unary(UnaryFn::Cos, inner.clone()), d_inner])
+        }
+        Expr::Unary(UnaryFn::Cos, inner) => {
+            // d/dx[cos(u)] = -sin(u) * u'.
+            let d_inner = differentiate(inner, var);
+            Expr::Neg(Box::new(Expr::Mul(vec![
+                Expr::Unary(UnaryFn::Sin, inner.clone()),
+                d_inner,
+            ])))
+        }
+        Expr::Unary(UnaryFn::Exp, inner) => {
+            // d/dx[exp(u)] = exp(u) * u'.
+            let d_inner = differentiate(inner, var);
+            Expr::Mul(vec![Expr::Unary(UnaryFn::Exp, inner.clone()), d_inner])
+        }
+        Expr::Unary(UnaryFn::Ln, inner) => {
+            // d/dx[ln(u)] = u' / u.
+            let d_inner = differentiate(inner, var);
+            Expr::Mul(vec![
+                d_inner,
+                Expr::Pow(inner.clone(), Box::new(Expr::Lit(-1.0))),
             ])
         }
     };
@@ -1112,6 +1204,122 @@ mod tests {
         let e = Expr::Unary(UnaryFn::Sqrt, Box::new(Expr::Lit(-1.0)));
         let result = e.eval(&BTreeMap::new());
         assert!(matches!(result, Err(EvalError::DomainFault { .. })));
+    }
+
+    // frob:tests crates/feldspar-core/src/symbolic.rs::Expr.eval kind="unit"
+    #[test]
+    fn eval_sin_cos_exp_ln_agree_with_std() {
+        let inputs: BTreeMap<String, f64> = [("x".to_string(), 0.5)].into_iter().collect();
+        let sin = Expr::Unary(UnaryFn::Sin, Box::new(Expr::Var("x".into())));
+        let cos = Expr::Unary(UnaryFn::Cos, Box::new(Expr::Var("x".into())));
+        let exp = Expr::Unary(UnaryFn::Exp, Box::new(Expr::Var("x".into())));
+        let ln = Expr::Unary(UnaryFn::Ln, Box::new(Expr::Var("x".into())));
+        assert_eq!(sin.eval(&inputs).unwrap(), 0.5_f64.sin());
+        assert_eq!(cos.eval(&inputs).unwrap(), 0.5_f64.cos());
+        assert_eq!(exp.eval(&inputs).unwrap(), 0.5_f64.exp());
+        assert_eq!(ln.eval(&inputs).unwrap(), 0.5_f64.ln());
+    }
+
+    #[test]
+    fn eval_ln_of_non_positive_is_domain_fault() {
+        let e = Expr::Unary(UnaryFn::Ln, Box::new(Expr::Lit(0.0)));
+        let result = e.eval(&BTreeMap::new());
+        assert!(matches!(result, Err(EvalError::DomainFault { .. })));
+        let e_neg = Expr::Unary(UnaryFn::Ln, Box::new(Expr::Lit(-2.0)));
+        assert!(matches!(
+            e_neg.eval(&BTreeMap::new()),
+            Err(EvalError::DomainFault { .. })
+        ));
+    }
+
+    #[test]
+    fn eval_exp_overflow_is_domain_fault() {
+        let e = Expr::Unary(UnaryFn::Exp, Box::new(Expr::Lit(1e300)));
+        let result = e.eval(&BTreeMap::new());
+        assert!(matches!(result, Err(EvalError::DomainFault { .. })));
+    }
+
+    // frob:tests crates/feldspar-core/src/symbolic.rs::invert_for kind="unit"
+    #[test]
+    fn invert_for_exp_and_ln_are_mutual_inverses() {
+        // y = exp(x) => x = ln(y), admission y > 0. `peel`'s canonical
+        // form is `ln(-(-y))` (canonicalize does not collapse `Neg(Neg)`
+        // outside `Add`/`Mul` folding), so assert semantically via eval
+        // rather than structurally.
+        let lhs = Expr::Var("y".into());
+        let rhs = Expr::Unary(UnaryFn::Exp, Box::new(Expr::Var("x".into())));
+        let inv = invert_for(&lhs, &rhs, "x", None).unwrap();
+        assert_eq!(inv.branch, Branch::Principal);
+        assert_eq!(inv.admission.len(), 1);
+        assert_eq!(inv.admission[0].cmp, Cmp::Gt);
+        let y_val: BTreeMap<String, f64> = [("y".to_string(), 3.0)].into_iter().collect();
+        assert!((inv.rhs.eval(&y_val).unwrap() - 3.0_f64.ln()).abs() < 1e-12);
+
+        // y = ln(x) => x = exp(y), no extra admission.
+        let lhs2 = Expr::Var("y".into());
+        let rhs2 = Expr::Unary(UnaryFn::Ln, Box::new(Expr::Var("x".into())));
+        let inv2 = invert_for(&lhs2, &rhs2, "x", None).unwrap();
+        assert_eq!(inv2.branch, Branch::Principal);
+        assert!(inv2.admission.is_empty());
+        assert!((inv2.rhs.eval(&y_val).unwrap() - 3.0_f64.exp()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn invert_for_sin_and_cos_is_non_invertible() {
+        let lhs = Expr::Var("y".into());
+        let rhs_sin = Expr::Unary(UnaryFn::Sin, Box::new(Expr::Var("x".into())));
+        let err_sin = invert_for(&lhs, &rhs_sin, "x", None).unwrap_err();
+        assert!(matches!(
+            err_sin,
+            SymbolicError::NonInvertible {
+                reason: NonInvertibleReason::NoInverse { .. },
+                ..
+            }
+        ));
+
+        let rhs_cos = Expr::Unary(UnaryFn::Cos, Box::new(Expr::Var("x".into())));
+        let err_cos = invert_for(&lhs, &rhs_cos, "x", None).unwrap_err();
+        assert!(matches!(
+            err_cos,
+            SymbolicError::NonInvertible {
+                reason: NonInvertibleReason::NoInverse { .. },
+                ..
+            }
+        ));
+    }
+
+    // frob:tests crates/feldspar-core/src/symbolic.rs::differentiate kind="unit"
+    #[test]
+    fn differentiate_sin_cos_exp_ln_match_numeric() {
+        let point: BTreeMap<String, f64> = [("x".to_string(), 0.7)].into_iter().collect();
+        let cases: Vec<Expr> = vec![
+            Expr::Unary(UnaryFn::Sin, Box::new(Expr::Var("x".into()))),
+            Expr::Unary(UnaryFn::Cos, Box::new(Expr::Var("x".into()))),
+            Expr::Unary(UnaryFn::Exp, Box::new(Expr::Var("x".into()))),
+            Expr::Unary(UnaryFn::Ln, Box::new(Expr::Var("x".into()))),
+        ];
+        for expr in &cases {
+            let d_expr = differentiate(expr, "x");
+            let symbolic = d_expr.eval(&point).unwrap();
+            let numeric = central_difference(expr, "x", &point, 1e-6);
+            let scale = symbolic.abs().max(numeric.abs()).max(1.0);
+            assert!(
+                (symbolic - numeric).abs() / scale < 1e-4,
+                "expr={expr:?} symbolic={symbolic} numeric={numeric}"
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_string_round_trips_new_unary_variants() {
+        let sin = Expr::Unary(UnaryFn::Sin, Box::new(Expr::Var("x".into())));
+        let cos = Expr::Unary(UnaryFn::Cos, Box::new(Expr::Var("x".into())));
+        let exp = Expr::Unary(UnaryFn::Exp, Box::new(Expr::Var("x".into())));
+        let ln = Expr::Unary(UnaryFn::Ln, Box::new(Expr::Var("x".into())));
+        assert_eq!(sin.canonical_string(), "(sin V:x)");
+        assert_eq!(cos.canonical_string(), "(cos V:x)");
+        assert_eq!(exp.canonical_string(), "(exp V:x)");
+        assert_eq!(ln.canonical_string(), "(ln V:x)");
     }
 
     /// Central finite difference, used ONLY here as the numeric oracle to

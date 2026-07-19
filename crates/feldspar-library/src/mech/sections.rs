@@ -14,6 +14,7 @@
 ///
 /// Citation: Gere, *Mechanics of Materials*, 9th ed., App. E
 /// (rectangular section, second moment about centroidal axis).
+// frob:doc docs/modules/feldspar-library.md#library_mech_sections
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn rect_second_moment(width: f64, height: f64) -> f64 {

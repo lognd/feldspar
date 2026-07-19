@@ -24,6 +24,7 @@ const _COLEBROOK_MAX_ITER: u32 = 100;
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., ch. 6 (internal flow,
 /// Reynolds number definition).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_reynolds_number(
@@ -40,6 +41,7 @@ pub extern "C" fn fluids_reynolds_number(
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., sec. 6.4 (laminar
 /// fully developed pipe flow, Darcy friction factor).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_laminar_friction_factor(reynolds: f64) -> f64 {
@@ -54,6 +56,7 @@ pub extern "C" fn fluids_laminar_friction_factor(reynolds: f64) -> f64 {
 /// Citation: Colebrook, "Turbulent Flow in Pipes", J. Inst. Civ. Eng.,
 /// 1939; White, *Fluid Mechanics*, 8th ed., sec. 6.8 (Moody chart /
 /// Colebrook equation).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_colebrook_friction_factor(reynolds: f64, relative_roughness: f64) -> f64 {
@@ -80,6 +83,7 @@ pub extern "C" fn fluids_colebrook_friction_factor(reynolds: f64, relative_rough
 ///
 /// Citation: Haaland, "Simple and Explicit Formulas for the Friction
 /// Factor in Turbulent Pipe Flow", J. Fluids Eng., 1983.
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_haaland_friction_factor(reynolds: f64, relative_roughness: f64) -> f64 {
@@ -93,6 +97,7 @@ pub extern "C" fn fluids_haaland_friction_factor(reynolds: f64, relative_roughne
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., sec. 6.6 (Darcy-Weisbach
 /// head/pressure loss).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_darcy_dp(
@@ -110,6 +115,7 @@ pub extern "C" fn fluids_darcy_dp(
 ///
 /// Citation: Crane Technical Paper 410, "Flow of Fluids Through Valves,
 /// Fittings, and Pipe" (K-factor method).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_minor_loss_dp(k_factor: f64, density: f64, velocity: f64) -> f64 {
@@ -121,6 +127,7 @@ pub extern "C" fn fluids_minor_loss_dp(k_factor: f64, density: f64, velocity: f6
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., sec. 6.8 (pipe
 /// networks, series combination).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_series_dp(dp1: f64, dp2: f64) -> f64 {
@@ -132,6 +139,7 @@ pub extern "C" fn fluids_series_dp(dp1: f64, dp2: f64) -> f64 {
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., sec. 6.8 (pipe
 /// networks, parallel combination).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_parallel_flow(q1: f64, q2: f64) -> f64 {
@@ -144,6 +152,7 @@ pub extern "C" fn fluids_parallel_flow(q1: f64, q2: f64) -> f64 {
 ///
 /// Citation: White, *Fluid Mechanics*, 8th ed., sec. 11.7 (pump/system
 /// curve matching, operating point).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_pump_operating_flow(h0: f64, a: f64, h_static: f64, r: f64) -> f64 {
@@ -154,6 +163,7 @@ pub extern "C" fn fluids_pump_operating_flow(h0: f64, a: f64, h_static: f64, r: 
 /// [`fluids_pump_operating_flow`]: `H* = H_static + R*Q*^2`.
 ///
 /// Citation: same as [`fluids_pump_operating_flow`].
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_pump_operating_head(h_static: f64, r: f64, q_star: f64) -> f64 {
@@ -167,6 +177,7 @@ pub extern "C" fn fluids_pump_operating_head(h_static: f64, r: f64, q_star: f64)
 ///
 /// Citation: Cengel & Cimbala, *Fluid Mechanics: Fundamentals and
 /// Applications*, latest ed., "Pumps and Turbines" (NPSH available).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_npsh_available(
@@ -187,6 +198,7 @@ pub extern "C" fn fluids_npsh_available(
 /// Citation: Wylie & Streeter, *Fluid Transients in Systems*, ch. 1
 /// (Joukowsky equation); White, *Fluid Mechanics*, 8th ed., sec. 6.9
 /// (water hammer).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_joukowsky_dp(density: f64, wave_speed: f64, delta_velocity: f64) -> f64 {

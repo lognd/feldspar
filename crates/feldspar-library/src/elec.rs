@@ -16,6 +16,7 @@
 /// Citation: Sedra & Smith, *Microelectronic Circuits*, resistive
 /// divider under load (also Horowitz & Hill, *The Art of
 /// Electronics*).
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn divider_loaded_vout(vin: f64, r1: f64, r2: f64, rl: f64) -> f64 {
@@ -29,6 +30,7 @@ pub extern "C" fn divider_loaded_vout(vin: f64, r1: f64, r2: f64, rl: f64) -> f6
 ///
 /// Citation: Sedra & Smith, *Microelectronic Circuits*; Nilsson &
 /// Riedel, *Electric Circuits*, first-order RC step response.
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn rc_step_response(vf: f64, r: f64, c: f64, t: f64) -> f64 {
@@ -40,6 +42,7 @@ pub extern "C" fn rc_step_response(vf: f64, r: f64, c: f64, t: f64) -> f64 {
 ///
 /// Citation: Nilsson & Riedel, *Electric Circuits*, series RLC
 /// resonance.
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn rlc_resonant_frequency(inductance: f64, capacitance: f64) -> f64 {
@@ -50,6 +53,7 @@ pub extern "C" fn rlc_resonant_frequency(inductance: f64, capacitance: f64) -> f
 ///
 /// Citation: Nilsson & Riedel, *Electric Circuits*, series RLC
 /// resonance (bandwidth/Q).
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn rlc_quality_factor(resistance: f64, inductance: f64, capacitance: f64) -> f64 {
@@ -63,6 +67,7 @@ pub extern "C" fn rlc_quality_factor(resistance: f64, inductance: f64, capacitan
 ///
 /// Citation: Sedra & Smith, *Microelectronic Circuits*, 4-resistor
 /// bias analysis.
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn bjt_bias_collector_current(
@@ -84,6 +89,7 @@ pub extern "C" fn bjt_bias_collector_current(
 /// [`bjt_bias_collector_current`].
 ///
 /// Citation: same source as [`bjt_bias_collector_current`].
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn bjt_bias_collector_voltage(vcc: f64, collector_current: f64, rc: f64) -> f64 {
@@ -95,6 +101,7 @@ pub extern "C" fn bjt_bias_collector_voltage(vcc: f64, collector_current: f64, r
 ///
 /// Citation: Razavi, *Design of Analog CMOS Integrated Circuits*,
 /// square-law MOSFET saturation model.
+// frob:doc docs/modules/feldspar-library.md#library_elec
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn nmos_saturation_drain_current(k: f64, vgs: f64, vth: f64) -> f64 {

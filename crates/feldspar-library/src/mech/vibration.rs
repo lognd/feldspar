@@ -8,6 +8,7 @@
 ///
 /// Citation: Rao, *Mechanical Vibrations*, latest ed., ch. 2 (SDOF
 /// free vibration, undamped natural frequency).
+// frob:doc docs/modules/feldspar-library.md#library_mech_vibration
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn sdof_first_mode(stiffness: f64, mass: f64) -> f64 {
@@ -21,6 +22,7 @@ pub extern "C" fn sdof_first_mode(stiffness: f64, mass: f64) -> f64 {
 ///
 /// Citation: Blevins, *Formulas for Natural Frequency and Mode Shape*,
 /// Table 8-1 (cantilever beam, case 1).
+// frob:doc docs/modules/feldspar-library.md#library_mech_vibration
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn beam_cantilever_first_mode(
@@ -43,6 +45,7 @@ pub extern "C" fn beam_cantilever_first_mode(
 ///
 /// Citation: Steinberg, *Vibration Analysis for Electronic Equipment*,
 /// 3rd ed., ch. 2 (Miles' equation, random vibration).
+// frob:doc docs/modules/feldspar-library.md#library_mech_vibration
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn miles_grms(fn_hz: f64, q: f64, asd: f64) -> f64 {

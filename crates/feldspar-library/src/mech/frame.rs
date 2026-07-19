@@ -30,6 +30,7 @@
 /// optional moment release at each end, and the member's local fixed-
 /// end force vector (`[n1, v1, m1, n2, v2, m2]`, zero when no
 /// distributed/interior load acts on the member).
+// frob:doc docs/modules/feldspar-library.md#library_mech_frame
 #[derive(Debug, Clone, Copy)]
 pub struct FrameMemberInput {
     pub i: usize,
@@ -47,6 +48,7 @@ pub struct FrameMemberInput {
 /// coincide (zero length, division by zero in the geometry) or a
 /// global system whose free-DOF partition is singular (an
 /// unrestrained mechanism -- e.g. every support fixity unresolved).
+// frob:doc docs/modules/feldspar-library.md#library_mech_frame
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FrameError {
     DegenerateMember(usize),
@@ -74,6 +76,7 @@ impl std::error::Error for FrameError {}
 /// rz]`, global axes) and per-member local end forces (`[n1, v1, m1,
 /// n2, v2, m2]`, member-local axes, sign convention matching the input
 /// `fef_local`).
+// frob:doc docs/modules/feldspar-library.md#library_mech_frame
 #[derive(Debug, Clone)]
 pub struct FrameSolution {
     pub displacements: Vec<[f64; 3]>,
@@ -248,6 +251,7 @@ fn transform_row(local_idx: usize, c: f64, s: f64) -> [f64; 6] {
 /// [`FrameError::DegenerateMember`] for a zero-length member;
 /// [`FrameError::SingularSystem`] if the free-DOF partition cannot be
 /// solved (an unrestrained mechanism).
+// frob:doc docs/modules/feldspar-library.md#library_mech_frame
 #[allow(clippy::needless_range_loop)] // dense stiffness/DOF matrix indexing reads clearer than enumerate here
 pub fn frame2d_solve(
     n_nodes: usize,

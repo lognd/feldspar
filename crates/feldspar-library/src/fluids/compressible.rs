@@ -10,6 +10,7 @@
 ///
 /// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
 /// (isentropic flow relations).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_compressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_isentropic_stagnation_temp_ratio(mach: f64, gamma: f64) -> f64 {
@@ -21,6 +22,7 @@ pub extern "C" fn fluids_isentropic_stagnation_temp_ratio(mach: f64, gamma: f64)
 ///
 /// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
 /// (isentropic flow relations).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_compressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_isentropic_stagnation_pressure_ratio(mach: f64, gamma: f64) -> f64 {
@@ -33,6 +35,7 @@ pub extern "C" fn fluids_isentropic_stagnation_pressure_ratio(mach: f64, gamma: 
 ///
 /// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
 /// (normal shock relations).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_compressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_normal_shock_mach2(mach1: f64, gamma: f64) -> f64 {
@@ -47,6 +50,7 @@ pub extern "C" fn fluids_normal_shock_mach2(mach1: f64, gamma: f64) -> f64 {
 ///
 /// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
 /// (normal shock relations).
+// frob:doc docs/modules/feldspar-library.md#library_fluids_compressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_normal_shock_pressure_ratio(mach1: f64, gamma: f64) -> f64 {
@@ -63,6 +67,7 @@ pub extern "C" fn fluids_normal_shock_pressure_ratio(mach1: f64, gamma: f64) -> 
 /// Citation: Anderson, *Modern Compressible Flow*, 3rd ed., ch. 3
 /// (Fanno flow); Shapiro, *The Dynamics and Thermodynamics of
 /// Compressible Fluid Flow*, vol. 1, ch. 6.
+// frob:doc docs/modules/feldspar-library.md#library_fluids_compressible
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn fluids_fanno_function(mach: f64, gamma: f64) -> f64 {

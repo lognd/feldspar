@@ -17,6 +17,7 @@
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 3 (1-D steady conduction, plane wall
 /// resistance).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_plane_wall_resistance(thickness: f64, conductivity: f64, area: f64) -> f64 {
@@ -28,6 +29,7 @@ pub extern "C" fn heat_plane_wall_resistance(thickness: f64, conductivity: f64, 
 ///
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 3 (1-D steady conduction, radial systems).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_cylindrical_wall_resistance(
@@ -44,6 +46,7 @@ pub extern "C" fn heat_cylindrical_wall_resistance(
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 3 (Newton's law of cooling, convection
 /// resistance).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_convection_resistance(coefficient: f64, area: f64) -> f64 {
@@ -56,6 +59,7 @@ pub extern "C" fn heat_convection_resistance(coefficient: f64, area: f64) -> f64
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 3 (composite walls, series resistance
 /// network).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_series_resistance(r1: f64, r2: f64) -> f64 {
@@ -67,6 +71,7 @@ pub extern "C" fn heat_series_resistance(r1: f64, r2: f64) -> f64 {
 ///
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 3 (thermal circuit analogy).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_rate_from_resistance(delta_temp: f64, resistance: f64) -> f64 {
@@ -83,6 +88,7 @@ pub extern "C" fn heat_rate_from_resistance(delta_temp: f64, resistance: f64) ->
 /// Citation: Dittus & Boelter (1930), reprinted Incropera & DeWitt,
 /// *Fundamentals of Heat and Mass Transfer*, 7th ed., ch. 8 (internal
 /// flow, turbulent correlations).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_dittus_boelter_nusselt(reynolds: f64, prandtl: f64, heating: bool) -> f64 {
@@ -95,6 +101,7 @@ pub extern "C" fn heat_dittus_boelter_nusselt(reynolds: f64, prandtl: f64, heati
 ///
 /// Citation: Incropera & DeWitt, *Fundamentals of Heat and Mass
 /// Transfer*, 7th ed., ch. 8 (Nusselt-number definition).
+// frob:doc docs/modules/feldspar-library.md#library_heat
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn heat_coefficient_from_nusselt(

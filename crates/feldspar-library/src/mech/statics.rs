@@ -10,6 +10,7 @@
 /// concentrated load at free end); see also Young & Budynas, *Roark's
 /// Formulas for Stress and Strain*, 8th ed., Table 8.1 (secondary
 /// handbook citation).
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn cantilever_tip_deflection(
@@ -27,6 +28,7 @@ pub extern "C" fn cantilever_tip_deflection(
 ///
 /// Citation: same law as [`cantilever_tip_deflection`] (Gere,
 /// *Mechanics of Materials*, 9th ed.), solved for a different unknown.
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn cantilever_required_youngs_modulus(
@@ -46,6 +48,7 @@ pub extern "C" fn cantilever_required_youngs_modulus(
 /// Citation: Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, latest ed., "Thick-Walled Cylinders" section (Lame's
 /// equations).
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn lame_hoop_stress_bore(
@@ -66,6 +69,7 @@ pub extern "C" fn lame_hoop_stress_bore(
 /// Citation: Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, latest ed., "Thick-Walled Cylinders" section (Lame's
 /// equations).
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn lame_radial_stress_bore(
@@ -86,6 +90,7 @@ pub extern "C" fn lame_radial_stress_bore(
 /// Citation: Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, latest ed., distortion-energy (von Mises) equivalent
 /// stress definition.
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn von_mises_principal(sigma1: f64, sigma2: f64, sigma3: f64) -> f64 {
@@ -105,6 +110,7 @@ pub extern "C" fn von_mises_principal(sigma1: f64, sigma2: f64, sigma3: f64) -> 
 /// Design*, latest ed., "Thick-Walled Cylinders" section (Lame's
 /// equations) and distortion-energy (von Mises) equivalent stress
 /// definition.
+// frob:doc docs/modules/feldspar-library.md#library_mech_statics
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn bore_von_mises(pressure: f64, inner_radius: f64, outer_radius: f64) -> f64 {

@@ -92,6 +92,8 @@ def test_solve_twice_identical_digest_second_served_from_cache(
     assert digest1 == digest2
 
 
+# frob:tests python/feldspar/plan/cache.py::SolveCache.get kind="unit"
+# frob:tests python/feldspar/plan/cache.py::SolveCache.put kind="unit"
 def test_finv7_cache_hit_byte_identical_to_forced_recompute(tmp_path) -> None:
     registry = _registry_direct()
     known = {"sc.x": Interval(1.0, 2.0)}

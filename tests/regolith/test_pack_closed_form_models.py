@@ -64,6 +64,7 @@ def _rail_request(
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/pack/models.py::MechStiffnessModel.estimate kind="unit"
 def test_stiffness_happy_path_exact_value() -> None:
     """`k = 3*E*I/L**3`, hand-computed at a pinned (degenerate) box."""
     model = MechStiffnessModel()
@@ -174,6 +175,7 @@ def _divider_vout(vin: float, r1: float, r2: float, rload: float) -> float:
     return vin * r_parallel / (r1 + r_parallel)
 
 
+# frob:tests python/feldspar/pack/models.py::ElecRailModel.estimate kind="unit"
 def test_rail_happy_path_exact_value_both_halves() -> None:
     """A pinned (degenerate) box: lo and hi models agree with each
     other and with the hand-computed loaded-divider formula."""

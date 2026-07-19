@@ -51,6 +51,8 @@ def _own_namespace_solver(namespace: str, solver_id_input: str, factor: float):
 
 
 # frob:tests python/feldspar/testing kind="integration"
+# frob:tests python/feldspar/solve/packs.py::SolverPackEntryPoint.dist kind="unit"
+# frob:tests python/feldspar/solve/packs.py::FakeSolverPackEntryPoint.dist kind="unit"
 def test_pack_composes_and_loads_deterministically() -> None:
     fn = _own_namespace_solver("mech.acme_bearings", "x", 2.0)
 

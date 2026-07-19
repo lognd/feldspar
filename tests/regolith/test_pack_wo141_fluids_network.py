@@ -139,6 +139,7 @@ def _mdot_request(edge_id: str, claim_kind: str) -> DischargeRequest:
     )
 
 
+# frob:tests python/feldspar/pack/models.py::FluidsMdotModel.estimate kind="unit"
 def test_mdot_no_resolver_is_honest_indeterminate() -> None:
     model = FluidsMdotModel(
         claim_kind=DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND, sense=ClaimSense.lower_bound()
@@ -198,6 +199,7 @@ def test_mdot_no_selection_is_honest_domain_error() -> None:
 # --- FluidsFlowImbalanceModel -------------------------------------------------
 
 
+# frob:tests python/feldspar/pack/models.py::FluidsFlowImbalanceModel.estimate kind="unit"
 def test_flow_imbalance_matches_hand_computed_split() -> None:
     model = FluidsFlowImbalanceModel()
     request = DischargeRequest(
@@ -249,6 +251,7 @@ def test_dp_multipath_matches_hand_computed_path() -> None:
     assert result.danger_ok.value == pytest.approx(expected_dp, rel=1e-2)
 
 
+# frob:tests python/feldspar/pack/models.py::FluidsDpModel.estimate kind="unit"
 def test_dp_missing_endpoint_roles_is_honest_domain_error() -> None:
     model = FluidsDpModel()
     request = DischargeRequest(

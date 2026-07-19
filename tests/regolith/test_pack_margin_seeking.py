@@ -68,6 +68,7 @@ def _install_fake_solve(monkeypatch, script):
     return budgets
 
 
+# frob:tests python/feldspar/pack/models.py::_FeaModel.estimate kind="unit"
 def test_fat_margin_closes_on_the_first_loose_attempt(monkeypatch) -> None:
     """value + eps already within the limit: exactly ONE engine call at
     the loose first budget, no margin translation."""

@@ -264,6 +264,8 @@ class TestCantileverRoute:
 
 
 class TestSameMeshReuse:
+    # frob:tests python/feldspar/plan/cache.py::PayloadStepCache.get kind="unit"
+    # frob:tests python/feldspar/plan/cache.py::PayloadStepCache.put kind="unit"
     def test_one_mesh_feeds_static_and_modal(self, tmp_path) -> None:
         """Acceptance: same-mesh reuse proven by cache-hit count -- the
         modal solve's mesh step is a step-cache hit, gmsh's stand-in

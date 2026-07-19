@@ -137,6 +137,7 @@ def _damage_request(digest: str = _DIGEST) -> DischargeRequest:
     )
 
 
+# frob:tests python/feldspar/pack/models.py::FatigueMinerDamageModel.estimate kind="unit"
 def test_miner_damage_no_resolver_is_honest_indeterminate() -> None:
     """No `resolver` threaded: the pre-D154 `NoStoreResolver` honest
     path, same as `FeaStaticDeflectionFromGeometryModel`'s no-resolver

@@ -146,6 +146,7 @@ def _geometry_request(digest: str = _DIGEST) -> DischargeRequest:
     )
 
 
+# frob:tests python/feldspar/pack/models.py::FeaStaticDeflectionFromGeometryModel.estimate kind="unit"
 def test_no_resolver_keeps_the_pre_d154_no_store_resolver_behavior() -> None:
     """No `resolver` argument at all: `estimate` behaves exactly as it
     did before D154, honestly indeterminating via `NoStoreResolver`

@@ -160,6 +160,8 @@ def test_run_rung_error_propagates() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/fea/ladder.py::RungCache.get kind="unit"
+# frob:tests python/feldspar/fea/ladder.py::RungCache.put kind="unit"
 def test_rung_cache_reuses_coarser_rungs_across_climbs() -> None:
     cache = RungCache()
     calls: list = []

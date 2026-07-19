@@ -585,6 +585,7 @@ def test_coupled_group_registers_and_closure_converges() -> None:
     assert output.measured_eps >= 0.05
 
 
+# frob:tests python/feldspar/solve/registry.py::SolverRegistry.get kind="unit"
 def test_coupled_group_closure_deterministic() -> None:
     registry = SolverRegistry()
     _register_toy_loop(registry)
@@ -808,6 +809,7 @@ def test_solve_error_variants_are_total() -> None:
     assert len(kinds) == len(variants)
 
 
+# frob:tests python/feldspar/solve/_models.py::ClaimSenses.coerce kind="unit"
 def test_claim_senses_coercion() -> None:
     assert ClaimSenses.coerce("upper") is ClaimSenses.UPPER
     assert ClaimSenses.coerce(ClaimSenses.LOWER) is ClaimSenses.LOWER

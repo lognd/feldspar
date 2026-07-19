@@ -6,7 +6,7 @@ Central ledger managed by `frob ticket` -- one section per ticket.
 ```yaml
 id: T-0001
 title: Add doc edges for public symbols missing frob:doc anchors (COV001, 643 warnings)
-state: queued
+state: in-progress
 kind: docs
 origin: human
 created: '2026-07-17'
@@ -14,11 +14,50 @@ blocked_by: []
 parent: null
 scope:
 - python/feldspar/**
+- docs/modules/**
+- docs/README.md
 evidence: []
 attachments: []
 acceptance: []
 threat: null
 ```
+
+## Done report (T-0001)
+
+Scope: COV001 only (python/feldspar/** + examples/**; TEST/PERF rules
+are a separate lane; the Rust crates/** surface is out of scope --
+frob.toml pins `check_type = "python"` deliberately, per its own
+comment, though the gates graph scan still walks crates/*.rs files and
+reports COV001 there; those ~206 Rust-side warnings are untouched by
+this ticket and belong to a Rust-focused pass).
+
+Before: COV001 640 total (434 python-side + 206 crates-side).
+After: COV001 206 total, all crates-side; 0 python-side.
+
+Work: added one `docs/modules/<pkg>.md` file per python/feldspar
+subpackage (calib, elec, examples, fea, fluids, heat, logging_setup,
+mech, pack, plan, solve, testing, thermo, top) plus `docs/README.md`
+linking them from the human-facing directory map. Each doc file has
+one `##` section per source module with a `<!-- frob:describes -->`
+anchor per symbol (or symbol-group, for homogeneous families like
+`pack.models`'s ~30 near-identical `Model` subclasses) and real prose
+describing what that module/family does, drawn from the module's own
+docstring plus a read of its public symbols -- never a stub anchor.
+Every flagged symbol got a `# frob:doc docs/modules/<pkg>.md#<anchor>`
+comment above its def/class/assignment line.
+
+Several dozen module-level constants (port-name strings, physical
+constants, claim-kind defaults) were not in the initial COV001
+snapshot taken before any edits, but surfaced as newly-flagged once
+their file was otherwise touched (apparent staleness in the very first
+gate snapshot, not a regression introduced by this ticket -- each
+re-check after a package's edits was re-run fresh against HEAD). All
+were doc-edged as they appeared; DOC002 (dangling anchor) stayed 0
+throughout via `frob check --only gates` after every package.
+
+Verification: `frob check --only gates 2>&1 | grep COV001 | grep -v
+crates/ | wc -l` -> 0. `frob check --only gates 2>&1 | grep -c DOC002`
+-> 0 (checked after every commit, not just at the end).
 
 <!-- ticket:T-0002 -->
 ```yaml

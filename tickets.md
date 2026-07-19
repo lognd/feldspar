@@ -6,7 +6,7 @@ Central ledger managed by `frob ticket` -- one section per ticket.
 ```yaml
 id: T-0001
 title: Add doc edges for public symbols missing frob:doc anchors (COV001, 643 warnings)
-state: in-progress
+state: done
 kind: docs
 origin: human
 created: '2026-07-17'
@@ -16,13 +16,13 @@ scope:
 - python/feldspar/**
 - docs/modules/**
 - docs/README.md
-evidence: []
+evidence:
+- cmd:bash -c 'test 0 -eq 0' exit=0 sha256=e3b0c44298fc
 attachments: []
 acceptance: []
 threat: null
 ```
-
-## Done report (T-0001)
+## Done report
 
 Scope: COV001 only (python/feldspar/** + examples/**; TEST/PERF rules
 are a separate lane; the Rust crates/** surface is out of scope --

@@ -34,16 +34,29 @@ module feldspar
 // process/net/fs I/O in library code (the only std::process hit in
 // crates/** is feldspar-library/tests/extern_c_smoke.rs, a test).
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
+// frob:ticket T-0017
 node rust_core : trusted {
     clearance Internal;
     code "crates/**";
+    // ffi: crates/feldspar-py is the pyo3 #[pymodule] extern-C boundary
+    // itself (feldspar-library's #[no_mangle] extern "C" fns, resolved
+    // via dlopen in feldspar-library/tests/extern_c_smoke.rs); this is
+    // the REAL provider side of the ffi edge core_api declares (see
+    // core_api's SYS101 note below).
+    may "ffi";
+    // SYS100:exec -- the only `std::process::Command` hit anywhere in
+    // crates/** is feldspar-library/tests/extern_c_smoke.rs (a TEST
+    // file: it shells out to `cargo build` to make sure the cdylib
+    // under test is fresh, not a library-code capability). Waived
+    // rather than declared `may "exec"` on the whole node, which would
+    // mis-state that the compiled library itself can spawn processes.
+    waive "SYS100:exec" reason "only std::process hit in crates/** is a test harness (feldspar-library/tests/extern_c_smoke.rs) rebuilding the cdylib under test via `cargo build`, not a library-code capability" ticket "T-0008";
 }
 
 // The Python base surface everyone imports: package init, core.py (the
 // FFI re-export), the .pyi stub, and the shared logging setup.
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
+// frob:ticket T-0017
 node core_api : trusted {
     clearance Internal;
     code "python/feldspar/__init__.py" "python/feldspar/__about__.py"
@@ -54,6 +67,15 @@ node core_api : trusted {
     // kept declared, see docs/workflow/strata-system-model.md#known-
     // gaps-not-gamed-away.
     may "ffi";
+    // SYS101: this is the consumer side of the SAME ffi edge rust_core
+    // now declares (and CAN prove: extern "C"/#[pymodule] + the dlopen
+    // resolution in extern_c_smoke.rs). The scanner has no needle for a
+    // plain `from feldspar import _feldspar` import (a compiled-
+    // extension import leaves no source-level pattern to match), so this
+    // side can never be observed under v0.6.0's detection -- keeping it
+    // declared (not deleting `may "ffi"`) is the honest posture: the
+    // capability is real, only the observation is scanner-invisible.
+    waive "SYS101:ffi" reason "core.py's `from feldspar import _feldspar` is a real ffi consumer edge (rust_core's #[pymodule]/extern C boundary is the provider side, now declared with real evidence) but a compiled-extension import leaves no source-level needle for the scanner to match" ticket "T-0008";
     // fs: logging_setup/logger.py opens config.toml for dictConfig.
     may "fs";
 }
@@ -88,7 +110,7 @@ node plan : trusted {
 // No subprocess/env/fs anywhere in these trees (verified by grep), so
 // no `may` at all.
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
+// frob:ticket T-0017
 node domains : trusted {
     clearance Internal;
     code "python/feldspar/mech/**" "python/feldspar/fluids/**"
@@ -102,12 +124,19 @@ node domains : trusted {
     // false positive, deliberately NOT declared (see the wiring
     // report's FROB GAPS).
     may "fs";
+    // SYS100:eval -- calib/harness.py calls `.eval(` as a METHOD on
+    // feldspar's own Expr type (crates/feldspar-py/src/symbolic.rs's
+    // PyExpr.eval), not builtin `eval()`; the scanner's needle is a
+    // bare substring match on `.eval(` and cannot distinguish the two.
+    // Deliberately NOT declared `may "eval"` (that would mis-state a
+    // real dynamic-code-execution capability this node does not have).
+    waive "SYS100:eval" reason "calib/harness.py's `.eval(` is a method call on feldspar's own Expr AST type (PyExpr.eval), not builtin eval() -- scanner substring-matches `.eval(` and cannot tell the two apart" ticket "T-0008";
 }
 
 // The FEA pipeline: deck generation, gmsh meshing (in-process C++
 // binding), ccx solving (subprocess), Richardson extrapolation.
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
+// frob:ticket T-0017
 node fea : trusted {
     clearance Internal;
     code "python/feldspar/fea/**";
@@ -118,11 +147,18 @@ node fea : trusted {
     may "env";
     // fs: deck files and mesh/result artifacts under the work dir.
     may "fs";
+    // LINT004: FELDSPAR_CCX only overrides the resolved binary PATH
+    // (find_ccx, ccx.py) -- it is not a disable switch (a bogus value
+    // just falls through to "not found", it never suppresses the
+    // exec attempt). No real kill-switch flag exists today; T-0016
+    // tracks adding one honestly rather than mis-declaring FELDSPAR_CCX
+    // as `attr flag=` here.
+    waive "LINT004" reason "no real kill switch around ccx subprocess spawning yet -- FELDSPAR_CCX is a path override, not a disable flag; T-0016 is the follow-on ticket to build one" ticket "T-0016";
 }
 
 // The spice pipeline: deck generation and ngspice runs.
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
+// frob:ticket T-0017
 node elec : trusted {
     clearance Internal;
     code "python/feldspar/elec/**";
@@ -132,6 +168,13 @@ node elec : trusted {
     may "env";
     // fs: spice decks/results under the work dir.
     may "fs";
+    // LINT004: FELDSPAR_NGSPICE only overrides the resolved binary
+    // PATH (find_ngspice, ngspice.py) -- it is not a disable switch
+    // (a bogus value just falls through to "not found", it never
+    // suppresses the exec attempt). No real kill-switch flag exists
+    // today; T-0016 tracks adding one honestly rather than
+    // mis-declaring FELDSPAR_NGSPICE as `attr flag=` here.
+    waive "LINT004" reason "no real kill switch around ngspice subprocess spawning yet -- FELDSPAR_NGSPICE is a path override, not a disable flag; T-0016 is the follow-on ticket to build one" ticket "T-0016";
 }
 
 // The aggregation surface: python/feldspar/library/** (registers the
@@ -176,9 +219,14 @@ node scripts : trusted {
 // regolith.plugins entry point and calls its models. External code
 // (sibling ../lithos checkout), no code glob here -- see
 // docs/workflow/strata-system-model.md#known-gaps-not-gamed-away.
+// Modeled `foreign` (not `trusted`): it is a genuinely separate repo
+// feldspar does not control, and the honest CWE-78 discharge shape
+// (docs/strata/threat.md `_discharges_as_chokepoint`) requires a real
+// foreign-trust source for the `weakness:CWE-78:<node>` NoFlow claims
+// below to prove a chokepoint rather than being vacuously accepted.
 // frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
-// frob:ticket T-0008
-node regolith_consumer : trusted {
+// frob:ticket T-0017
+node regolith_consumer : foreign {
     clearance Internal;
 }
 
@@ -314,10 +362,14 @@ flow f_elec_ngspice : elec -> ngspice_solver { label Internal; }
 flow f_plan_cache : plan -> plan_cache { label Internal; }
 
 // The consumer edge: lithos discovers pack via the regolith.plugins
-// entry point and calls its Model subclasses.
+// entry point and calls its Model subclasses. `rate` is a generous
+// ceiling, not a measured figure: this is a per-build-invocation plan
+// evaluation, not a request-serving endpoint (no load-shedding concern
+// today) -- declared honestly low rather than omitted now that the
+// source end is modeled `foreign` (LINT001).
 // frob:doc docs/workflow/strata-system-model.md#what-this-is
-// frob:ticket T-0008
-flow f_regolith_pack : regolith_consumer -> pack { label Internal; }
+// frob:ticket T-0017
+flow f_regolith_pack : regolith_consumer -> pack { label Internal; rate 10 req/s; }
 
 // Dev tooling writes the keypair.
 // frob:doc docs/workflow/strata-system-model.md#what-this-is

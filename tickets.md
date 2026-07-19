@@ -580,6 +580,49 @@ acceptance:
 threat: null
 ```
 Deferred WO-11 R4/future scope: UnaryFn currently only has Sqrt. Adding Sin/Cos/Exp/Ln (each with inverse + branch/admission rules) is additive, never a breaking change, and is explicitly out of scope for the current TEST001/gate-zero campaign. Binds the bare TODO at crates/feldspar-core/src/symbolic.rs:42 so TODO001 is satisfied.
+## Blocked on evidence tooling (2026-07-18/19, code committed, ticket cannot close)
+
+Implementation is DONE and committed (commit 153d1d2, "feat(core): add
+Sin/Cos/Exp/Ln UnaryFn variants (T-0015)"): eval/canonical_string/
+differentiate support all four new UnaryFn variants; invert_for treats
+Exp/Ln as mutual inverses (Exp: admission acc>0; Ln: arg>0 domain
+fault enforced at eval, no extra admission on the peeled side); Sin/Cos
+report NonInvertible (periodic, no v1 closed-form inverse, per the
+"no invented physics" rule). Removes the T-0015 frob:todo at
+symbolic.rs:42.
+
+cargo fmt --check -p feldspar-core: clean. cargo clippy -p
+feldspar-core --all-targets -- -D warnings: clean. cargo test -p
+feldspar-core: 31 passed, 0 failed, including 7 new tests:
+- symbolic::tests::eval_sin_cos_exp_ln_agree_with_std
+- symbolic::tests::eval_ln_of_non_positive_is_domain_fault
+- symbolic::tests::eval_exp_overflow_is_domain_fault
+- symbolic::tests::invert_for_exp_and_ln_are_mutual_inverses
+- symbolic::tests::invert_for_sin_and_cos_is_non_invertible
+- symbolic::tests::differentiate_sin_cos_exp_ln_match_numeric
+- symbolic::tests::canonical_string_round_trips_new_unary_variants
+
+CANNOT close via `frob ticket close`/`frob ticket evidence`: this
+ticket's scope is Rust-only (crates/feldspar-core/src/symbolic.rs),
+but `frob ticket evidence`'s `--evidence` flag only resolves against
+`collect_python_tests` (pytest node ids) regardless of the ticket's
+declared scope language, and `--evidence-cmd` is hard-blocked for
+`kind=feature` ("cmd evidence is only allowed for docs-kind tickets").
+`frob test .` DOES recognize a rust node-id shape
+(`crates/.../symbolic.rs::tests.<name>`) for touched-set selection,
+but `frob ticket evidence`'s validator does not accept that shape --
+confirmed by reading src/frob/app/ticket_runner.py's `_apply_evidence`
+(only imports `frob.testing.collect_python_tests`, no rust
+counterpart). No feldspar-py PyO3 binding exposes the new
+Sin/Cos/Exp/Ln variants to Python (only `Expr.sqrt` is bound in
+crates/feldspar-py/src/symbolic.rs), and adding one would be outside
+this ticket's declared scope (crates/feldspar-core/src/symbolic.rs
+only). Escalating rather than guessing: either (a) extend
+`frob ticket evidence` to also accept rust node ids frob test already
+selects against, or (b) explicitly permit `--evidence-cmd` for a
+Rust-only feature ticket's scope, or (c) open a follow-on ticket to
+add the feldspar-py binding so a pytest test can exercise it. Left
+`state: in-progress` rather than force-closing without evidence.
 
 <!-- ticket:T-0016 -->
 ```yaml

@@ -120,6 +120,10 @@ _ORIENTATION_TO_DXY = {
 #: code in a payload's `Releases`/`Support.fixity` is an honest
 #: unsupported-vocabulary error, never silently ignored.
 _DOF_CODES = ("x", "y", "rz")
+#: Same vocabulary as `_DOF_CODES`, as a set for O(1) membership tests
+#: in the per-code validation loops below (PERF001: `in` over the tuple
+#: is O(n) per code, repeated once per member/support).
+_DOF_CODES_SET = frozenset(_DOF_CODES)
 
 #: The built-in SI unit table (`feldspar.core.UnitSystem`, 02-quantities
 #: "Unit algebra"). `frame_lower::member_length` only *defaults* the
@@ -223,7 +227,7 @@ def _release_kept_rz(codes: Sequence[str], member_id: str, end: str):
     if not codes:
         return Ok((True, True))  # (rz_kept, was_default)
     for code in codes:
-        if code not in _DOF_CODES:
+        if code not in _DOF_CODES_SET:
             return Err(
                 SolveError.OutOfDomain(
                     violation=(
@@ -255,7 +259,7 @@ def _support_fixed_dofs(fixity: Sequence[str], support_joint: str):
             )
         )
     for code in fixity:
-        if code not in _DOF_CODES:
+        if code not in _DOF_CODES_SET:
             return Err(
                 SolveError.OutOfDomain(
                     violation=(
@@ -585,7 +589,15 @@ def solve_frame_payload(
         return Err(SolveError.OutOfDomain(violation=str(exc)))
 
     joint_ids = [j["id"] for j in joints]
-    member_ids = [m["id"] for m in members]
+    # PERF001 false-positive fix: this used to reuse the name `member_ids`
+    # already bound to a SET above (line ~359, `in member_ids` membership
+    # test) -- reassigning the same name to a LIST here confused frob's
+    # per-function container-kind inference (last assignment in the
+    # function wins, so the earlier set-based membership test was
+    # misclassified as list-backed). Renamed to make the two genuinely
+    # different containers (an id-membership set vs. an ordered id list
+    # for the return payload) unambiguous to a reader, not just a linter.
+    member_id_list = [m["id"] for m in members]
     return Ok(
         {
             "load_case": load_case,
@@ -598,7 +610,9 @@ def solve_frame_payload(
                 jid: reactions[idx * 3 : idx * 3 + 3]
                 for idx, jid in enumerate(joint_ids)
             },
-            "member_end_forces": dict(zip(member_ids, member_end_forces, strict=True)),
+            "member_end_forces": dict(
+                zip(member_id_list, member_end_forces, strict=True)
+            ),
             "assumptions": assumptions,
             "load_path": load_path_evidence,
         }

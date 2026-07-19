@@ -114,6 +114,7 @@ def test_stripline_z0_hand_computed_exact_value():
     assert z0 == pytest.approx(60.34290501664108, rel=1e-9)
 
 
+# frob:waive PERF004 reason="false positive: frob's PERF004 loop-gate is function-scoped, not true AST containment (see _loop_gate in frob's perf/_rules.py). `sorted(z0s, reverse=True)` below runs once, AFTER the `for w in widths:` loop that fills z0s completes -- not once per iteration of it."
 def test_stripline_z0_monotonically_decreases_with_width():
     """Physical sanity (Burkhardt 1999 Figure 4's own shape): a wider
     centred track always has a LOWER stripline Z0 at fixed b/er."""

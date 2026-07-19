@@ -452,7 +452,12 @@ def _execute_impl(
         payload_outputs = [
             port for port in info.outputs if _is_payload_port(port_table, port)
         ]
-        scalar_outputs = [port for port in info.outputs if port not in payload_outputs]
+        # PERF001: membership test hoisted to a set once per step, instead
+        # of a linear scan of `payload_outputs` per `info.outputs` entry.
+        payload_outputs_set = frozenset(payload_outputs)
+        scalar_outputs = [
+            port for port in info.outputs if port not in payload_outputs_set
+        ]
         box = {
             port: inflate(values[port], eps_map.get(port, 0.0)) for port in scalar_ports
         }

@@ -140,6 +140,7 @@ class DictResolver:
 
 
 # frob:tests python/feldspar/catalog.py kind="integration"
+# frob:waive PERF004 reason="false positive: frob's PERF004 loop-gate is function-scoped (any earlier top-level for/while anywhere in the function triggers it -- see _loop_gate in frob's perf/_rules.py), not true AST containment. `sorted(info.solver_id for info, _fn in registry)` runs once, after this test's other assertions; there is no repeated per-iteration sort to hoist."
 def test_full_catalog_composes_with_every_direction_registered():
     """The pack's exact composition path succeeds end-to-end: every
     module's `register()` lands every direction (each register()

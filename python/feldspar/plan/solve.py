@@ -61,6 +61,7 @@ class _ExcludingRegistryView:
 
 
 # frob:doc docs/modules/plan.md#plan_solve
+# frob:waive PERF004 reason="the sorted(excluded) calls in the reroute `while True:` loop below cannot be hoisted: `excluded` grows by exactly one solver id per reroute attempt, so each iteration's AttemptRecord must sort a DIFFERENT, larger set -- there is no invariant sort to pull out of the loop. Iteration count is bounded by the registry's solver count (each excluded id can never be re-added), so this is a small, bounded-count sort, not an unbounded hot loop."
 def solve(
     registry: "SolverRegistry",
     known: Mapping[str, Interval],

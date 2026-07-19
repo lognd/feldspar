@@ -234,6 +234,54 @@ def test_geometry_extract_params_are_cut_honestly():
     assert result.err.violation.tag == "edge_params:geom_extract"
 
 
+# frob:tests python/feldspar/fluids/network.py::_Edge kind="regression"
+def test_imposer_missing_flow_rate_is_honest_indeterminate():
+    """T-0021: an `imposer` edge whose `values` dict is missing
+    `flow_rate` (the live repro -- lithos's steam_service.fluo hit this)
+    must NOT crash the process with a bare `KeyError`; it reports
+    `SolveError.OutOfDomain` naming the edge id + missing key, same
+    honest-indeterminate posture as every other out-of-coverage case."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["n1", "n2"],
+        "edges": [
+            {
+                "id": "imp_bad",
+                "a": "n1",
+                "b": "n2",
+                "kind": "imposer",
+                "params": {"source": "scalars", "values": {}},
+            }
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert isinstance(result.err, SolveError)
+    assert result.err.kind == "OutOfDomain"
+    assert result.err.violation.tag == "missing_param:flow_rate"
+
+
+# frob:tests python/feldspar/fluids/network.py::_Edge kind="regression"
+def test_imposer_with_flow_rate_is_unaffected_by_validation():
+    """The valid-params case (an `imposer` WITH `flow_rate` present)
+    must keep solving exactly as before -- the T-0021 key-presence
+    check must not reject well-formed edges."""
+    resolver, fn = _setup()
+    q_total = 5e-5
+    payload = {
+        "nodes": ["src", "n1", "n2", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", q_total),
+            _pipe("A", "n1", "n2", 5.0, 0.05, 0.0, 1000.0, 1e-3),
+            _imposer("imp_out", "n2", "sink", q_total),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_ok
+    rows = _solution_rows(resolver, result)
+    assert rows["A"]["flow_rate"] == pytest.approx(q_total, rel=1e-3)
+
+
 def test_disconnected_network_is_honest_indeterminate():
     """Two disjoint components: out of coverage, named explicitly."""
     resolver, fn = _setup()

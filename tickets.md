@@ -1136,3 +1136,107 @@ attachments: []
 acceptance: []
 threat: null
 ```
+
+<!-- ticket:T-0022 -->
+```yaml
+id: T-0022
+title: 'fluids: honest orifice edge-kind support in Hardy-Cross network solver'
+state: queued
+kind: feature
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/fluids/network.py
+evidence: []
+attachments: []
+acceptance:
+- Given an edge with kind=orifice and scalar params (bore diameter, discharge coefficient
+  Cd, upstream pipe diameter), when the Hardy-Cross solve runs, then dp is computed
+  via the standard orifice-plate equation (dp = (Q/(Cd*A))^2 * rho/2, ISO 5167-style)
+  and its Newton dh/dQ slope feeds the loop correction same as _pipe_dp_and_k
+- Given an orifice edge missing a required param (bore, Cd), when solved, then SolveError.OutOfDomain
+  names missing_param:<key>, never a bare KeyError (same posture as T-0021)
+- Given a Rust home does not yet exist for orifice dp, when this ticket is scoped,
+  then a new fluids_orifice_dp (or equivalent) Rust function is added under crates/feldspar-py/src/library/fluids.rs
+  with its own citation (ISO 5167 or White sec. 6.x), matching the NO-DUPLICATION
+  posture of the existing Darcy-Weisbach home
+- Given the new edge kind lands, when tests run, then a regression test exists for
+  a valid orifice edge (dp matches an independent hand-computed oracle) and for a
+  malformed one
+threat: null
+```
+Named cut in network.py's coverage declaration (module docstring): orifice is currently a bare OutOfDomain(edge_kind:orifice) with no dp model at all. lithos's WO-144 demo census wants a real target here -- an orifice-plate dp law is a well-known closed form (unlike hx_segment/geom_extract below, no new solver architecture is needed, just one more _*_dp_and_k-shaped function and a Rust home). Filed report-only per T-0021's assessment scope; NOT implemented this session.
+
+<!-- ticket:T-0023 -->
+```yaml
+id: T-0023
+title: 'fluids: honest hx_segment edge-kind support in Hardy-Cross network solver'
+state: queued
+kind: feature
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/fluids/network.py
+evidence: []
+attachments: []
+acceptance:
+- Given an edge with kind=hx_segment and scalar params (a fixed or Q-dependent hydraulic
+  resistance representative of one heat-exchanger pass -- e.g. a K-factor-style loss
+  coefficient plus flow area, per the manufacturer-curve convention thermo.py's property
+  tables already assume), when the Hardy-Cross solve runs, then dp is computed as
+  a K*rho*V^2/2-style minor-loss term (White sec. 6.10 minor losses) and its Newton
+  slope feeds the loop correction
+- 'Given hx_segment needs the thermo/CoolProp property wrapper (module docstring''s
+  OTHER named cut: pipe/imposer edges use literal density/viscosity, not MediumRef)
+  to be physically honest for anything beyond a fixed K, when this ticket is scoped,
+  then it explicitly states whether it wires thermo.py''s property resolution into
+  this call site or defers that as a SEPARATE named cut (K-factor-only, literal density)
+  -- do not silently assume full property resolution is in scope'
+- Given a malformed hx_segment edge (missing K or area), when solved, then SolveError.OutOfDomain
+  names missing_param:<key>, never a bare KeyError
+- Given the new edge kind lands, when tests run, then a regression test exists for
+  a valid hx_segment edge against an independent minor-loss oracle and for a malformed
+  one
+threat: null
+```
+Named cut in network.py's coverage declaration: hx_segment is currently a bare OutOfDomain(edge_kind:hx_segment). lithos's thermosiphon.fluo/hydronics.fluo demos hit this. Genuinely implementable as a K-factor minor-loss term WITHOUT needing the full thermo.py wiring (that can be a separate, later-scoped follow-up) -- this ticket should scope the K-factor-only version first and name the property-resolution gap explicitly rather than silently deferring it. Filed report-only per T-0021's assessment scope; NOT implemented this session.
+
+<!-- ticket:T-0024 -->
+```yaml
+id: T-0024
+title: 'fluids: wire WO-32 geom_extract seam (EdgeParams2) into Hardy-Cross network
+  solver'
+state: queued
+kind: feature
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/fluids/network.py
+evidence: []
+attachments: []
+acceptance:
+- Given a pipe/imposer/orifice/hx_segment edge whose params use source=geom_extract
+  (EdgeParams2, D131's regolith-lower::extract seam) instead of source=scalars, when
+  the Hardy-Cross solve runs, then the referenced geometry record is resolved through
+  the SAME extraction seam WO-32 already established elsewhere in the toolchain (NO
+  second wire format, NO duplicated extraction logic -- this ticket must cite and
+  reuse WO-32's existing extractor, not reinvent one)
+- Given the extraction target is missing or the selector does not resolve (e.g. an
+  unknown 'wetted' selector on a record that has no wetted-perimeter feature), when
+  solved, then SolveError.OutOfDomain (or a dedicated ExtractionFailed-shaped error
+  if the WO-32 seam already defines one) names the edge id + selector, never a bare
+  crash
+- Given this seam lands, when tests run, then a regression test exists for a valid
+  geom_extract-sourced pipe edge (diameter/length pulled from a fixture geometry record
+  and matching an independently computed scalar) and the existing test_geometry_extract_params_are_cut_honestly
+  test is updated to a still-cut narrower case (or removed if EdgeParams2 becomes
+  fully in-coverage)
+threat: null
+```
+Named cut in network.py's coverage declaration: _Edge.__init__ raises _UnsupportedFeature(edge_params:geom_extract) unconditionally for any source != scalars. lithos's thermosiphon.fluo/hydronics.fluo demos want edge dimensions pulled from realized CAD geometry rather than hand-typed literals. This is the largest of the three assessed gaps -- it needs the WO-32 extraction seam identified and its call convention understood before scoping further; this ticket should be split further once that recon is done, not implemented blind. Filed report-only per T-0021's assessment scope; NOT implemented this session.

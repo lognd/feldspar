@@ -174,6 +174,18 @@ def _scalar_value(interval: dict[str, Any]) -> float:
     return (float(interval["lo"]) + float(interval["hi"])) / 2.0
 
 
+def _require_keys(edge_id: str, values: dict[str, Any], keys: tuple[str, ...]) -> None:
+    """Validates that every key in `keys` is present in `values` before
+    `_Edge.__init__` subscripts it -- a missing key (e.g. an `imposer`
+    edge with no `flow_rate`) is a malformed payload, not a programmer
+    bug: it must surface as the module's typed `_UnsupportedFeature` ->
+    `SolveError.OutOfDomain(...)` path (caught in `_hardy_cross_solve`),
+    never a bare `KeyError` crash (INV-24-class totality; T-0021)."""
+    for key in keys:
+        if key not in values:
+            raise _UnsupportedFeature(edge_id, f"missing_param:{key}")
+
+
 class _Edge:
     """One in-coverage network edge: a pipe (unknown flow) or an
     imposer (fixed flow), with the literal scalar params Hardy-Cross
@@ -203,6 +215,9 @@ class _Edge:
         self.b = edge.b
         self.kind = edge.kind
         if edge.kind == "pipe":
+            _require_keys(
+                edge.id, values, ("length", "diameter", "density", "viscosity")
+            )
             self.length = _scalar_value(values["length"])
             self.diameter = _scalar_value(values["diameter"])
             self.roughness = _scalar_value(values.get("roughness", 0.0))
@@ -210,6 +225,7 @@ class _Edge:
             self.viscosity = _scalar_value(values["viscosity"])
             self.flow = 0.0  # Hardy-Cross unknown, seeded below
         elif edge.kind == "imposer":
+            _require_keys(edge.id, values, ("flow_rate",))
             self.length = self.diameter = self.roughness = 0.0
             self.density = self.viscosity = 0.0
             self.flow = _scalar_value(values["flow_rate"])

@@ -1124,18 +1124,61 @@ anticipated honest outcome, not hit as a surprise.
 id: T-0021
 title: 'fluids: Hardy-Cross _Edge validates params (KeyError crash on imposer without
   flow_rate)'
-state: queued
+state: done
 kind: bug
 origin: agent
 created: '2026-07-19'
 blocked_by: []
 parent: null
 scope: []
-evidence: []
+evidence:
+- tests/unit/test_library_fluids_network.py::test_imposer_missing_flow_rate_is_honest_indeterminate
+- tests/unit/test_library_fluids_network.py::test_imposer_with_flow_rate_is_unaffected_by_validation
 attachments: []
 acceptance: []
 threat: null
 ```
+## Done report
+
+`_Edge.__init__` (`python/feldspar/fluids/network.py`) subscripted
+`values["length"]`/`["diameter"]`/`["density"]`/`["viscosity"]`/
+`["flow_rate"]` directly, so a malformed edge (e.g. an `imposer` with
+no `flow_rate` -- lithos's `steam_service.fluo` live repro) raised a
+bare `KeyError` instead of the module's typed error path. Added
+`_require_keys(edge_id, values, keys)` which checks presence first and
+raises the module's existing `_UnsupportedFeature(edge_id, feature)`
+signal (`feature="missing_param:<key>"`); this is already caught in
+`_hardy_cross_solve`'s `except _UnsupportedFeature` and converted to
+`SolveError.OutOfDomain(payload_feature_violation(FLOWNET_PORT,
+exc.feature))` -- the exact posture every other out-of-coverage case
+in this file uses (`edge_kind:*`, `edge_params:*`), no new error
+variant needed.
+
+Regression tests added to `tests/unit/test_library_fluids_network.py`:
+`test_imposer_missing_flow_rate_is_honest_indeterminate` (the exact
+repro: an `imposer` with `values={}` -> `OutOfDomain`,
+`violation.tag == "missing_param:flow_rate"`, never a crash) and
+`test_imposer_with_flow_rate_is_unaffected_by_validation` (a
+well-formed imposer+pipe network still solves and matches the imposed
+flow, proving the key-presence check does not reject valid edges).
+
+Gates: `frob check` clean of new issues (ruff-format was fixed;
+remaining 2 errors/53 waivers are pre-existing, unrelated to this
+change -- `errors.py` duplicate block and two pre-existing
+long-function warnings in `tests/unit/test_registry.py` /
+`test_payload_pipeline.py`). `make coverage` restamped (582 passed).
+Full suite: `uv run pytest tests/ -q -m "not regolith and not fea and
+not spice"` -> 582 passed, EXIT=0; `uv run pytest tests/regolith -q -m
+regolith` -> 115 passed, EXIT=0.
+
+Assessment (report-only, not implemented): filed T-0022 (orifice
+edge-kind, closed-form ISO-5167-style dp law, needs a new Rust home),
+T-0023 (hx_segment edge-kind, K-factor minor-loss term, explicitly
+scoped to defer full thermo.py MediumRef wiring as a separate cut),
+and T-0024 (wire the WO-32 `geom_extract` seam so `EdgeParams2`-sourced
+edges stop being an unconditional cut) -- one ticket per genuinely-
+implementable gap lithos named for the WO-144 demo census, each with
+an acceptance sketch, none implemented this session.
 
 <!-- ticket:T-0022 -->
 ```yaml

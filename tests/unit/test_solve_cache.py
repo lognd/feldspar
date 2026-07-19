@@ -94,6 +94,9 @@ def test_solve_twice_identical_digest_second_served_from_cache(
 
 # frob:tests python/feldspar/plan/cache.py::SolveCache.get kind="unit"
 # frob:tests python/feldspar/plan/cache.py::SolveCache.put kind="unit"
+# frob:tests python/feldspar/plan/execute.py::route_settings_digest kind="unit"
+# frob:tests python/feldspar/plan/cache.py::solution_to_jsonable kind="unit"
+# frob:tests python/feldspar/plan/cache.py::solution_from_jsonable kind="unit"
 def test_finv7_cache_hit_byte_identical_to_forced_recompute(tmp_path) -> None:
     registry = _registry_direct()
     known = {"sc.x": Interval(1.0, 2.0)}
@@ -113,6 +116,7 @@ def test_finv7_cache_hit_byte_identical_to_forced_recompute(tmp_path) -> None:
     assert canonical_digest(hit_norm) == canonical_digest(forced)
 
 
+# frob:tests python/feldspar/plan/execute.py::error_to_record_fields kind="unit"
 def test_reroute_on_step_failure_deterministic_attempt_trail(tmp_path) -> None:
     registry = SolverRegistry()
 

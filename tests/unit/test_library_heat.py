@@ -101,3 +101,33 @@ def test_dittus_boelter_domain_rejects_below_validity_reynolds():
     a call below that is out of the registered Domain."""
     info, _fn = _solvers()["heat.dittus_boelter_nusselt_heating"]
     assert info.domain.box["heat.internal_flow.reynolds"].lo == pytest.approx(1e4)
+
+
+# frob:tests python/feldspar/heat/closed_form.py::convection_resistance kind="unit"
+def test_convection_resistance_known_answer():
+    """R = 1/(h*A). h=50 W/m^2-K, A=2.0 m^2 -> R = 1/(50*2.0) = 0.01 K/W."""
+    _info, fn = _solvers()["heat.convection_resistance"]
+    result = fn({"heat.convection.coefficient": 50.0, "heat.convection.area": 2.0})
+    assert result.is_ok
+    assert result.danger_ok.values["heat.convection.resistance"] == pytest.approx(
+        0.01, rel=1e-9
+    )
+
+
+# frob:tests python/feldspar/heat/closed_form.py::coefficient_from_nusselt kind="unit"
+def test_coefficient_from_nusselt_known_answer():
+    """h = Nu*k/D (Incropera ch. 8 Nusselt-number definition). Nu=100,
+    k=0.6 W/m-K, D=0.05 m -> h = 100*0.6/0.05 = 1200 W/m^2-K."""
+    _info, fn = _solvers()["heat.coefficient_from_nusselt"]
+    result = fn(
+        {
+            "heat.convection.nusselt": 100.0,
+            "heat.fluid.conductivity": 0.6,
+            "heat.pipe.diameter": 0.05,
+        }
+    )
+    assert result.is_ok
+    expected = 100.0 * 0.6 / 0.05
+    assert result.danger_ok.values["heat.convection.coefficient"] == pytest.approx(
+        expected, rel=1e-9
+    )

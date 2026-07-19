@@ -30,6 +30,7 @@ def _run_example(name: str) -> subprocess.CompletedProcess[str]:
 # frob:tests examples kind="integration"
 # frob:tests crates/feldspar-py/src kind="integration"
 # frob:tests python/feldspar/core.py kind="integration"
+# frob:tests examples/01_register_and_solve.py::ideal_gas_pv_to_t kind="unit"
 def test_01_register_and_solve_runs() -> None:
     """Minimal register/freeze/solve/explain happy path exits clean."""
     result = _run_example("01_register_and_solve.py")

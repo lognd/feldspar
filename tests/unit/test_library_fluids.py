@@ -257,3 +257,46 @@ def test_compressible_and_incompressible_entries_carry_distinct_regime_tags():
         info, _fn = solvers[solver_id]
         assert "compressible" in info.domain.tags
         assert "incompressible" not in info.domain.tags
+
+
+# frob:tests python/feldspar/fluids/incompressible.py::darcy_dp kind="unit"
+def test_darcy_weisbach_dp_matches_hand_computed_case():
+    """Darcy-Weisbach dp = f * (L/D) * (rho * v^2 / 2): f=0.02, L=100m,
+    D=0.1m, rho=1000 kg/m^3, v=2 m/s -> dp = 0.02*1000*1000*2 = 40000 Pa
+    (hand-computed, not cited from the benchmarks memo -- exact closed
+    form, no empirical fit)."""
+    _info, fn = _solvers()["fluids.darcy_dp"]
+    result = fn(
+        {
+            "fluids.pipe.friction_factor": 0.02,
+            "fluids.pipe.length": 100.0,
+            "fluids.pipe.diameter": 0.1,
+            "fluids.fluid.density": 1000.0,
+            "fluids.pipe.velocity": 2.0,
+        }
+    )
+    assert result.is_ok
+    expected = 0.02 * (100.0 / 0.1) * (1000.0 * 2.0**2 / 2.0)
+    assert result.danger_ok.values["fluids.pipe.dp"] == pytest.approx(
+        expected, rel=1e-9
+    )
+
+
+# frob:tests python/feldspar/fluids/incompressible.py::minor_loss_dp kind="unit"
+def test_minor_loss_dp_matches_hand_computed_case():
+    """Minor-loss dp = k * rho * v^2 / 2: k=1.5, rho=1000 kg/m^3,
+    v=3 m/s -> dp = 1.5*1000*9/2 = 6750 Pa (hand-computed exact closed
+    form)."""
+    _info, fn = _solvers()["fluids.minor_loss_dp"]
+    result = fn(
+        {
+            "fluids.fitting.k_factor": 1.5,
+            "fluids.fluid.density": 1000.0,
+            "fluids.pipe.velocity": 3.0,
+        }
+    )
+    assert result.is_ok
+    expected = 1.5 * 1000.0 * 3.0**2 / 2.0
+    assert result.danger_ok.values["fluids.fitting.dp"] == pytest.approx(
+        expected, rel=1e-9
+    )

@@ -32,6 +32,7 @@ def _solvers() -> dict:
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
+# frob:tests python/feldspar/mech/plate.py::flexural_rigidity kind="unit"
 def test_ss_max_stress_matches_hand_computed():
     """sigma = 3*q*a^2*(3+nu)/(8*t^2) = 3*1e4*0.01*3.3/(8*2.5e-5) = 4.95 MPa."""
     _i, fn = _solvers()["mech.plate.plate_circular_uniform_ss_max_stress"]

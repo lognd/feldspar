@@ -137,6 +137,7 @@ def test_calibrate_domain_mismatch() -> None:
 
 
 # frob:tests python/feldspar/calib/store.py::write_record kind="unit"
+# frob:tests python/feldspar/calib/store.py::record_path kind="unit"
 def test_check_ceilings_happy_path(tmp_path: Path) -> None:
     records_dir = tmp_path / "records"
     registry = _build_registry()

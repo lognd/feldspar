@@ -54,7 +54,12 @@ def _declare_ideal_gas_ports(registry: SolverRegistry) -> None:
     )
 
 
-# frob:tests examples/solvers/02_relations.py::p_from_tv kind="unit"
+# frob:tests python/feldspar/solve/_build.py::coerce_domain kind="unit"
+# frob:tests python/feldspar/solve/_build.py::coerce_citation kind="unit"
+# frob:tests python/feldspar/solve/_build.py::coerce_citations kind="unit"
+# frob:tests python/feldspar/solve/_build.py::coerce_accuracy kind="unit"
+# frob:tests python/feldspar/solve/_build.py::wrap_solve_fn kind="unit"
+# frob:tests python/feldspar/solve/_build.py::build_solver_info_and_fn kind="unit"
 def test_toy_ideal_gas_registers_freezes_iterates_sorted() -> None:
     """Acceptance: 'a toy thermo.ideal_gas solver registers, freezes,
     iterates sorted'."""
@@ -80,7 +85,6 @@ def test_toy_ideal_gas_registers_freezes_iterates_sorted() -> None:
     assert ids == ["thermo.p_from_tv", "thermo.t_from_pv"]
 
 
-# frob:tests examples/solvers/02_relations.py::t_from_pv kind="unit"
 def test_registry_digest_stable_and_folds_every_solver() -> None:
     ideal_gas = _ideal_gas_relation()
 

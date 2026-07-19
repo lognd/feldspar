@@ -107,6 +107,7 @@ def _subdivisions(dimension: float, char_length: float) -> int:
 
 # frob:doc docs/modules/fea.md#fea_mesh
 # frob:waive PERF004 reason="false positive: frob's PERF004 loop-gate is function-scoped (any earlier top-level for/while in the SAME function triggers it, not true AST nesting -- see _loop_gate in frob's perf/_rules.py). The sorted(genexpr) building fixed_ids/tip_ids below runs ONCE per mesh build, after (not inside) the earlier element-assembly for-loop; there is nothing to hoist."
+# frob:waive TEST001 reason="gmsh is not installed in this sandbox (T-0014's documented external-tool floor); the only existing reference is test_fea_solver_seeking.py monkeypatching this function OUT (mocks it away, not genuine coverage). Real coverage needs a gmsh-equipped CI leg; tracked under T-0014."
 def build_cantilever_mesh(
     geometry: CantileverGeometry, settings: MeshSettings
 ) -> Result[MeshData, SolveError]:
@@ -246,6 +247,7 @@ def build_cantilever_mesh(
 
 # frob:doc docs/modules/fea.md#fea_mesh
 # frob:waive PERF004 reason="false positive: same function-scoped loop-gate as build_cantilever_mesh above -- the sorted(genexpr) building BORE/OUTER node sets runs once per mesh build, after the earlier element-assembly for-loop, not once per iteration of it."
+# frob:waive TEST001 reason="gmsh is not installed in this sandbox (T-0014's documented external-tool floor); no existing test calls this function at all (even mocked). Real coverage needs a gmsh-equipped CI leg; tracked under T-0014."
 def build_cylinder_mesh(
     geometry: CylinderGeometry, settings: MeshSettings
 ) -> Result[MeshData, SolveError]:

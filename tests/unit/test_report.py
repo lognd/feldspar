@@ -108,6 +108,8 @@ def test_explain_makes_no_solver_calls() -> None:
     assert isinstance(as_dict, dict)
 
 
+# frob:tests python/feldspar/plan/report.py::render_to_dict kind="unit"
+# frob:tests python/feldspar/plan/report.py::render_explain kind="unit"
 def test_to_dict_and_explain_share_step_data() -> None:
     registry = _toy_registry()
     known = _toy_known()

@@ -100,6 +100,7 @@ def test_thin_margin_translates_margin_into_eps_budget(monkeypatch) -> None:
     assert budgets == [_EPS_BUDGET, 0.5]  # margin translated verbatim
 
 
+# frob:tests python/feldspar/pack/errors.py::margin_exhausted_error kind="unit"
 def test_refinement_exhaustion_states_eps_achieved_vs_needed(monkeypatch) -> None:
     """The engine cannot meet the translated budget (ladder top-out):
     honest indeterminate whose message states eps achieved vs needed

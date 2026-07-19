@@ -81,6 +81,9 @@ def test_rung_01_sugar_coercions_registers() -> None:
 
 
 # frob:tests examples/solvers/02_relations.py kind="integration"
+# frob:tests examples/solvers/02_relations.py::t_from_pv kind="unit"
+# frob:tests examples/solvers/02_relations.py::p_from_tv kind="unit"
+# frob:tests examples/solvers/02_relations.py::v_from_tp kind="unit"
 def test_rung_02_relations_registers() -> None:
     """Binding anchor for rung 02."""
     _assert_rung_registers("02_relations")
@@ -106,6 +109,7 @@ def test_rung_06_coupled_groups_registers() -> None:
 
 # frob:tests examples/solvers/05_expensive_and_abstraction.py kind="integration"
 # frob:tests examples/solvers/05_expensive_and_abstraction.py::flange_as_cantilever kind="unit"
+# frob:tests examples/solvers/05_expensive_and_abstraction.py::fea_cantilever_tip kind="unit"
 def test_rung_05_second_solver_is_honestly_not_yet_registrable() -> None:
     """05's `flange_as_cantilever` abstraction-edge solver is explicitly
     "not registrable in M1" (its own comment; F17, README OPEN/M2): the

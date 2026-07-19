@@ -183,6 +183,7 @@ def test_own_sub_namespace_under_a_non_standard_namespace_is_fine() -> None:
     assert outcome.skipped == ()
 
 
+# frob:tests python/feldspar/solve/packs.py::method_named_solver_violation kind="unit"
 def test_method_named_solver_id_is_rejected() -> None:
     """A namespace naming a method/tool (`fea`) rather than what is
     claimed is the D94 lint, one level down."""

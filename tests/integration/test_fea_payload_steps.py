@@ -78,6 +78,7 @@ _TAGS = frozenset({"linear_elastic", "small_deflection"})
 _BUDGET = 1e10
 
 
+# frob:tests python/feldspar/solve/payload.py::resolver_cache_identity kind="unit"
 def test_cantilever_routes_geometry_mesh_fea(tmp_path) -> None:
     """Acceptance: geometry.parametric -> mesh -> fea, each stage a
     registry edge, against the real tools."""

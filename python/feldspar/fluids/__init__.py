@@ -26,6 +26,7 @@ _log = get_logger(__name__)
 __all__ = ["register", "register_network"]
 
 
+# frob:doc docs/modules/fluids.md#fluids_init
 def register(registry: SolverRegistry) -> None:
     """Registers every declaration-free fluids solver direction, both
     regimes (WO-20/D141)."""
@@ -34,6 +35,7 @@ def register(registry: SolverRegistry) -> None:
     _log.info("fluids: registered %d solver directions", count)
 
 
+# frob:doc docs/modules/fluids.md#fluids_init
 def register_network(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Registers the Hardy-Cross `flownet`-payload direction (WO-20
     residual). Must be called after `register()` and after every other

@@ -36,6 +36,7 @@ _RESISTANCE_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.wall.thickness", "heat.wall.conductivity", "heat.wall.area"),
@@ -66,6 +67,7 @@ def plane_wall_resistance(x):
     )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=(
@@ -103,6 +105,7 @@ def cylindrical_wall_resistance(x):
     )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.convection.coefficient", "heat.convection.area"),
@@ -131,6 +134,7 @@ def convection_resistance(x):
     )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.network.r1", "heat.network.r2"),
@@ -153,6 +157,7 @@ def series_resistance(x):
     return Ok({"heat.network.r_series": _feldspar.heat_series_resistance(r1, r2)})
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.network.delta_temp", "heat.network.resistance"),
@@ -184,6 +189,7 @@ def rate_from_resistance(x):
 _DITTUS_BOELTER_CITATIONS = (Citation(kind="paper", ref=_DITTUS_BOELTER),)
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.internal_flow.reynolds", "heat.internal_flow.prandtl"),
@@ -214,6 +220,7 @@ def dittus_boelter_nusselt_heating(x):
     )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 @solver(
     namespace="heat",
     inputs=("heat.convection.nusselt", "heat.fluid.conductivity", "heat.pipe.diameter"),
@@ -278,6 +285,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_closed_form
 def register(registry: SolverRegistry) -> None:
     """Registers every heat Phase 2 direction (WO-20). Declares this
     family's port table first (WO111b)."""

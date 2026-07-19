@@ -40,6 +40,7 @@ _ANDERSON = "Anderson, Modern Compressible Flow, 3rd ed."
 _COMPRESSIBLE_CITATIONS = (Citation(kind="handbook", ref=_ANDERSON, note="ch. 3"),)
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 @solver(
     namespace="fluids",
     inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
@@ -68,6 +69,7 @@ def isentropic_stagnation_temp_ratio(x):
     )
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 @solver(
     namespace="fluids",
     inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
@@ -96,6 +98,7 @@ def isentropic_stagnation_pressure_ratio(x):
     )
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 @solver(
     namespace="fluids",
     inputs=("fluids.compressible.mach_upstream", "fluids.gas.gamma"),
@@ -124,6 +127,7 @@ def normal_shock_mach2(x):
     )
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 @solver(
     namespace="fluids",
     inputs=("fluids.compressible.mach_upstream", "fluids.gas.gamma"),
@@ -164,6 +168,7 @@ _FANNO_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 @solver(
     namespace="fluids",
     inputs=("fluids.compressible.mach", "fluids.gas.gamma"),
@@ -207,6 +212,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_compressible
 def register(registry: SolverRegistry) -> int:
     """Registers every compressible fluids direction (D141); declares
     this family's port table first (WO111b); returns the count."""

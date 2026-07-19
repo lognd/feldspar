@@ -96,11 +96,13 @@ __all__ = [
 ]
 
 #: The flownet payload input port (kind `flownet`, D154).
+# frob:doc docs/modules/fluids.md#fluids_network
 FLOWNET_PORT = "fluids.network.flownet"
 
 #: The solved per-edge flow/dp table payload output port (kind
 #: `table`): downstream consumers (dp/npsh/hammer claims) read this
 #: instead of re-running the loop solve.
+# frob:doc docs/modules/fluids.md#fluids_network
 SOLUTION_PORT = "fluids.network.solution"
 
 _HC_TOL = 1e-6  # m^3/s -- the benchmarks memo sec. 3.2 convergence figure
@@ -526,6 +528,7 @@ def _hardy_cross_solve(
     return Err(SolveError.NoConvergence(iterations=_HC_MAX_ITER, residual=max_dq))
 
 
+# frob:doc docs/modules/fluids.md#fluids_network
 class SolvedNetwork:
     """The parsed + Hardy-Cross-converged network (WO-141 pack bridge):
     wraps the SAME solved `_Edge` list `hardy_cross_fn` serializes to
@@ -549,6 +552,7 @@ class SolvedNetwork:
         self.incidence = incidence
 
 
+# frob:doc docs/modules/fluids.md#fluids_network
 def solve_flownet_bytes(data: bytes) -> "Result[SolvedNetwork, SolveError]":
     """Parses `data` as a `_FlownetPayload` (D154 wire subset, this
     module's own field-name-compatible schema) and runs the Hardy-Cross
@@ -577,6 +581,7 @@ def solve_flownet_bytes(data: bytes) -> "Result[SolvedNetwork, SolveError]":
     return Ok(SolvedNetwork(payload, solved.danger_ok))
 
 
+# frob:doc docs/modules/fluids.md#fluids_network
 def edge_dp(edge: "_Edge") -> float:
     """The converged signed pressure drop across one solved edge (a->b
     positive sense): pipes via Darcy-Weisbach at the converged flow
@@ -594,6 +599,7 @@ def edge_dp(edge: "_Edge") -> float:
     return dp
 
 
+# frob:doc docs/modules/fluids.md#fluids_network
 def find_path_edges(
     solved: SolvedNetwork, node_a: str, node_b: str
 ) -> "Result[list[tuple[_Edge, int]], SolveError]":
@@ -707,6 +713,7 @@ def _make_hardy_cross_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/fluids.md#fluids_network
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Declares this module's port table (payload ports need declared
     kinds, F12) and registers the Hardy-Cross direction, closed over

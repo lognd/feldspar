@@ -167,6 +167,7 @@ _BIOT_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_thermal_transient
 @solver(
     namespace="heat.transient",
     inputs=(
@@ -227,6 +228,7 @@ _STEP_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_thermal_transient
 @solver(
     namespace="heat.transient",
     inputs=(
@@ -303,6 +305,7 @@ _TTT_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_thermal_transient
 @solver(
     namespace="heat.transient",
     inputs=(
@@ -414,6 +417,7 @@ _DUTY_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_thermal_transient
 @solver(
     namespace="heat.transient",
     inputs=(
@@ -531,6 +535,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/heat.md#heat_thermal_transient
 def register(registry: SolverRegistry) -> None:
     """Registers all four thermal-transient directions (WO-24
     deliverable 6: Biot-number convenience form, step response,

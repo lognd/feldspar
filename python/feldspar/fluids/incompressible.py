@@ -56,6 +56,7 @@ _LAMINAR_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.pipe.reynolds",),
@@ -88,6 +89,7 @@ _TURBULENT_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.pipe.reynolds", "fluids.pipe.relative_roughness"),
@@ -124,6 +126,7 @@ _HAALAND_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.pipe.reynolds", "fluids.pipe.relative_roughness"),
@@ -158,6 +161,7 @@ _DARCY_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=(
@@ -201,6 +205,7 @@ def darcy_dp(x):
 _MINOR_LOSS_CITATIONS = (Citation(kind="standard", ref=_CRANE),)
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.fitting.k_factor", "fluids.fluid.density", "fluids.pipe.velocity"),
@@ -236,6 +241,7 @@ _NETWORK_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.network.dp1", "fluids.network.dp2"),
@@ -258,6 +264,7 @@ def series_dp(x):
     return Ok({"fluids.network.dp_series": _feldspar.fluids_series_dp(dp1, dp2)})
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=("fluids.network.q1", "fluids.network.q2"),
@@ -314,6 +321,7 @@ pump_operating_point = Relation(
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @pump_operating_point.direction(solves_for="fluids.pump.q_star")
 def pump_operating_flow(x):
     h0 = x["fluids.pump.h0"]
@@ -324,6 +332,7 @@ def pump_operating_flow(x):
     return Ok({"fluids.pump.q_star": q_star})
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @pump_operating_point.direction(solves_for="fluids.pump.h_star")
 def pump_operating_head(x):
     h_static = x["fluids.system.h_static"]
@@ -336,6 +345,7 @@ def pump_operating_head(x):
 _NPSH_CITATIONS = (Citation(kind="handbook", ref=_CENGEL, note="NPSH available"),)
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=(
@@ -386,6 +396,7 @@ _JOUKOWSKY_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 @solver(
     namespace="fluids",
     inputs=(
@@ -460,6 +471,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/fluids.md#fluids_incompressible
 def register(registry: SolverRegistry) -> int:
     """Registers every incompressible fluids Phase 2 direction (WO-20).
     Declares this family's port table first (WO111b).

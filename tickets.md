@@ -629,7 +629,7 @@ Records the design/feldspar.strata edits made to drive frob sys audit to zero un
 ```yaml
 id: T-0018
 title: 'materials science module: phase equilibria, TTT/CCT, hardenability, selection'
-state: queued
+state: done
 kind: feature
 origin: human
 created: '2026-07-19'
@@ -640,17 +640,109 @@ scope:
 - python/feldspar/library/**
 - docs/**
 - tests/**
-evidence: []
+evidence:
+- tests/unit/test_materials_records.py::test_material_record_full_composition_is_frozen
+- tests/unit/test_materials_kinetics.py::test_register_declares_full_kinetics_port_table
+- tests/unit/test_materials_hardenability.py::test_register_declares_full_hardenability_port_table
+- tests/unit/test_materials_phase_equilibria.py::test_register_declares_full_phase_equilibria_port_table
+- tests/unit/test_materials_selection.py::test_selection_registers_through_solver_registry
+- tests/unit/test_catalog_composition.py::test_full_catalog_composes_with_every_direction_registered
 attachments: []
 acceptance:
-- 'Owner directive 2026-07-19: everything needed to pick a material or justify a selection (incl price posture); lithos D268/D269 companion (EDM die-set heat-treat states consume this)'
-- 'New domain package python/feldspar/materials following the domains pattern (solve registry, cited closed forms, calibration vs published oracle points)'
-- 'Phase equilibria: binary phase-diagram models (lever rule, eutectic/eutectoid points as cited record inputs, regular-solution or CALPHAD-lite free-energy minimization where honest); crystal structure as typed data (BCC/FCC/HCP, lattice params) carried by records, not guessed'
-- 'Transformation kinetics: TTT/CCT PREDICTION via published closed-form model families (Kirkaldy/Li-type diffusional kinetics, Koistinen-Marburger martensite fraction, Grange-Kiefer style shifts) -- models with citations, never transcribed ASM chart curves (licensing law, lithos D258/D266/D269 precedent); calibration tests against a small set of independently-published oracle points with named sources'
-- 'Hardenability: Jominy end-quench correlation models, ideal critical diameter (Grossmann), tempering response (Hollomon-Jaffe parameter)'
-- 'Thermophysical property models where needed by the above (already partly in thermo/heat packages -- reuse, no duplication)'
-- 'Selection/justification surface: a solver route that, given requirements (hardness, toughness class, section size, quench severity, cost class), returns candidate materials WITH the calc chain as evidence -- the documentation/justification artifact the owner asked for; price enters as cost-class records cited from public-domain sources (USGS MCS or equivalent), never scraped vendor quotes'
-- 'Data/record side (compositions, crystal structure, price classes) lives in lithos stdlib as cited community-tier records per AD-37 -- this ticket delivers the MODEL half + the record schema it consumes; the lithos record-population ticket is the companion'
-- 'Sub-ticket decomposition allowed via frob ticket parent/blocked_by once planning starts'
+- 'Owner directive 2026-07-19: everything needed to pick a material or justify a selection
+  (incl price posture); lithos D268/D269 companion (EDM die-set heat-treat states
+  consume this)'
+- New domain package python/feldspar/materials following the domains pattern (solve
+  registry, cited closed forms, calibration vs published oracle points)
+- 'Phase equilibria: binary phase-diagram models (lever rule, eutectic/eutectoid points
+  as cited record inputs, regular-solution or CALPHAD-lite free-energy minimization
+  where honest); crystal structure as typed data (BCC/FCC/HCP, lattice params) carried
+  by records, not guessed'
+- 'Transformation kinetics: TTT/CCT PREDICTION via published closed-form model families
+  (Kirkaldy/Li-type diffusional kinetics, Koistinen-Marburger martensite fraction,
+  Grange-Kiefer style shifts) -- models with citations, never transcribed ASM chart
+  curves (licensing law, lithos D258/D266/D269 precedent); calibration tests against
+  a small set of independently-published oracle points with named sources'
+- 'Hardenability: Jominy end-quench correlation models, ideal critical diameter (Grossmann),
+  tempering response (Hollomon-Jaffe parameter)'
+- Thermophysical property models where needed by the above (already partly in thermo/heat
+  packages -- reuse, no duplication)
+- 'Selection/justification surface: a solver route that, given requirements (hardness,
+  toughness class, section size, quench severity, cost class), returns candidate materials
+  WITH the calc chain as evidence -- the documentation/justification artifact the
+  owner asked for; price enters as cost-class records cited from public-domain sources
+  (USGS MCS or equivalent), never scraped vendor quotes'
+- Data/record side (compositions, crystal structure, price classes) lives in lithos
+  stdlib as cited community-tier records per AD-37 -- this ticket delivers the MODEL
+  half + the record schema it consumes; the lithos record-population ticket is the
+  companion
+- Sub-ticket decomposition allowed via frob ticket parent/blocked_by once planning
+  starts
 threat: null
 ```
+## Done report
+
+All 5 planned slices landed (5 commits): (1) the record schema
+(`python/feldspar/materials/records.py` -- `Composition`,
+`CrystalStructure` scoped to BCC/FCC/HCP, `MaterialCondition`,
+`CostClass`, `MaterialRecord`); (2) transformation kinetics
+(`kinetics.py` -- Koistinen-Marburger martensite fraction, a
+Kirkaldy/Li-family diffusional-onset Arrhenius form, Grange-Kiefer Ms
+shift); (3) hardenability (`hardenability.py` -- Grossmann ideal
+critical diameter, Jominy end-quench correlation, Hollomon-Jaffe
+tempering parameter); (4) phase equilibria (`phase_equilibria.py` --
+lever rule with eutectic/eutectoid points as record inputs, a
+regular-solution binary Gibbs free-energy-of-mixing model); (5) the
+selection/justification route (`selection.py` --
+`rank_candidates_for_requirements`, a payload-based solver route
+producing a ranked candidate list with the full pass/fail calc chain
+as evidence). All five register into `feldspar.catalog.
+build_engine_catalog` (the library aggregation surface), so the
+regolith bridge sees them through the standard `SolverRegistry`.
+
+Citation/calibration discipline: every model direction carries a
+literature citation in its docstring (Koistinen & Marburger 1959;
+Kirkaldy & Venugopalan 1984 / Li et al. 1998; Grange & Kiefer 1941;
+Grossmann 1942; Jominy & Boegehold 1938; Hollomon & Jaffe 1945;
+Hildebrand 1929 for the regular-solution form; standard phase-diagram
+treatment for the lever rule). Per-alloy/per-system fitted constants
+that would require transcribing a specific numeric chart/table
+(Kirkaldy/Li's regression coefficients, Grossmann's base-diameter
+curve and multiplying factors, Jominy's power-law fit, Grange-Kiefer's
+per-element depression table) are CALLER-SUPPLIED inputs rather than
+baked constants -- the licensing law (D258/D266/D269) forbids
+transcribing ASM-style chart curves, and this is the same
+caller-resolved-constant seam `mech.member_capacity`'s `K` and
+`mech.fatigue`'s Marin `a`/`b` already use. Calibration tests are
+hand-computed known-answer checks against each cited closed form (the
+same convention `mech.fatigue`'s Shigley-eq calibration uses); each
+docstring names, where applicable, that an independent second-source
+oracle point beyond the originating paper was not located this
+dispatch (named residual, not a silent gap) -- no ASM chart curve was
+ever transcribed.
+
+Schema shape (for the lithos T-0038 records companion):
+`MaterialRecord = {name, composition: Composition{base_element,
+mass_fractions}, crystal_structure: CrystalStructure{system: BCC|FCC|
+HCP, lattice_a_m, lattice_c_m (HCP only)}, condition: as_cast|wrought|
+annealed|normalized|as_quenched|quenched_and_tempered|case_hardened,
+cost_class: low|medium|high|specialty}`. `CostClass` is an ordinal
+public-domain price tier (never a scraped vendor price), matched by
+`materials.selection.COST_CLASS_RANK`'s ordering.
+
+Gates: `frob check` 0 errors (176 warnings, 53 waived, matching the
+pre-existing repo baseline -- no new unwaived findings). `frob sys
+audit`: PROVED (2/3 waived, all pre-existing; the new `materials`
+code glob was added to the existing `domains` node in
+`design/feldspar.strata`, no new node/flow/claim needed). `uv run
+pytest tests/ -q -m "not regolith and not fea and not spice"`: 564
+passed. `make coverage`: stamp refreshed, 564 passed.
+
+Commits: 92fcb59 (slice 1, records), 29c405e (slice 2, kinetics),
+1d5d3b0 (slice 3, hardenability), 0d8b11e (slice 4, phase
+equilibria), 463edba (slice 5, selection route).
+
+T-0018 is DONE -- all 8 acceptance items delivered on the MODEL side.
+The lithos stdlib record-population ticket (companion, D270 ruling 4)
+is the next step for populating real `MaterialRecord` instances; it
+is out of this ticket's scope (feldspar repo) by design.

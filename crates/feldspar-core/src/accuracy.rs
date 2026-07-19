@@ -83,6 +83,20 @@ impl Accuracy {
 mod tests {
     use super::*;
 
+    // frob:tests crates/feldspar-core/src/accuracy.rs::Accuracy.bits kind="unit"
+    #[test]
+    fn bits_are_equal_for_equal_accuracy() {
+        let a = Accuracy {
+            eps_abs: 0.1,
+            eps_rel: 0.2,
+        };
+        let b = Accuracy {
+            eps_abs: 0.1,
+            eps_rel: 0.2,
+        };
+        assert_eq!(a.bits(), b.bits());
+    }
+
     #[test]
     fn worst_over_takes_larger_abs_endpoint() {
         let acc = Accuracy {

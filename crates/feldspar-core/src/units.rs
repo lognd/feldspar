@@ -227,6 +227,7 @@ impl UnitSystem for BuiltinUnitSystem {
 mod tests {
     use super::*;
 
+    // frob:tests crates/feldspar-core/src/units.rs::BuiltinUnitSystem.builtin kind="unit"
     #[test]
     fn degc_to_si_applies_offset() {
         let sys = BuiltinUnitSystem::builtin();

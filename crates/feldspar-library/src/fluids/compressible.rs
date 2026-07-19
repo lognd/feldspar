@@ -77,3 +77,40 @@ pub extern "C" fn fluids_fanno_function(mach: f64, gamma: f64) -> f64 {
         (gamma + 1.0) / (2.0 * gamma) * ((gamma + 1.0) * m_sq / (2.0 + (gamma - 1.0) * m_sq)).ln();
     term1 + term2
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // frob:tests crates/feldspar-library/src/fluids/compressible.rs::fluids_isentropic_stagnation_temp_ratio kind="unit"
+    // frob:tests crates/feldspar-library/src/fluids/compressible.rs::fluids_isentropic_stagnation_pressure_ratio kind="unit"
+    #[test]
+    fn isentropic_stagnation_ratios_matches_hand_formula() {
+        // M=2.0, gamma=1.4 -> T0/T = 1 + 0.2*4 = 1.8
+        let t_ratio = fluids_isentropic_stagnation_temp_ratio(2.0, 1.4);
+        assert!((t_ratio - 1.8).abs() < 1e-9);
+        let p_ratio = fluids_isentropic_stagnation_pressure_ratio(2.0, 1.4);
+        let expected = 1.8f64.powf(1.4 / 0.4);
+        assert!((p_ratio - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/compressible.rs::fluids_normal_shock_mach2 kind="unit"
+    // frob:tests crates/feldspar-library/src/fluids/compressible.rs::fluids_normal_shock_pressure_ratio kind="unit"
+    #[test]
+    fn normal_shock_relations_match_hand_formula() {
+        // M1=2.0, gamma=1.4 -> M2 ~ 0.5774 (classic textbook value)
+        let m2 = fluids_normal_shock_mach2(2.0, 1.4);
+        assert!((m2 - 0.5774).abs() < 1e-3);
+        let p_ratio = fluids_normal_shock_pressure_ratio(2.0, 1.4);
+        // p2/p1 = 1 + 2*1.4/2.4 * (4-1) = 4.5
+        assert!((p_ratio - 4.5).abs() < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/compressible.rs::fluids_fanno_function kind="unit"
+    #[test]
+    fn fanno_function_vanishes_at_choking() {
+        // At M=1.0 the Fanno function is exactly 0 (the choking point).
+        let f = fluids_fanno_function(1.0, 1.4);
+        assert!(f.abs() < 1e-9);
+    }
+}

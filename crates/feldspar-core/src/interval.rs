@@ -106,6 +106,14 @@ impl std::hash::Hash for Interval {
 mod tests {
     use super::*;
 
+    // frob:tests crates/feldspar-core/src/interval.rs::Interval.bits kind="unit"
+    #[test]
+    fn bits_are_equal_for_equal_intervals() {
+        let a = Interval::new(1.0, 2.0).unwrap();
+        let b = Interval::new(1.0, 2.0).unwrap();
+        assert_eq!(a.bits(), b.bits());
+    }
+
     #[test]
     fn new_inverted_is_err() {
         assert_eq!(

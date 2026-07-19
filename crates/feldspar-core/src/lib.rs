@@ -45,3 +45,14 @@ pub fn emit_smoke_span() {
     let _enter = span.enter();
     tracing::info!(target: "feldspar_core", "smoke span reached tracing");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // frob:tests crates/feldspar-core/src/lib.rs::emit_smoke_span kind="unit"
+    #[test]
+    fn emit_smoke_span_does_not_panic() {
+        emit_smoke_span();
+    }
+}

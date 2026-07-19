@@ -29,6 +29,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    // frob:tests crates/feldspar-core/src/digest.rs::canonical_digest kind="unit"
     #[test]
     fn digest_stable_across_map_insertion_orders() {
         let mut a = BTreeMap::new();

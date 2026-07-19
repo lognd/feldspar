@@ -328,6 +328,7 @@ mod tests {
         Interval::new(lo, hi).unwrap()
     }
 
+    // frob:tests crates/feldspar-core/src/propagation.rs::enumerate_corners kind="unit"
     #[test]
     fn three_inputs_one_degenerate_yields_four_corners() {
         let mut box_ = BTreeMap::new();

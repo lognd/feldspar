@@ -116,6 +116,7 @@ mod tests {
     // 2026-07-08-benchmarks-and-datasets.md` sec. 4 (the WO-17
     // calibration cases).
 
+    // frob:tests crates/feldspar-library/src/elec.rs::divider_loaded_vout kind="unit"
     #[test]
     fn divider_loaded_matches_benchmark_memo() {
         // Vin=10V, R1=R2=10k, RL=100k -> Vout=4.762V.
@@ -156,6 +157,8 @@ mod tests {
         assert!((q - 31.6).abs() / 31.6 < 1e-2);
     }
 
+    // frob:tests crates/feldspar-library/src/elec.rs::bjt_bias_collector_current kind="unit"
+    // frob:tests crates/feldspar-library/src/elec.rs::bjt_bias_collector_voltage kind="unit"
     #[test]
     fn bjt_bias_matches_benchmark_memo() {
         // Vcc=12V, R1=47k, R2=10k, RE=1k, RC=2.2k, beta=100, Vbe=0.7V.

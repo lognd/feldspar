@@ -116,12 +116,15 @@ pub extern "C" fn heat_coefficient_from_nusselt(
 mod tests {
     use super::*;
 
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_plane_wall_resistance kind="unit"
     #[test]
     fn plane_wall_resistance_matches_l_over_ka() {
         let r = heat_plane_wall_resistance(0.1, 0.8, 2.0);
         assert!((r - (0.1 / (0.8 * 2.0))).abs() < 1e-12);
     }
 
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_series_resistance kind="unit"
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_rate_from_resistance kind="unit"
     #[test]
     fn series_resistance_and_rate() {
         let r_total = heat_series_resistance(0.05, 0.02);
@@ -130,11 +133,36 @@ mod tests {
         assert!((q - 1000.0).abs() < 1e-6);
     }
 
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_dittus_boelter_nusselt kind="unit"
     #[test]
     fn dittus_boelter_known_answer() {
         // Re=1e5, Pr=5.0, heating -> Nu = 0.023 * 1e5^0.8 * 5^0.4
         let nu = heat_dittus_boelter_nusselt(1.0e5, 5.0, true);
         let expected = 0.023 * (1.0e5f64).powf(0.8) * (5.0f64).powf(0.4);
         assert!((nu - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_cylindrical_wall_resistance kind="unit"
+    #[test]
+    fn cylindrical_wall_resistance_matches_ln_ratio_formula() {
+        // r1=0.01 m, r2=0.02 m, k=0.5 W/mK, L=1 m
+        // R = ln(2) / (2*pi*0.5*1)
+        let r = heat_cylindrical_wall_resistance(0.01, 0.02, 0.5, 1.0);
+        let expected = (2.0f64).ln() / (2.0 * std::f64::consts::PI * 0.5 * 1.0);
+        assert!((r - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_convection_resistance kind="unit"
+    #[test]
+    fn convection_resistance_matches_one_over_ha() {
+        let r = heat_convection_resistance(25.0, 2.0);
+        assert!((r - (1.0 / (25.0 * 2.0))).abs() < 1e-12);
+    }
+
+    // frob:tests crates/feldspar-library/src/heat.rs::heat_coefficient_from_nusselt kind="unit"
+    #[test]
+    fn coefficient_from_nusselt_matches_nu_k_over_d() {
+        let h = heat_coefficient_from_nusselt(100.0, 0.6, 0.02);
+        assert!((h - (100.0 * 0.6 / 0.02)).abs() < 1e-9);
     }
 }

@@ -39,8 +39,8 @@ pub const CANON_VERSION: u32 = 1;
 pub enum UnaryFn {
     /// Principal (non-negative) square root; range constraint `arg >= 0`.
     Sqrt,
-    // TODO(R4/future): Sin, Cos, Exp, Ln, ... each with its inverse +
-    // branch/admission rules; adding a variant is additive, never a break.
+    // frob:todo T-0015 add Sin/Cos/Exp/Ln variants, each with its own
+    // inverse and branch/admission rules; additive, never a break.
 }
 
 /// A canonical symbolic expression over ports (11 sec. 1). This is the
@@ -987,6 +987,15 @@ mod tests {
         assert_eq!(once, twice);
     }
 
+    // frob:tests crates/feldspar-core/src/symbolic.rs::Branch.label kind="unit"
+    #[test]
+    fn branch_label_matches_short_provenance_strings() {
+        assert_eq!(Branch::Principal.label(), "principal");
+        assert_eq!(Branch::Positive.label(), "+");
+        assert_eq!(Branch::Negative.label(), "-");
+    }
+
+    // frob:tests crates/feldspar-core/src/symbolic.rs::Expr.cmp kind="unit"
     #[test]
     fn total_order_is_deterministic_including_signed_zero() {
         let neg_zero = Expr::Lit(-0.0);
@@ -1083,6 +1092,7 @@ mod tests {
         assert!(interval.lo.is_finite());
     }
 
+    // frob:tests crates/feldspar-core/src/symbolic.rs::Predicate.canonical_string kind="unit"
     #[test]
     fn predicate_to_box_refuses_nonlinear_predicate() {
         let predicate = Predicate {
@@ -1173,6 +1183,7 @@ mod tests {
         assert_eq!(d.eval(&inputs).unwrap(), 12.0); // 3 * 2^2
     }
 
+    // frob:tests crates/feldspar-core/src/symbolic.rs::Expr.canonical_string kind="unit"
     #[test]
     fn differentiate_is_deterministic_across_calls() {
         let (_lhs, rhs) = orifice_equation();

@@ -202,3 +202,30 @@ impl PyPortDecl {
         hasher.finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // frob:tests crates/feldspar-py/src/rank.rs::PyRank.to_core kind="unit"
+    #[test]
+    fn to_core_round_trips_every_kind() {
+        let scalar: PyRank = feldspar_core::Rank::Scalar.into();
+        assert_eq!(scalar.to_core(), feldspar_core::Rank::Scalar);
+
+        let vector: PyRank = feldspar_core::Rank::Vector(3).into();
+        assert_eq!(vector.to_core(), feldspar_core::Rank::Vector(3));
+
+        let tensor: PyRank = feldspar_core::Rank::Tensor(2, 2).into();
+        assert_eq!(tensor.to_core(), feldspar_core::Rank::Tensor(2, 2));
+
+        let complex: PyRank = feldspar_core::Rank::Complex.into();
+        assert_eq!(complex.to_core(), feldspar_core::Rank::Complex);
+
+        let payload: PyRank = feldspar_core::Rank::Payload("wave".to_string()).into();
+        assert_eq!(
+            payload.to_core(),
+            feldspar_core::Rank::Payload("wave".to_string())
+        );
+    }
+}

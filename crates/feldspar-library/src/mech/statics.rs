@@ -145,6 +145,7 @@ mod tests {
         assert!((recovered - e).abs() / e < 1e-9);
     }
 
+    // frob:tests crates/feldspar-library/src/mech/statics.rs::lame_hoop_stress_bore kind="unit"
     #[test]
     fn lame_hoop_stress_clean_ratio() {
         // a=1, b=2 (ratio 2): sigma_t = p*(1+4)/(4-1) = 5p/3.
@@ -158,6 +159,7 @@ mod tests {
         assert_eq!(lame_radial_stress_bore(42.0, 1.0, 2.0), -42.0);
     }
 
+    // frob:tests crates/feldspar-library/src/mech/statics.rs::von_mises_principal kind="unit"
     #[test]
     fn von_mises_uniaxial_state_equals_the_stress_itself() {
         // sigma1=100, sigma2=sigma3=0 -> von Mises = 100 (standard identity).

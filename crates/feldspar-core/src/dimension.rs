@@ -44,3 +44,25 @@ impl Dimension {
         Dimension::new(out)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // frob:tests crates/feldspar-core/src/dimension.rs::Dimension.mul kind="unit"
+    #[test]
+    fn mul_adds_exponents_componentwise() {
+        let length = Dimension::new([1, 0, 0, 0, 0, 0, 0]);
+        let area = length.mul(&length);
+        assert_eq!(area.exponents, [2, 0, 0, 0, 0, 0, 0]);
+    }
+
+    // frob:tests crates/feldspar-core/src/dimension.rs::Dimension.div kind="unit"
+    #[test]
+    fn div_subtracts_exponents_componentwise() {
+        let length = Dimension::new([1, 0, 0, 0, 0, 0, 0]);
+        let time = Dimension::new([0, 0, 1, 0, 0, 0, 0]);
+        let velocity = length.div(&time);
+        assert_eq!(velocity.exponents, [1, 0, -1, 0, 0, 0, 0]);
+    }
+}

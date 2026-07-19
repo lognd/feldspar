@@ -209,12 +209,52 @@ pub extern "C" fn fluids_joukowsky_dp(density: f64, wave_speed: f64, delta_veloc
 mod tests {
     use super::*;
 
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_reynolds_number kind="unit"
+    #[test]
+    fn reynolds_number_matches_rho_v_d_over_mu() {
+        let re = fluids_reynolds_number(1000.0, 2.0, 0.05, 0.001);
+        assert!((re - (1000.0 * 2.0 * 0.05 / 0.001)).abs() / re < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_darcy_dp kind="unit"
+    #[test]
+    fn darcy_dp_matches_f_l_over_d_rho_v2_over_2() {
+        let dp = fluids_darcy_dp(0.02, 10.0, 0.05, 1000.0, 2.0);
+        let expected = 0.02 * (10.0 / 0.05) * (1000.0 * 2.0 * 2.0 / 2.0);
+        assert!((dp - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_minor_loss_dp kind="unit"
+    #[test]
+    fn minor_loss_dp_matches_k_rho_v2_over_2() {
+        let dp = fluids_minor_loss_dp(0.9, 1000.0, 2.0);
+        assert!((dp - (0.9 * 1000.0 * 2.0 * 2.0 / 2.0)).abs() < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_npsh_available kind="unit"
+    #[test]
+    fn npsh_available_matches_hand_formula() {
+        let npsh = fluids_npsh_available(101325.0, 2340.0, 998.0, 9.81, 2.0, 0.5);
+        let expected = (101325.0 - 2340.0) / (998.0 * 9.81) + 2.0 - 0.5;
+        assert!((npsh - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_joukowsky_dp kind="unit"
+    #[test]
+    fn joukowsky_dp_matches_rho_a_dv() {
+        let dp = fluids_joukowsky_dp(1000.0, 1200.0, 1.5);
+        assert!((dp - (1000.0 * 1200.0 * 1.5)).abs() < 1e-6);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_laminar_friction_factor kind="unit"
     #[test]
     fn laminar_floor_matches_64_over_re() {
         let f = fluids_laminar_friction_factor(1000.0);
         assert!((f - 0.0640).abs() < 1e-6);
     }
 
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_haaland_friction_factor kind="unit"
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_colebrook_friction_factor kind="unit"
     #[test]
     fn haaland_and_colebrook_agree_within_two_percent() {
         // Commercial steel, D=0.1m, eps=0.045mm, Re=1e5 (benchmarks memo
@@ -234,6 +274,8 @@ mod tests {
         assert!((f_haaland - f_colebrook).abs() / f_colebrook < 0.02);
     }
 
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_pump_operating_flow kind="unit"
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_pump_operating_head kind="unit"
     #[test]
     fn pump_operating_point_matches_memo_case() {
         let q_star = fluids_pump_operating_flow(50.0, 2000.0, 10.0, 3000.0);
@@ -242,6 +284,8 @@ mod tests {
         assert!((h_star - 34.0).abs() / 34.0 < 1e-3);
     }
 
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_series_dp kind="unit"
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_parallel_flow kind="unit"
     #[test]
     fn series_and_parallel_network_reduction() {
         assert!((fluids_series_dp(3.0, 2.0) - 5.0).abs() < 1e-12);

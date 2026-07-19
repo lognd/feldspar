@@ -486,6 +486,7 @@ mod tests {
 
     /// Benchmarks memo 1.1: propped cantilever, uniform load.
     /// Fixed at A (node 0, x=0), roller at B (node 1, x=L).
+    // frob:tests crates/feldspar-library/src/mech/frame.rs::frame2d_solve kind="unit"
     #[test]
     fn propped_cantilever_udl() {
         let w = 10e3; // N/m

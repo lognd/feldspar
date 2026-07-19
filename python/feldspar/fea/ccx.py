@@ -44,12 +44,43 @@ class CcxRun(BaseModel):
     tool_version: str
 
 
+# The real kill-switch (T-0016, LINT004): checked BEFORE any resolution
+# attempt, so setting it disables subprocess spawning outright -- unlike
+# pointing `FELDSPAR_CCX` at a bogus path (which just falls through to a
+# normal `ToolMissing`), this refuses even when a real `ccx` sits on
+# `PATH`. Any non-empty value other than "0"/"false" (case-insensitive)
+# counts as set, matching common boolean-env-var convention.
+_DISABLE_CCX_VAR = "FELDSPAR_DISABLE_CCX"
+
+
+def _exec_disabled() -> bool:
+    """Reads `FELDSPAR_DISABLE_CCX`; `_DISABLE_CCX_VAR`'s truthy values
+    are any non-empty string except "0"/"false" (case-insensitive)."""
+    raw = os.environ.get(_DISABLE_CCX_VAR, "")
+    return raw.strip().lower() not in ("", "0", "false")
+
+
 # frob:doc docs/modules/fea.md#fea_ccx
 def find_ccx() -> Result[Path, SolveError]:
-    """Locates the `ccx` executable: `FELDSPAR_CCX` env var first (must
-    point at an existing executable file), then `PATH` via `shutil.which`.
-    `Err(SolveError.ToolMissing(...))` if neither resolves -- never raises,
-    so callers can degrade gracefully when CalculiX is not installed."""
+    """Locates the `ccx` executable: `FELDSPAR_DISABLE_CCX` kill-switch
+    first (T-0016 -- if set, refuses immediately with `ToolMissing`
+    without even attempting resolution), then `FELDSPAR_CCX` env var
+    (must point at an existing executable file), then `PATH` via
+    `shutil.which`. `Err(SolveError.ToolMissing(...))` if the kill-switch
+    is set or neither resolves -- never raises, so callers can degrade
+    gracefully when CalculiX is disabled or not installed."""
+    if _exec_disabled():
+        _log.warning(
+            "find_ccx: refusing, %s is set (exec kill-switch active)",
+            _DISABLE_CCX_VAR,
+        )
+        return Err(
+            SolveError.ToolMissing(
+                tool="ccx",
+                guidance=f"{_DISABLE_CCX_VAR} is set -- unset it to allow ccx exec",
+            )
+        )
+
     env_path = os.environ.get("FELDSPAR_CCX")
     if env_path:
         candidate = Path(env_path)

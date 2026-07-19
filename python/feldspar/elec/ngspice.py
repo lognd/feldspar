@@ -47,13 +47,45 @@ class NgspiceRun(BaseModel):
     tool_version: str
 
 
+# The real kill-switch (T-0016, LINT004), mirroring `feldspar.fea.ccx`'s
+# `_DISABLE_CCX_VAR` shape exactly: checked BEFORE any resolution
+# attempt, so setting it disables subprocess spawning outright -- unlike
+# pointing `FELDSPAR_NGSPICE` at a bogus path (which just falls through
+# to a normal `ToolMissing`), this refuses even when a real `ngspice`
+# sits on `PATH`. Any non-empty value other than "0"/"false"
+# (case-insensitive) counts as set.
+_DISABLE_NGSPICE_VAR = "FELDSPAR_DISABLE_NGSPICE"
+
+
+def _exec_disabled() -> bool:
+    """Reads `FELDSPAR_DISABLE_NGSPICE`; truthy values are any non-empty
+    string except "0"/"false" (case-insensitive)."""
+    raw = os.environ.get(_DISABLE_NGSPICE_VAR, "")
+    return raw.strip().lower() not in ("", "0", "false")
+
+
 # frob:doc docs/modules/elec.md#elec_ngspice
 def find_ngspice() -> Result[Path, SolveError]:
-    """Locates the `ngspice` executable: `FELDSPAR_NGSPICE` env var
-    first (must point at an existing executable file), then `PATH` via
-    `shutil.which`. `Err(SolveError.ToolMissing(...))` if neither
-    resolves -- never raises, so callers can degrade gracefully when
-    ngspice is not installed."""
+    """Locates the `ngspice` executable: `FELDSPAR_DISABLE_NGSPICE`
+    kill-switch first (T-0016 -- if set, refuses immediately with
+    `ToolMissing` without even attempting resolution), then
+    `FELDSPAR_NGSPICE` env var (must point at an existing executable
+    file), then `PATH` via `shutil.which`. `Err(SolveError.ToolMissing(...))`
+    if the kill-switch is set or neither resolves -- never raises, so
+    callers can degrade gracefully when ngspice is disabled or not
+    installed."""
+    if _exec_disabled():
+        _log.warning(
+            "find_ngspice: refusing, %s is set (exec kill-switch active)",
+            _DISABLE_NGSPICE_VAR,
+        )
+        return Err(
+            SolveError.ToolMissing(
+                tool="ngspice",
+                guidance=f"{_DISABLE_NGSPICE_VAR} is set -- unset it to allow ngspice exec",
+            )
+        )
+
     env_path = os.environ.get("FELDSPAR_NGSPICE")
     if env_path:
         candidate = Path(env_path)

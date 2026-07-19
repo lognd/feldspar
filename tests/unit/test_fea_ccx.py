@@ -73,3 +73,39 @@ def test_run_ccx_reports_tool_failed_on_nonzero_exit(tmp_path, monkeypatch) -> N
     assert result.is_err
     assert result.danger_err.kind == "ToolFailed"
     assert "boom" in result.danger_err.log_tail
+
+
+# frob:tests python/feldspar/fea/ccx.py::find_ccx kind="unit"
+def test_find_ccx_refuses_when_disable_var_set_even_with_real_binary(
+    tmp_path, monkeypatch
+) -> None:
+    """T-0016: `FELDSPAR_DISABLE_CCX` is a REAL kill-switch -- it refuses
+    exec even when `FELDSPAR_CCX` points at a perfectly resolvable
+    binary, unlike pointing `FELDSPAR_CCX` at a bogus path (which merely
+    falls through to a not-found `ToolMissing`)."""
+    fake = _make_fake_ccx(tmp_path, "#!/bin/sh\nexit 0\n")
+    monkeypatch.setenv("FELDSPAR_CCX", str(fake))
+    monkeypatch.setenv("FELDSPAR_DISABLE_CCX", "1")
+    result = ccx.find_ccx()
+    assert result.is_err
+    assert result.danger_err.kind == "ToolMissing"
+    assert result.danger_err.tool == "ccx"
+    assert "FELDSPAR_DISABLE_CCX" in result.danger_err.guidance
+
+
+# frob:tests python/feldspar/fea/ccx.py::find_ccx kind="unit"
+def test_find_ccx_treats_false_and_empty_disable_var_as_unset(
+    tmp_path, monkeypatch
+) -> None:
+    """`FELDSPAR_DISABLE_CCX=0`/`"false"`/unset all resolve normally --
+    only a genuinely truthy value trips the kill-switch."""
+    fake = _make_fake_ccx(tmp_path, "#!/bin/sh\nexit 0\n")
+    monkeypatch.setenv("FELDSPAR_CCX", str(fake))
+    for falsy in ("0", "false", "False", ""):
+        monkeypatch.setenv("FELDSPAR_DISABLE_CCX", falsy)
+        result = ccx.find_ccx()
+        assert result.is_ok, f"expected ok for FELDSPAR_DISABLE_CCX={falsy!r}"
+        assert result.danger_ok == fake
+    monkeypatch.delenv("FELDSPAR_DISABLE_CCX", raising=False)
+    result = ccx.find_ccx()
+    assert result.is_ok

@@ -71,6 +71,46 @@ def test_probe_tools_missing_is_tool_missing(monkeypatch):
     assert result.err.kind == "ToolMissing"
 
 
+# frob:tests python/feldspar/elec/ngspice.py::find_ngspice kind="unit"
+def test_find_ngspice_refuses_when_disable_var_set_even_with_real_binary(
+    monkeypatch, tmp_path
+):
+    """T-0016: `FELDSPAR_DISABLE_NGSPICE` is a REAL kill-switch -- it
+    refuses exec even when `FELDSPAR_NGSPICE` points at a perfectly
+    resolvable binary, unlike pointing `FELDSPAR_NGSPICE` at a bogus
+    path (which merely falls through to a not-found `ToolMissing`)."""
+    fake = tmp_path / "ngspice"
+    fake.write_text("#!/bin/sh\necho fake\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("FELDSPAR_NGSPICE", str(fake))
+    monkeypatch.setenv("FELDSPAR_DISABLE_NGSPICE", "1")
+    result = ngspice.find_ngspice()
+    assert result.is_err
+    assert result.err.kind == "ToolMissing"
+    assert result.err.tool == "ngspice"
+    assert "FELDSPAR_DISABLE_NGSPICE" in result.err.guidance
+
+
+# frob:tests python/feldspar/elec/ngspice.py::find_ngspice kind="unit"
+def test_find_ngspice_treats_false_and_empty_disable_var_as_unset(
+    monkeypatch, tmp_path
+):
+    """`FELDSPAR_DISABLE_NGSPICE=0`/`"false"`/unset all resolve normally
+    -- only a genuinely truthy value trips the kill-switch."""
+    fake = tmp_path / "ngspice"
+    fake.write_text("#!/bin/sh\necho fake\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("FELDSPAR_NGSPICE", str(fake))
+    for falsy in ("0", "false", "False", ""):
+        monkeypatch.setenv("FELDSPAR_DISABLE_NGSPICE", falsy)
+        result = ngspice.find_ngspice()
+        assert result.is_ok, f"expected ok for FELDSPAR_DISABLE_NGSPICE={falsy!r}"
+        assert str(result.danger_ok) == str(fake)
+    monkeypatch.delenv("FELDSPAR_DISABLE_NGSPICE", raising=False)
+    result = ngspice.find_ngspice()
+    assert result.is_ok
+
+
 # ---------------------------------------------------------------------------
 # deck.py: pure text, deterministic.
 # ---------------------------------------------------------------------------

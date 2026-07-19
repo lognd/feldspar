@@ -147,13 +147,12 @@ node fea : trusted {
     may "env";
     // fs: deck files and mesh/result artifacts under the work dir.
     may "fs";
-    // LINT004: FELDSPAR_CCX only overrides the resolved binary PATH
-    // (find_ccx, ccx.py) -- it is not a disable switch (a bogus value
-    // just falls through to "not found", it never suppresses the
-    // exec attempt). No real kill-switch flag exists today; T-0016
-    // tracks adding one honestly rather than mis-declaring FELDSPAR_CCX
-    // as `attr flag=` here.
-    waive "LINT004" reason "no real kill switch around ccx subprocess spawning yet -- FELDSPAR_CCX is a path override, not a disable flag; T-0016 is the follow-on ticket to build one" ticket "T-0016";
+    // LINT004 (T-0016): FELDSPAR_DISABLE_CCX is the real kill-switch --
+    // checked BEFORE any resolution attempt in find_ccx (ccx.py), it
+    // refuses exec outright when set, unlike FELDSPAR_CCX (a path
+    // override that only falls through to "not found" on a bogus
+    // value, never suppresses the exec attempt).
+    attr flag=FELDSPAR_DISABLE_CCX;
 }
 
 // The spice pipeline: deck generation and ngspice runs.
@@ -168,13 +167,13 @@ node elec : trusted {
     may "env";
     // fs: spice decks/results under the work dir.
     may "fs";
-    // LINT004: FELDSPAR_NGSPICE only overrides the resolved binary
-    // PATH (find_ngspice, ngspice.py) -- it is not a disable switch
-    // (a bogus value just falls through to "not found", it never
-    // suppresses the exec attempt). No real kill-switch flag exists
-    // today; T-0016 tracks adding one honestly rather than
-    // mis-declaring FELDSPAR_NGSPICE as `attr flag=` here.
-    waive "LINT004" reason "no real kill switch around ngspice subprocess spawning yet -- FELDSPAR_NGSPICE is a path override, not a disable flag; T-0016 is the follow-on ticket to build one" ticket "T-0016";
+    // LINT004 (T-0016): FELDSPAR_DISABLE_NGSPICE is the real
+    // kill-switch -- checked BEFORE any resolution attempt in
+    // find_ngspice (ngspice.py), it refuses exec outright when set,
+    // unlike FELDSPAR_NGSPICE (a path override that only falls through
+    // to "not found" on a bogus value, never suppresses the exec
+    // attempt).
+    attr flag=FELDSPAR_DISABLE_NGSPICE;
 }
 
 // The aggregation surface: python/feldspar/library/** (registers the

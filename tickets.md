@@ -563,7 +563,7 @@ This ticket (T-0014) still covers exactly what it always did -- raising `unit_br
 ```yaml
 id: T-0015
 title: Add Sin/Cos/Exp/Ln UnaryFn variants (symbolic core)
-state: queued
+state: in-progress
 kind: feature
 origin: agent
 created: '2026-07-18'
@@ -585,7 +585,7 @@ Deferred WO-11 R4/future scope: UnaryFn currently only has Sqrt. Adding Sin/Cos/
 ```yaml
 id: T-0016
 title: Add a real kill-switch flag for fea/elec subprocess exec
-state: queued
+state: done
 kind: feature
 origin: agent
 created: '2026-07-18'
@@ -593,7 +593,11 @@ blocked_by: []
 parent: null
 scope:
 - python/feldspar/fea/ccx.py,python/feldspar/elec/ngspice.py
-evidence: []
+evidence:
+- tests/unit/test_fea_ccx.py::test_find_ccx_refuses_when_disable_var_set_even_with_real_binary
+- tests/unit/test_fea_ccx.py::test_find_ccx_treats_false_and_empty_disable_var_as_unset
+- tests/unit/test_elec_ngspice.py::test_find_ngspice_refuses_when_disable_var_set_even_with_real_binary
+- tests/unit/test_elec_ngspice.py::test_find_ngspice_treats_false_and_empty_disable_var_as_unset
 attachments: []
 acceptance:
 - Given FELDSPAR_DISABLE_CCX=1 is set, when a fea direction attempts to run ccx, then
@@ -603,12 +607,46 @@ acceptance:
 threat: null
 ```
 LINT004 (frob sys audit) flags both fea and elec nodes for holding may=exec with no declared attr flag=<id> kill-switch. FELDSPAR_CCX/FELDSPAR_NGSPICE today only override the resolved binary PATH (see find_ccx/find_ngspice) -- setting them to a bogus path does not disable subprocess spawning, it falls through to a normal not-found error. There is no real feature-flag/env-var that forces a no-exec mode. This ticket tracks adding one (e.g. FELDSPAR_DISABLE_CCX / FELDSPAR_DISABLE_NGSPICE checked before find_ccx/find_ngspice even attempt resolution) so the design/feldspar.strata waive can be replaced with a real attr flag declaration.
+## Done report
+
+Added `FELDSPAR_DISABLE_CCX` / `FELDSPAR_DISABLE_NGSPICE`: checked at
+the TOP of `find_ccx`/`find_ngspice`, BEFORE the existing
+`FELDSPAR_CCX`/`FELDSPAR_NGSPICE` path-override probe or any `PATH`
+lookup. Any non-empty value other than `"0"`/`"false"`
+(case-insensitive) trips the switch; tripped, `find_*` returns
+`Err(SolveError.ToolMissing(tool=..., guidance="<VAR> is set --
+unset it to allow <tool> exec"))` without touching `shutil.which` or
+the filesystem at all -- a genuine "never spawns" guarantee, unlike
+the pre-existing `FELDSPAR_CCX`/`FELDSPAR_NGSPICE` path override
+(bogus path -> falls through to a normal not-found `ToolMissing`,
+never suppresses the attempt). `run_ccx`/`run_ngspice` both call
+`find_*` first, so the kill-switch covers the entire exec surface
+(no separate check needed at the subprocess.run call site).
+
+design/feldspar.strata: replaced both `waive "LINT004" ... ticket
+"T-0016"` lines (fea, elec nodes) with `attr flag=FELDSPAR_DISABLE_CCX;`
+and `attr flag=FELDSPAR_DISABLE_NGSPICE;` respectively -- the real
+kill-switch identifiers now satisfy LINT004 honestly instead of via
+waiver. `frob sys audit`: PROVED, 0 unwaived gaps, waiver count 5 -> 3
+(fea/elec LINT004 waivers gone; only the 3 pre-existing T-0008
+SYS100/SYS101 waivers remain). `frob check`: 0 errors, waived count
+53 -> 52.
+
+Tests (uv run pytest, all pass):
+- tests/unit/test_fea_ccx.py::test_find_ccx_refuses_when_disable_var_set_even_with_real_binary
+- tests/unit/test_fea_ccx.py::test_find_ccx_treats_false_and_empty_disable_var_as_unset
+- tests/unit/test_elec_ngspice.py::test_find_ngspice_refuses_when_disable_var_set_even_with_real_binary
+- tests/unit/test_elec_ngspice.py::test_find_ngspice_treats_false_and_empty_disable_var_as_unset
+
+Full suite: `uv run pytest tests/ -n auto -m "not regolith and not fea
+and not spice"` -> 568 passed. Coverage re-stamped
+(`make coverage` + `frob check --stamp-coverage`).
 
 <!-- ticket:T-0017 -->
 ```yaml
 id: T-0017
 title: Track frob sys audit gate-zero remediation edits to design/feldspar.strata
-state: queued
+state: in-progress
 kind: feature
 origin: agent
 created: '2026-07-18'

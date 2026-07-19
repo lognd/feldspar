@@ -81,6 +81,7 @@ EXPECTED_SOLVER_IDS = [
     "materials.kinetics.koistinen_marburger_martensite_fraction",
     "materials.phase_equilibria.lever_rule_phase_fraction",
     "materials.phase_equilibria.regular_solution_binary_free_energy",
+    "materials.selection.rank_candidates_for_requirements",
     "mech.bearing.bearing_basic_rating_life_l10_ball",
     "mech.bearing.bearing_basic_rating_life_l10_roller",
     "mech.bearing.bearing_basic_rating_life_l10h",

@@ -89,3 +89,28 @@ Gibbs free-energy-of-mixing model, `dG_mix = R*T*(x*ln(x) +
 (1-x)*ln(1-x)) + Omega*x*(1-x)`, `Omega` caller-supplied -- the honest
 CALPHAD-lite tier this ticket scopes; full sublattice CALPHAD
 assessment is a named cut). `register(registry)` registers the family.
+
+## materials_selection
+
+<!-- frob:describes python/feldspar/materials/selection.py::register -->
+<!-- frob:describes python/feldspar/materials/selection.py::CANDIDATES_PORT -->
+<!-- frob:describes python/feldspar/materials/selection.py::RANKED_CANDIDATES_PORT -->
+<!-- frob:describes python/feldspar/materials/selection.py::COST_CLASS_RANK -->
+
+The materials-selection justification surface (D270 ruling 3):
+`rank_candidates_for_requirements` (the one direction `register`
+registers) resolves a `CANDIDATES_PORT` payload (`[{"name",
+"achievable_hardness_hv", "ideal_critical_diameter_m", "cost_class"},
+...]`, each candidate already run through the kinetics/hardenability
+calc chain by the caller -- composing that chain inline here would
+duplicate `materials.kinetics`/`materials.hardenability`, a named
+scope cut) against a hardness target, required ideal critical
+diameter, and a cost-class ceiling (`COST_CLASS_RANK`'s ordinal
+mapping over `materials.records.CostClass`), and stores a
+`RANKED_CANDIDATES_PORT` payload: every candidate's pass/fail per
+criterion, hardness/diameter margins, and rank (eligible candidates
+first, by descending hardness margin then ascending cost rank;
+ineligible candidates carry `rank: null`) -- the justification
+artifact. `register(registry, resolver)` registers the route through
+the standard `SolverRegistry` (same payload-resolver convention as
+`mech.fatigue`'s Miner-damage direction).

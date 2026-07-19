@@ -18,12 +18,14 @@ __all__ = ["record_path", "write_record", "read_record"]
 _log = get_logger(__name__)
 
 
+# frob:doc docs/modules/calib.md#calib_store
 def record_path(records_dir: Path, digest: str) -> Path:
     """`records_dir / f"{digest}.json"` -- the one place this filename
     convention is spelled out (AD-9: filename IS the key)."""
     return records_dir / f"{digest}.json"
 
 
+# frob:doc docs/modules/calib.md#calib_store
 def write_record(records_dir: Path, record: CalibRecord) -> Path:
     """Write `record` to `records_dir / f"{record.digest}.json"`,
     sorted-key JSON (matches `SolveCache.put`'s dump style)."""
@@ -36,6 +38,7 @@ def write_record(records_dir: Path, record: CalibRecord) -> Path:
     return path
 
 
+# frob:doc docs/modules/calib.md#calib_store
 def read_record(records_dir: Path, digest: str) -> "CalibRecord | None":
     """`None` if no record file exists for `digest` -- caller (`check_ceilings`)
     turns that into `CalibError.NoRecord`."""

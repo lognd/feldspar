@@ -8,6 +8,7 @@ Frozen pydantic model, same convention as `Citation`/`SolverInfo`
 from pydantic import BaseModel, ConfigDict
 
 
+# frob:doc docs/modules/calib.md#calib_models
 class CalibRecord(BaseModel):
     """One calibration run's evidence: `solver_id` swept against
     `reference_id` over `n_samples` deterministic (`seed`) in-domain

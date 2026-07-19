@@ -71,6 +71,7 @@ def _shared_input_box(a: SolverInfo, b: SolverInfo) -> Dict[str, Tuple[float, fl
     return box
 
 
+# frob:doc docs/modules/calib.md#calib_harness
 def calibrate(
     solver_id: str,
     reference_id: str,
@@ -234,6 +235,7 @@ def _is_derived(info: SolverInfo) -> bool:
     return info.solved_for is not None
 
 
+# frob:doc docs/modules/calib.md#calib_harness
 def resweep_derived(
     info: SolverInfo,
     fn: SolveFn,
@@ -353,6 +355,7 @@ def resweep_derived(
     return Ok(record)
 
 
+# frob:doc docs/modules/calib.md#calib_harness
 def resweep_all_derived(
     registry: "SolverRegistry",
     records_dir: Path,
@@ -387,6 +390,7 @@ def resweep_all_derived(
     return Ok(records)
 
 
+# frob:doc docs/modules/calib.md#calib_harness
 def check_ceilings(
     registry: "SolverRegistry", records_dir: Path
 ) -> "Result[None, CalibError]":

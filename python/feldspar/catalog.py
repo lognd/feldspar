@@ -81,6 +81,9 @@ def build_engine_catalog(resolver: PayloadResolver) -> SolverRegistry:
         register as register_materials_hardenability,
     )
     from feldspar.materials.kinetics import register as register_materials_kinetics
+    from feldspar.materials.phase_equilibria import (
+        register as register_materials_phase_equilibria,
+    )
     from feldspar.mech.leadscrew import register as register_leadscrew
     from feldspar.mech.member_capacity import register as register_member_capacity
     from feldspar.mech.plate import register as register_plate
@@ -108,6 +111,7 @@ def build_engine_catalog(resolver: PayloadResolver) -> SolverRegistry:
     register_thermo(registry)
     register_materials_kinetics(registry)
     register_materials_hardenability(registry)
+    register_materials_phase_equilibria(registry)
     register_fea(registry)
     payload_steps.register(registry, resolver)
     # The Hardy-Cross `flownet` solver declares its own payload ports

@@ -73,3 +73,19 @@ a hand-computed check of its own cited closed form; each docstring
 records where an independent second-source oracle point was not
 located this dispatch (named residual). `register(registry)` registers
 the family.
+
+## materials_phase_equilibria
+
+<!-- frob:describes python/feldspar/materials/phase_equilibria.py::lever_rule_phase_fraction -->
+<!-- frob:describes python/feldspar/materials/phase_equilibria.py::regular_solution_binary_free_energy -->
+<!-- frob:describes python/feldspar/materials/phase_equilibria.py::register -->
+
+Binary phase-equilibria closed forms: `lever_rule_phase_fraction` (the
+lever rule over a two-phase tie line -- phase-boundary compositions and
+overall composition are all RECORD INPUTS, refusing when the overall
+composition is not between the boundaries or the boundaries coincide);
+`regular_solution_binary_free_energy` (the regular-solution binary
+Gibbs free-energy-of-mixing model, `dG_mix = R*T*(x*ln(x) +
+(1-x)*ln(1-x)) + Omega*x*(1-x)`, `Omega` caller-supplied -- the honest
+CALPHAD-lite tier this ticket scopes; full sublattice CALPHAD
+assessment is a named cut). `register(registry)` registers the family.

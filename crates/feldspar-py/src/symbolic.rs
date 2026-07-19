@@ -48,27 +48,32 @@ fn branch_from_str(s: &str) -> PyResult<feldspar_core::symbolic::Branch> {
 /// canonical algebraic AST a law is authored as. Constructed via the
 /// staticmethod builders below (never `#[new]` -- `Expr` has multiple
 /// constructor shapes, unlike the single-shape types elsewhere).
+// frob:doc docs/modules/feldspar-py.md#py_symbolic
 #[pyclass(frozen, from_py_object, name = "Expr")]
 #[derive(Clone)]
 pub struct PyExpr(pub feldspar_core::symbolic::Expr);
 
 #[pymethods]
 impl PyExpr {
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn var(name: String) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Var(name))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn lit(x: f64) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Lit(x))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn neg(e: PyExpr) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Neg(Box::new(e.0)))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn add(items: Vec<PyExpr>) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Add(
@@ -76,6 +81,7 @@ impl PyExpr {
         ))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn mul(items: Vec<PyExpr>) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Mul(
@@ -85,6 +91,7 @@ impl PyExpr {
 
     /// `a - b`, lowered to `Add([a, Neg(b)])` (subtraction never appears
     /// as its own node in the canonical form).
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn sub(a: PyExpr, b: PyExpr) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Add(vec![
@@ -95,6 +102,7 @@ impl PyExpr {
 
     /// `a / b`, lowered to `Mul([a, Pow(b, -1)])` (division never appears
     /// as its own node in the canonical form).
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn div(a: PyExpr, b: PyExpr) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Mul(vec![
@@ -106,6 +114,7 @@ impl PyExpr {
         ]))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn pow(base: PyExpr, exp: PyExpr) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Pow(
@@ -114,6 +123,7 @@ impl PyExpr {
         ))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[staticmethod]
     fn sqrt(e: PyExpr) -> PyExpr {
         PyExpr(feldspar_core::symbolic::Expr::Unary(
@@ -122,24 +132,29 @@ impl PyExpr {
         ))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn canonicalize(&self) -> PyExpr {
         PyExpr(self.0.canonicalize())
     }
 
     /// Symbolic differentiation w.r.t. `var` (11 sec. 4 R4, WO-22):
     /// kernel differentiation over the canonical AST, canonicalized.
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn differentiate(&self, var: &str) -> PyExpr {
         PyExpr(feldspar_core::symbolic::differentiate(&self.0, var))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn canonical_string(&self) -> String {
         self.0.canonical_string()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn eval(&self, inputs: BTreeMap<String, f64>) -> PyResult<f64> {
         self.0.eval(&inputs).map_err(eval_error_to_py)
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn __repr__(&self) -> String {
         format!("Expr({})", self.0.canonical_string())
     }
@@ -147,12 +162,14 @@ impl PyExpr {
 
 /// Frozen mirror of `feldspar_core::symbolic::Predicate` (11 sec. 2): an
 /// inequality over ports, e.g. `Re < 2300`.
+// frob:doc docs/modules/feldspar-py.md#py_symbolic
 #[pyclass(frozen, from_py_object, name = "Predicate")]
 #[derive(Clone)]
 pub struct PyPredicate(pub feldspar_core::symbolic::Predicate);
 
 #[pymethods]
 impl PyPredicate {
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     #[new]
     fn py_new(lhs: PyExpr, cmp: String, rhs: PyExpr) -> PyResult<Self> {
         let cmp = cmp_from_str(&cmp)?;
@@ -163,10 +180,12 @@ impl PyPredicate {
         }))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn canonical_string(&self) -> String {
         self.0.canonical_string()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_symbolic
     fn __repr__(&self) -> String {
         format!("Predicate({})", self.0.canonical_string())
     }
@@ -176,6 +195,7 @@ impl PyPredicate {
 /// carrying `(variant, ...)` on `Err` so Python can reconstruct a typani
 /// `Err(SymbolicError...)` value (see `errors.rs`). Returns
 /// `(rhs_expr, branch_label, admission_predicates, form_string)` on `Ok`.
+// frob:doc docs/modules/feldspar-py.md#py_symbolic
 #[pyfunction]
 #[pyo3(name = "invert_for", signature = (lhs, rhs, target, branch=None))]
 pub fn invert_for_py(
@@ -201,6 +221,7 @@ pub fn invert_for_py(
 
 /// Runs `feldspar_core::symbolic::invertible_targets`; the returned
 /// `Vec<String>` is already sorted (`BTreeSet` iteration order).
+// frob:doc docs/modules/feldspar-py.md#py_symbolic
 #[pyfunction]
 #[pyo3(name = "invertible_targets")]
 pub fn invertible_targets_py(lhs: PyExpr, rhs: PyExpr) -> Vec<String> {
@@ -212,6 +233,7 @@ pub fn invertible_targets_py(lhs: PyExpr, rhs: PyExpr) -> Vec<String> {
 /// Runs `feldspar_core::symbolic::predicate_to_box`; raises
 /// `SymbolicErrorRaised` carrying `(variant, ...)` on `Err` (see
 /// `errors.rs`).
+// frob:doc docs/modules/feldspar-py.md#py_symbolic
 #[pyfunction]
 #[pyo3(name = "predicate_to_box")]
 pub fn predicate_to_box_py(

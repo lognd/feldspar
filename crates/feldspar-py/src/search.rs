@@ -18,6 +18,7 @@ use crate::interval::PyInterval;
 /// `SolverInfo` by the caller (`feldspar/plan/route.py`). Deliberately
 /// carries no `tier` field (FINV-8: the search must not be ABLE to read
 /// tier, not merely choose not to).
+// frob:doc docs/modules/feldspar-py.md#py_search
 #[pyclass(frozen, from_py_object, name = "_PlanSolverInput")]
 #[derive(Clone)]
 pub struct PySolverInput {
@@ -32,6 +33,7 @@ pub struct PySolverInput {
 
 #[pymethods]
 impl PySolverInput {
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[new]
     #[allow(clippy::too_many_arguments)]
     fn py_new(
@@ -68,6 +70,7 @@ fn to_core_summary(s: &PySolverInput) -> feldspar_core::SolverSummary {
 }
 
 /// Frozen mirror of `feldspar_core::RouteStep` (01-interfaces `RouteStep`).
+// frob:doc docs/modules/feldspar-py.md#py_search
 #[pyclass(frozen, from_py_object, name = "RouteStep")]
 #[derive(Clone)]
 pub struct PyRouteStep {
@@ -76,11 +79,13 @@ pub struct PyRouteStep {
 
 #[pymethods]
 impl PyRouteStep {
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn solver_id(&self) -> String {
         self.inner.solver_id.clone()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn realized_domain(&self) -> PyDomain {
         let box_: BTreeMap<String, feldspar_core::Interval> = self
@@ -102,16 +107,19 @@ impl PyRouteStep {
         ))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn predicted_eps(&self) -> f64 {
         self.inner.predicted_eps
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn cost(&self) -> f64 {
         self.inner.cost
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     fn __repr__(&self) -> String {
         format!(
             "RouteStep(solver_id={:?}, predicted_eps={}, cost={})",
@@ -123,6 +131,7 @@ impl PyRouteStep {
 }
 
 /// Frozen mirror of `feldspar_core::Route` (01-interfaces `Route`, AD-5).
+// frob:doc docs/modules/feldspar-py.md#py_search
 #[pyclass(frozen, from_py_object, name = "Route")]
 #[derive(Clone)]
 pub struct PyRoute {
@@ -131,11 +140,13 @@ pub struct PyRoute {
 
 #[pymethods]
 impl PyRoute {
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn target(&self) -> String {
         self.inner.target.clone()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn steps(&self) -> Vec<PyRouteStep> {
         self.inner
@@ -146,21 +157,25 @@ impl PyRoute {
             .collect()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn predicted_eps(&self) -> f64 {
         self.inner.predicted_eps
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn total_cost(&self) -> f64 {
         self.inner.total_cost
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     #[getter]
     fn digest(&self) -> String {
         self.inner.digest.clone()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_search
     fn __repr__(&self) -> String {
         format!(
             "Route(target={:?}, steps={}, predicted_eps={}, total_cost={}, digest={:?})",
@@ -176,6 +191,7 @@ impl PyRoute {
 /// Runs `feldspar_core::search::plan`; raises `PlanErrorRaised` carrying
 /// `(variant, ...)` on `Err` so `feldspar/plan/route.py` can reconstruct
 /// a typani `Err(PlanError...)` value (see `errors.rs`).
+// frob:doc docs/modules/feldspar-py.md#py_search
 #[pyfunction]
 #[pyo3(name = "plan")]
 pub fn plan_py(

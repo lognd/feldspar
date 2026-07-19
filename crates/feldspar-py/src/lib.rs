@@ -58,6 +58,7 @@ use units::PyUnitSystem;
 
 /// Runs `feldspar_core::emit_smoke_span` so the pyo3-log bridge can be
 /// exercised end-to-end from Python (WO-01 smoke test).
+// frob:doc docs/modules/feldspar-py.md#py_lib
 #[pyfunction]
 fn smoke_span() -> PyResult<()> {
     feldspar_core::emit_smoke_span();
@@ -67,6 +68,7 @@ fn smoke_span() -> PyResult<()> {
 /// Module init: installs the pyo3-log bridge once, before anything else
 /// in the extension emits a `tracing`/`log` record (AD-8), then
 /// registers the quantity-core classes and free functions.
+// frob:doc docs/modules/feldspar-py.md#py_lib
 #[pymodule]
 fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();

@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 
 /// See `feldspar_library::mech::rect_second_moment` for the formula and
 /// citation (Gere, *Mechanics of Materials*, 9th ed., App. E).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_rect_second_moment")]
 pub fn mech_rect_second_moment_py(width: f64, height: f64) -> f64 {
@@ -17,6 +18,7 @@ pub fn mech_rect_second_moment_py(width: f64, height: f64) -> f64 {
 
 /// See `feldspar_library::mech::cantilever_tip_deflection` for the
 /// formula and citation (Gere, *Mechanics of Materials*, 9th ed.).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_cantilever_tip_deflection")]
 pub fn mech_cantilever_tip_deflection_py(
@@ -31,6 +33,7 @@ pub fn mech_cantilever_tip_deflection_py(
 /// See `feldspar_library::mech::cantilever_required_youngs_modulus` for
 /// the formula and citation (same law as the tip-deflection formula,
 /// solved for `E`).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_cantilever_required_youngs_modulus")]
 pub fn mech_cantilever_required_youngs_modulus_py(
@@ -50,6 +53,7 @@ pub fn mech_cantilever_required_youngs_modulus_py(
 /// See `feldspar_library::mech::lame_hoop_stress_bore` for the formula
 /// and citation (Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, "Thick-Walled Cylinders").
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_lame_hoop_stress_bore")]
 pub fn mech_lame_hoop_stress_bore_py(pressure: f64, inner_radius: f64, outer_radius: f64) -> f64 {
@@ -59,6 +63,7 @@ pub fn mech_lame_hoop_stress_bore_py(pressure: f64, inner_radius: f64, outer_rad
 /// See `feldspar_library::mech::lame_radial_stress_bore` for the
 /// formula and citation (Budynas & Nisbett, *Shigley's Mechanical
 /// Engineering Design*, "Thick-Walled Cylinders").
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_lame_radial_stress_bore")]
 pub fn mech_lame_radial_stress_bore_py(pressure: f64, inner_radius: f64, outer_radius: f64) -> f64 {
@@ -68,6 +73,7 @@ pub fn mech_lame_radial_stress_bore_py(pressure: f64, inner_radius: f64, outer_r
 /// See `feldspar_library::mech::von_mises_principal` for the formula
 /// and citation (Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, distortion-energy equivalent stress).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_von_mises_principal")]
 pub fn mech_von_mises_principal_py(sigma1: f64, sigma2: f64, sigma3: f64) -> f64 {
@@ -78,6 +84,7 @@ pub fn mech_von_mises_principal_py(sigma1: f64, sigma2: f64, sigma3: f64) -> f64
 /// citation (Budynas & Nisbett, *Shigley's Mechanical Engineering
 /// Design*, "Thick-Walled Cylinders" and distortion-energy equivalent
 /// stress).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_bore_von_mises")]
 pub fn mech_bore_von_mises_py(pressure: f64, inner_radius: f64, outer_radius: f64) -> f64 {
@@ -87,6 +94,7 @@ pub fn mech_bore_von_mises_py(pressure: f64, inner_radius: f64, outer_radius: f6
 /// See `feldspar_library::mech::sdof_first_mode` for the formula and
 /// citation (Rao, *Mechanical Vibrations*, SDOF undamped natural
 /// frequency).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_sdof_first_mode")]
 pub fn mech_sdof_first_mode_py(stiffness: f64, mass: f64) -> f64 {
@@ -96,6 +104,7 @@ pub fn mech_sdof_first_mode_py(stiffness: f64, mass: f64) -> f64 {
 /// See `feldspar_library::mech::beam_cantilever_first_mode` for the
 /// formula and citation (Blevins, *Formulas for Natural Frequency and
 /// Mode Shape*, Table 8-1).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_beam_cantilever_first_mode")]
 pub fn mech_beam_cantilever_first_mode_py(
@@ -117,6 +126,7 @@ pub fn mech_beam_cantilever_first_mode_py(
 /// See `feldspar_library::mech::miles_grms` for the formula and
 /// citation (Steinberg, *Vibration Analysis for Electronic Equipment*,
 /// ch. 2, Miles' equation).
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 #[pyfunction]
 #[pyo3(name = "mech_miles_grms")]
 pub fn mech_miles_grms_py(fn_hz: f64, q: f64, asd: f64) -> f64 {
@@ -145,6 +155,7 @@ pub fn mech_miles_grms_py(fn_hz: f64, q: f64, asd: f64) -> f64 {
 #[allow(clippy::type_complexity)] // marshalling boundary: plain (Vec, Vec, Vec<Vec>) tuple, no natural named type
 #[pyfunction]
 #[pyo3(name = "mech_frame2d_solve")]
+// frob:doc docs/modules/feldspar-py.md#py_library_mech
 pub fn mech_frame2d_solve_py(
     n_nodes: usize,
     member_i: Vec<usize>,

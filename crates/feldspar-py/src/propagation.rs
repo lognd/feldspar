@@ -23,6 +23,7 @@ use crate::symbolic::PyExpr;
 /// results. On the first `Err`, raises `PropagationErrorRaised`
 /// carrying the ORIGINAL `SolveError` value untouched; `feldspar/core.py`
 /// re-wraps it as a typani `Err` (see `errors.rs`).
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "corner_sweep")]
 pub fn corner_sweep_py(
@@ -57,6 +58,7 @@ pub fn corner_sweep_py(
 /// a Python caller can evaluate corners itself (e.g. concurrently) and
 /// fold with `hull_from_results` below, instead of going through the
 /// GIL-serialized single-threaded `corner_sweep` callback path.
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "enumerate_corners")]
 pub fn enumerate_corners_py(box_: BTreeMap<String, PyInterval>) -> Vec<BTreeMap<String, f64>> {
@@ -71,6 +73,7 @@ pub fn enumerate_corners_py(box_: BTreeMap<String, PyInterval>) -> Vec<BTreeMap<
 /// hull_from_results`). Determinism (FINV-9) holds regardless of what
 /// order the caller computed `results` in (any thread count), because
 /// the fold is the ONE core routine.
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "hull_from_results")]
 pub fn hull_from_results_py(results: Vec<BTreeMap<String, f64>>) -> BTreeMap<String, PyInterval> {
@@ -81,6 +84,7 @@ pub fn hull_from_results_py(results: Vec<BTreeMap<String, f64>>) -> BTreeMap<Str
 }
 
 /// `[lo - eps, hi + eps]`; the accumulation primitive (audit A-1).
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "inflate")]
 pub fn inflate_py(iv: &PyInterval, eps: f64) -> PyInterval {
@@ -89,6 +93,7 @@ pub fn inflate_py(iv: &PyInterval, eps: f64) -> PyInterval {
 
 /// `half_width(out_hull) + model_eps`: the budget-checked quantity at
 /// a route's target.
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "total_error")]
 pub fn total_error_py(out_hull: &PyInterval, model_eps: f64) -> f64 {
@@ -97,22 +102,26 @@ pub fn total_error_py(out_hull: &PyInterval, model_eps: f64) -> f64 {
 
 /// Frozen mirror of `feldspar_core::propagation::Normal` (02 "Normal
 /// ... first-order (delta-method) propagation"; WO-22, R4).
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyclass(frozen, from_py_object, name = "Normal")]
 #[derive(Clone, Copy)]
 pub struct PyNormal(pub feldspar_core::propagation::Normal);
 
 #[pymethods]
 impl PyNormal {
+    // frob:doc docs/modules/feldspar-py.md#py_propagation
     #[new]
     fn py_new(mean: f64, stddev: f64) -> Self {
         PyNormal(feldspar_core::propagation::Normal { mean, stddev })
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_propagation
     #[getter]
     fn mean(&self) -> f64 {
         self.0.mean
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_propagation
     #[getter]
     fn stddev(&self) -> f64 {
         self.0.stddev
@@ -123,12 +132,14 @@ impl PyNormal {
     // Name is the `Propagation::to_interval` normative signature (02),
     // not a `From`-style conversion -- same rationale as `UnitSystem`'s
     // `from_si` (feldspar-core/src/units.rs).
+    // frob:doc docs/modules/feldspar-py.md#py_propagation
     #[allow(clippy::wrong_self_convention)]
     fn to_interval(&self) -> PyInterval {
         use feldspar_core::propagation::Propagation;
         PyInterval(self.0.to_interval())
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_propagation
     fn __repr__(&self) -> String {
         format!("Normal(mean={}, stddev={})", self.0.mean, self.0.stddev)
     }
@@ -142,6 +153,7 @@ type PyDeltaPoint = (String, f64, f64);
 /// evaluated at the input means -- the mode a step takes when its law
 /// is a declared symbolic `Relation`. `inputs` is `[(port, mean,
 /// stddev), ...]`.
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "delta_propagate_symbolic")]
 pub fn delta_propagate_symbolic_py(rhs: &PyExpr, inputs: Vec<PyDeltaPoint>) -> PyResult<PyNormal> {
@@ -167,6 +179,7 @@ pub fn delta_propagate_symbolic_py(rhs: &PyExpr, inputs: Vec<PyDeltaPoint>) -> P
 /// plain `Mapping[str, float] -> float` Python function (the step's
 /// point evaluation), differenced with step size `h` per input.
 /// `inputs` is `[(port, mean, stddev), ...]`.
+// frob:doc docs/modules/feldspar-py.md#py_propagation
 #[pyfunction]
 #[pyo3(name = "delta_propagate_numeric")]
 pub fn delta_propagate_numeric_py(

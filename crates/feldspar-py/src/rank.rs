@@ -16,6 +16,7 @@ use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 
 /// Tagged rank value; see module docs for the tagged-struct rationale.
+// frob:doc docs/modules/feldspar-py.md#py_rank
 #[pyclass(frozen, from_py_object, name = "Rank", get_all)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PyRank {
@@ -64,6 +65,7 @@ impl From<feldspar_core::Rank> for PyRank {
 }
 
 impl PyRank {
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     pub fn to_core(&self) -> feldspar_core::Rank {
         match self.kind.as_str() {
             "scalar" => feldspar_core::Rank::Scalar,
@@ -80,32 +82,38 @@ impl PyRank {
 
 #[pymethods]
 impl PyRank {
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[staticmethod]
     fn scalar() -> Self {
         feldspar_core::Rank::Scalar.into()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[staticmethod]
     fn complex() -> Self {
         feldspar_core::Rank::Complex.into()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[staticmethod]
     fn vector(n: u32) -> Self {
         feldspar_core::Rank::Vector(n).into()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[staticmethod]
     fn tensor(n: u32, m: u32) -> Self {
         feldspar_core::Rank::Tensor(n, m).into()
     }
 
     /// Reserved for M2 (09 sec. 4); not used elsewhere in M1.
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[staticmethod]
     fn payload(kind: String) -> Self {
         feldspar_core::Rank::Payload(kind).into()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __repr__(&self) -> String {
         match self.kind.as_str() {
             "vector" => format!("Rank.vector({})", self.n.unwrap_or(0)),
@@ -122,6 +130,7 @@ impl PyRank {
         }
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __richcmp__(&self, other: &PyRank, op: CompareOp) -> PyResult<bool> {
         match op {
             CompareOp::Eq => Ok(self == other),
@@ -132,6 +141,7 @@ impl PyRank {
         }
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __hash__(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -141,6 +151,7 @@ impl PyRank {
 }
 
 /// Frozen namespaced port declaration: name, coherent-SI unit label, rank.
+// frob:doc docs/modules/feldspar-py.md#py_rank
 #[pyclass(frozen, from_py_object, name = "PortDecl", get_all)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PyPortDecl {
@@ -151,6 +162,7 @@ pub struct PyPortDecl {
 
 #[pymethods]
 impl PyPortDecl {
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     #[new]
     #[pyo3(signature = (name, unit, rank=None))]
     fn py_new(name: String, unit: String, rank: Option<PyRank>) -> Self {
@@ -161,6 +173,7 @@ impl PyPortDecl {
         }
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __repr__(&self) -> String {
         format!(
             "PortDecl(name={:?}, unit={:?}, rank={})",
@@ -170,6 +183,7 @@ impl PyPortDecl {
         )
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __richcmp__(&self, other: &PyPortDecl, op: CompareOp) -> PyResult<bool> {
         match op {
             CompareOp::Eq => Ok(self == other),
@@ -180,6 +194,7 @@ impl PyPortDecl {
         }
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_rank
     fn __hash__(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();

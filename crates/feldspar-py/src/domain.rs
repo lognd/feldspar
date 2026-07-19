@@ -15,12 +15,14 @@ use crate::interval::PyInterval;
 
 /// Frozen validity region: a box of per-port allowed intervals plus
 /// regime tags.
+// frob:doc docs/modules/feldspar-py.md#py_domain
 #[pyclass(frozen, from_py_object, name = "Domain")]
 #[derive(Clone)]
 pub struct PyDomain(pub feldspar_core::Domain);
 
 #[pymethods]
 impl PyDomain {
+    // frob:doc docs/modules/feldspar-py.md#py_domain
     #[new]
     #[pyo3(signature = (r#box, tags=None))]
     fn py_new(r#box: BTreeMap<String, PyInterval>, tags: Option<BTreeSet<String>>) -> Self {
@@ -32,6 +34,7 @@ impl PyDomain {
         ))
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_domain
     #[getter(r#box)]
     fn get_box(&self) -> BTreeMap<String, PyInterval> {
         self.0
@@ -41,6 +44,7 @@ impl PyDomain {
             .collect()
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_domain
     #[getter(tags)]
     fn tags(&self) -> BTreeSet<String> {
         self.0.tags.clone()
@@ -49,6 +53,7 @@ impl PyDomain {
     /// `Result[None, DomainViolation]` at the Python surface; this raw
     /// method raises so `feldspar/core.py` can wrap it into a typani
     /// `Result` (see `errors.rs` module docs).
+    // frob:doc docs/modules/feldspar-py.md#py_domain
     fn _admits_checked(
         &self,
         inputs: BTreeMap<String, PyInterval>,
@@ -61,6 +66,7 @@ impl PyDomain {
             .map_err(domain_violation_to_py)
     }
 
+    // frob:doc docs/modules/feldspar-py.md#py_domain
     fn __repr__(&self) -> String {
         format!(
             "Domain(box={{{} ports}}, tags={:?})",

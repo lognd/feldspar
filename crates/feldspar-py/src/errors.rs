@@ -28,6 +28,7 @@ create_exception!(_feldspar, PlanErrorRaised, PyException);
 create_exception!(_feldspar, EvalErrorRaised, PyException);
 create_exception!(_feldspar, SymbolicErrorRaised, PyException);
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 pub fn plan_error_to_py(e: feldspar_core::PlanError) -> PyErr {
     use feldspar_core::PlanError::*;
     match e {
@@ -39,6 +40,7 @@ pub fn plan_error_to_py(e: feldspar_core::PlanError) -> PyErr {
     }
 }
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 pub fn core_error_to_py(e: feldspar_core::CoreError) -> PyErr {
     let variant = match e {
         feldspar_core::CoreError::NonFiniteBound(_) => "NonFiniteBound",
@@ -47,6 +49,7 @@ pub fn core_error_to_py(e: feldspar_core::CoreError) -> PyErr {
     CoreErrorRaised::new_err((variant, e.to_string()))
 }
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 pub fn unit_error_to_py(e: feldspar_core::UnitError) -> PyErr {
     let variant = match &e {
         feldspar_core::UnitError::UnknownUnit(_) => "UnknownUnit",
@@ -56,6 +59,7 @@ pub fn unit_error_to_py(e: feldspar_core::UnitError) -> PyErr {
     UnitErrorRaised::new_err((variant, e.to_string()))
 }
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 #[allow(clippy::type_complexity)]
 pub fn domain_violation_to_py(v: feldspar_core::DomainViolation) -> PyErr {
     use feldspar_core::DomainViolation::*;
@@ -89,6 +93,7 @@ pub fn domain_violation_to_py(v: feldspar_core::DomainViolation) -> PyErr {
     DomainViolationRaised::new_err((kind, port, tag, lo, hi, box_lo, box_hi))
 }
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 pub fn eval_error_to_py(e: feldspar_core::symbolic::EvalError) -> PyErr {
     use feldspar_core::symbolic::EvalError::*;
     match e {
@@ -97,6 +102,7 @@ pub fn eval_error_to_py(e: feldspar_core::symbolic::EvalError) -> PyErr {
     }
 }
 
+// frob:doc docs/modules/feldspar-py.md#py_errors
 pub fn symbolic_error_to_py(e: feldspar_core::symbolic::SymbolicError) -> PyErr {
     use feldspar_core::symbolic::SymbolicError::*;
     match e {

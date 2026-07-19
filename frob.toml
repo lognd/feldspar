@@ -34,15 +34,22 @@ TEST002 = "warn"
 TEST003 = "error"
 TEST005 = "warn"
 TEST006 = "warn"
+DOC001 = "error"
 
 [gates.docs]
-# DOC001 posture: feldspar's docs/ tree (spec/, workflow/) is a mature,
-# pre-existing corpus with its own README.md as the reading-order index,
-# not markdown-linked docs/index.md navigation. Retrofitting frob:describes
-# anchors or docs-index links across the whole spec/workflow tree is a
-# separate, deliberate pass -- see ticket. Disable the DOC001 obligation
-# for now rather than mass-editing docs.
-include = []
+# T-0006 retrofit (2026-07-19): docs/spec and docs/workflow (spec/,
+# spec/toolchain/, workflow/, workflow/work-orders/ -- 43 files) got a
+# real markdown-link index (docs/README.md "File index" section +
+# docs/workflow/README.md "Work order index" section) so every doc is
+# reachable from the repo's two root docs, same as
+# docs/modules/*.md already was via frob:describes anchors. DOC001 is
+# now the default include glob at error severity, matching the
+# lithos/graphite ratchet (see [gates.severity] above) -- no more
+# blanket disable. `docs/README.md` is not literally `docs/index.md`
+# (frob's built-in default root), so it is named explicitly in `roots`
+# alongside the repo `README.md`.
+include = ["docs/**/*.md"]
+roots = ["docs/README.md", "README.md"]
 
 [testing]
 min_unit_cases = 1

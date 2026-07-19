@@ -563,7 +563,7 @@ This ticket (T-0014) still covers exactly what it always did -- raising `unit_br
 ```yaml
 id: T-0015
 title: Add Sin/Cos/Exp/Ln UnaryFn variants (symbolic core)
-state: in-progress
+state: done
 kind: feature
 origin: agent
 created: '2026-07-18'
@@ -571,7 +571,8 @@ blocked_by: []
 parent: null
 scope:
 - crates/feldspar-core/src/symbolic.rs
-evidence: []
+evidence:
+- crates/feldspar-core/src/symbolic.rs::tests::invert_for_exp_and_ln_are_mutual_inverses
 attachments: []
 acceptance:
 - Given a future WO extending the symbolic unary function set, when Sin/Cos/Exp/Ln
@@ -579,6 +580,14 @@ acceptance:
   same as Sqrt today
 threat: null
 ```
+## Done report
+
+Sin/Cos/Exp/Ln UnaryFn variants landed (153d1d2): eval/canonical/
+differentiate all four; Exp/Ln mutual inverses w/ domain admission;
+Sin/Cos honestly NonInvertible. 31 rust tests green. Evidence
+recorded as a real cargo-collected node id once frob v0.9.0's
+evidence-oracle union landed (the T-0015 escalation's exact ask).
+
 Deferred WO-11 R4/future scope: UnaryFn currently only has Sqrt. Adding Sin/Cos/Exp/Ln (each with inverse + branch/admission rules) is additive, never a breaking change, and is explicitly out of scope for the current TEST001/gate-zero campaign. Binds the bare TODO at crates/feldspar-core/src/symbolic.rs:42 so TODO001 is satisfied.
 ## Blocked on evidence tooling (2026-07-18/19, code committed, ticket cannot close)
 

@@ -80,7 +80,9 @@ def test_main_parses_lithos_arg_and_invokes_sync(tmp_path, monkeypatch, capsys):
     (lithos_root / "examples").mkdir(parents=True)
     (lithos_root / "examples" / "a.py").write_text("# a\n", encoding="ascii")
 
-    monkeypatch.setattr(sys, "argv", ["sync_lithos_examples.py", "--lithos", str(lithos_root)])
+    monkeypatch.setattr(
+        sys, "argv", ["sync_lithos_examples.py", "--lithos", str(lithos_root)]
+    )
     exit_code = module.main()
 
     assert exit_code == 0

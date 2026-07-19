@@ -247,7 +247,7 @@ def build_cylinder_deck(mesh: MeshData, material: Material, pressure: float) -> 
     fixed on every node (documented plane-strain-style simplification,
     see module docstring), internal pressure applied as an equivalent
     evenly-split nodal radial force on BORE, principal-stress +
-    displacement result requests."""
+    displacement result rows."""
 
     bore_ids = mesh.node_sets["BORE"]
     outer_ids = mesh.node_sets["OUTER"]

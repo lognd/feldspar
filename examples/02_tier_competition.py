@@ -35,7 +35,8 @@ def lame_chart(x):
     ratio = x["mech.geom.cylinder.ratio"]
     return {
         "mech.stress.von_mises": x["mech.pressure.internal"]
-        * (ratio**2 + 1) / (ratio**2 - 1)
+        * (ratio**2 + 1)
+        / (ratio**2 - 1)
     }
 
 
@@ -52,7 +53,8 @@ def lame_exact(x):
     ratio = x["mech.geom.cylinder.ratio"]
     return {
         "mech.stress.von_mises": x["mech.pressure.internal"]
-        * (ratio**2 + 1) / (ratio**2 - 1)
+        * (ratio**2 + 1)
+        / (ratio**2 - 1)
     }
 
 
@@ -69,13 +71,23 @@ def main() -> None:
         "mech.geom.cylinder.ratio": Interval(1.5, 1.5),
     }
 
-    loose = solve(registry, known=known, tags=set(), target="mech.stress.von_mises",
-                  eps_budget=5e6).danger_ok
+    loose = solve(
+        registry,
+        known=known,
+        tags=set(),
+        target="mech.stress.von_mises",
+        eps_budget=5e6,
+    ).danger_ok
     print("loose budget picks:", loose.route.steps[0].solver_id)
     assert "chart" in loose.route.steps[0].solver_id  # cheap tier wins fat margin
 
-    tight = solve(registry, known=known, tags=set(), target="mech.stress.von_mises",
-                  eps_budget=1.4e6).danger_ok
+    tight = solve(
+        registry,
+        known=known,
+        tags=set(),
+        target="mech.stress.von_mises",
+        eps_budget=1.4e6,
+    ).danger_ok
     print("tight budget picks:", tight.route.steps[0].solver_id)
     assert "exact" in tight.route.steps[0].solver_id  # budget forces the tight tier
 

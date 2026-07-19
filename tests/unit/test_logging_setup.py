@@ -29,10 +29,22 @@ def test_below_level_filter_passes_only_strictly_lower_levels() -> None:
     or above the configured ceiling."""
     filt = BelowLevelFilter("WARNING")
     info_record = logging.LogRecord(
-        name="x", level=logging.INFO, pathname="", lineno=0, msg="ok", args=(), exc_info=None
+        name="x",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="ok",
+        args=(),
+        exc_info=None,
     )
     warning_record = logging.LogRecord(
-        name="x", level=logging.WARNING, pathname="", lineno=0, msg="no", args=(), exc_info=None
+        name="x",
+        level=logging.WARNING,
+        pathname="",
+        lineno=0,
+        msg="no",
+        args=(),
+        exc_info=None,
     )
     assert filt.filter(info_record) is True
     assert filt.filter(warning_record) is False

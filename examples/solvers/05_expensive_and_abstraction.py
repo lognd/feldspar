@@ -18,26 +18,30 @@ from feldspar.fea.mesh import MeshSettings
 from feldspar.solve import ClaimSenses, solver
 
 # frob:doc docs/modules/examples.md#examples_solvers
-MESH = MeshSettings(
-    family="cantilever", element_type="C3D20", char_length=2e-3, seed=7
-)
+MESH = MeshSettings(family="cantilever", element_type="C3D20", char_length=2e-3, seed=7)
 
 
 # frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
-    inputs=("mech.geom.cantilever.length", "mech.geom.cantilever.width",
-            "mech.geom.cantilever.height",
-            "mech.material.youngs_modulus", "mech.load.tip_force"),
+    inputs=(
+        "mech.geom.cantilever.length",
+        "mech.geom.cantilever.width",
+        "mech.geom.cantilever.height",
+        "mech.material.youngs_modulus",
+        "mech.load.tip_force",
+    ),
     outputs=("mech.deflection.tip",),
     domain={"mech.geom.cantilever.length": (0.01, 2.0)},
     tags=("linear_elastic", "small_deflection"),
-    cost=8.0,                       # honest seconds, not a fiction
-    accuracy=Accuracy(eps_abs=0.0, eps_rel=0.02),   # CEILING; realized
-    citations=("standard: CalculiX 2.21 theory manual, C3D20",
-               "calibration: run blake3:..."),
+    cost=8.0,  # honest seconds, not a fiction
+    accuracy=Accuracy(eps_abs=0.0, eps_rel=0.02),  # CEILING; realized
+    citations=(
+        "standard: CalculiX 2.21 theory manual, C3D20",
+        "calibration: run blake3:...",
+    ),
     tier="discretized",
-    settings=MESH,                  # F1: digested automatically
+    settings=MESH,  # F1: digested automatically
     version="1",
 )
 def fea_cantilever_tip(x):
@@ -54,14 +58,17 @@ def fea_cantilever_tip(x):
 # frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
-    inputs=("mech.geom.realized",),          # PAYLOAD port (rank=payload)
-    outputs=("mech.geom.cantilever.length", "mech.geom.cantilever.width",
-             "mech.geom.cantilever.height"),
+    inputs=("mech.geom.realized",),  # PAYLOAD port (rank=payload)
+    outputs=(
+        "mech.geom.cantilever.length",
+        "mech.geom.cantilever.width",
+        "mech.geom.cantilever.height",
+    ),
     payload_domain="solid_root_band(15mm); aspect(2..30); no_holes(root_band)",
     cost=1e-4,
-    accuracy=Accuracy(eps_abs=0.0, eps_rel=0.15),   # idealization error,
+    accuracy=Accuracy(eps_abs=0.0, eps_rel=0.15),  # idealization error,
     citations=("calibration: idealized-vs-FEA sweep blake3:...",),
-    conservative_for=ClaimSenses.UPPER,      # G4: never a lower bound
+    conservative_for=ClaimSenses.UPPER,  # G4: never a lower bound
     tier="closed_form",
     version="1",
 )

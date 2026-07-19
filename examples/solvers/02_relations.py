@@ -16,11 +16,12 @@ from feldspar.solve import EXACT, Relation, SolverRegistry
 
 ideal_gas = Relation(
     namespace="thermo",
-    ports=("thermo.pressure", "thermo.specific_volume",
-           "thermo.temperature"),
-    domain={"thermo.pressure": (1e3, 1e7),
-            "thermo.specific_volume": (1e-3, 1e2),
-            "thermo.temperature": (200.0, 2000.0)},
+    ports=("thermo.pressure", "thermo.specific_volume", "thermo.temperature"),
+    domain={
+        "thermo.pressure": (1e3, 1e7),
+        "thermo.specific_volume": (1e-3, 1e2),
+        "thermo.temperature": (200.0, 2000.0),
+    },
     tags=("ideal_gas",),
     cost=1e-6,
     accuracy=EXACT,
@@ -57,4 +58,4 @@ def v_from_tp(x):
 def register(registry: SolverRegistry) -> None:
     # Emits thermo.ideal_gas.t_from_pv / .p_from_tv / .v_from_tp --
     # three rows in the graph, one home for the shared metadata.
-    ideal_gas.register(registry).danger_ok
+    _ = ideal_gas.register(registry).danger_ok

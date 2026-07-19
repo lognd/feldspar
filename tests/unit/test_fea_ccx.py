@@ -67,9 +67,7 @@ def test_run_ccx_reads_dat_and_frd_text_on_success(tmp_path, monkeypatch) -> Non
 def test_run_ccx_reports_tool_failed_on_nonzero_exit(tmp_path, monkeypatch) -> None:
     """A nonzero ccx exit code maps to `SolveError.ToolFailed`, never a
     raise, with the tail of combined stdout/stderr attached."""
-    fake = _make_fake_ccx(
-        tmp_path, "#!/bin/sh\necho 'boom' >&2\nexit 1\n"
-    )
+    fake = _make_fake_ccx(tmp_path, "#!/bin/sh\necho 'boom' >&2\nexit 1\n")
     monkeypatch.setenv("FELDSPAR_CCX", str(fake))
     result = ccx.run_ccx("*NODE\n1,0,0,0\n", timeout_s=10.0)
     assert result.is_err

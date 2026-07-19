@@ -277,6 +277,18 @@ def resweep_derived(
         )
 
     target = info.solved_for
+    if target is None:
+        # law_lhs/law_rhs already gated above are only ever set together
+        # with solved_for by Relation.law() (sugar.py) -- a derived
+        # direction with a law but no solved_for would be an internal
+        # invariant break, not a normal calibration input; narrows the
+        # type for the dict-key uses below (ty invalid-assignment).
+        _log.warning(
+            "resweep_derived: %s has law_lhs/law_rhs but no solved_for "
+            "(broken derived-direction invariant); nothing to re-sweep",
+            info.solver_id,
+        )
+        return Err(CalibError.UnknownSolver(solver_id=info.solver_id))
     rng = random.Random(seed)
     worst_abs_error = 0.0
     worst_rel_error = 0.0

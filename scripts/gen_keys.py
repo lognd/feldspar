@@ -10,8 +10,7 @@ try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 except ImportError:
     print(
-        "error: `cryptography` is required for `make keys` "
-        "(uv add --dev cryptography)",
+        "error: `cryptography` is required for `make keys` (uv add --dev cryptography)",
         file=sys.stderr,
     )
     sys.exit(1)

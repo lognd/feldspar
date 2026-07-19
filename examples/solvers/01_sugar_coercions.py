@@ -32,8 +32,7 @@ PORTS = (
     namespace="mech",
     inputs=("mech.section.width", "mech.section.height"),
     outputs=("mech.section.second_moment",),
-    domain={"mech.section.width": (1e-4, 1.0),
-            "mech.section.height": (1e-4, 1.0)},
+    domain={"mech.section.width": (1e-4, 1.0), "mech.section.height": (1e-4, 1.0)},
     cost=1e-7,
     accuracy=EXACT,
     citations=("handbook: Gere, Mechanics of Materials 9e, App. E",),
@@ -45,8 +44,8 @@ def rect_second_moment(x):
 
 # frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
-    registry.declare_ports(*PORTS).danger_ok          # F12: once, here
-    registry.register(*rect_second_moment.solver_direction).danger_ok
+    _ = registry.declare_ports(*PORTS).danger_ok  # F12: once, here
+    _ = registry.register(*rect_second_moment.solver_direction).danger_ok
     # A typo'd port in any @solver in this module is now a
     # RegistryError.UnknownPort at register time, not a silent
     # never-routable edge.

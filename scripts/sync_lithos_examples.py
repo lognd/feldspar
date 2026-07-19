@@ -24,7 +24,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # frob:doc docs/workflow/dev-scripts.md#sync-lithos-examples
 MIRROR = REPO_ROOT / "examples" / "lithos"
 # frob:doc docs/workflow/dev-scripts.md#sync-lithos-examples
-MARKER = "# MIRROR of lithos:examples/ -- do not edit; `make sync-examples` regenerates.\n"
+MARKER = (
+    "# MIRROR of lithos:examples/ -- do not edit; `make sync-examples` regenerates.\n"
+)
 
 
 def sync(lithos_root: Path) -> int:
@@ -49,7 +51,9 @@ def main() -> int:
     """CLI entry point: parses --lithos and syncs the examples mirror from it."""
     # frob:doc docs/workflow/dev-scripts.md#sync-lithos-examples
     # frob:ticket T-0007
-    logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(message)s"
+    )
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--lithos",

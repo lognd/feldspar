@@ -81,11 +81,18 @@ all_command = ["cargo", "test", "--workspace"]
 cwd = "."
 
 [check]
-# ruff and ty both fail on the pre-existing legacy surface (4 ruff errors,
-# 10 files needing reformat, 256 ty diagnostics -- mostly PyO3 stub /
-# gradual-typing debt predating frob adoption). Fixing that is a source
-# change, out of scope for the adoption baseline itself; see ticket.
+# ruff (check + format) and ty (`make typecheck` == `uv run ty check
+# python/`) both pass clean as of 2026-07-19 (T-0005): the ruff findings
+# were 105 errors, all but 12 of which were frob:waive/frob:tests
+# directive comments tripping E501 (fixed via a python/feldspar/**
+# per-file-ignore, matching the precedent tests/** already carried);
+# the remaining 12 (8 B018 useless-attribute-access in examples/,
+# 2 E402 in scripts/gen_keys.py -- same house-style docstring-after-
+# future-import pattern python/feldspar/** already ignores, 2 I001)
+# were fixed for real. ty against python/ (the Makefile's typecheck
+# scope) is 0 diagnostics; ty against the WHOLE repo (tests/ included)
+# still has ~254 PyO3-stub/gradual-typing diagnostics, but tests/ was
+# never in scope for typecheck (see Makefile's `typecheck` target).
 # import-linter and cargo/rust tooling are not wired into frob's check
 # stages; feldspar drives those via `make check`/`make import-lint`
 # separately.
-skip = ["ruff", "ty"]

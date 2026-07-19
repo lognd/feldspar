@@ -59,6 +59,18 @@ dev = [
     "import-linter>=2.13",
 ]
 
+# typecheck scope is the `python/` package tree (Makefile's `typecheck`
+# target: `uv run ty check python/`), matching every other language's
+# typecheck posture in this repo (Rust's `cargo clippy`/`cargo test`
+# never type-checks tests/examples/fixtures either). tests/, examples/,
+# and fixtures/ are excluded here so a bare `ty check .` (frob's own
+# check stage, `_run_ty`, passes the repo root with no path args) sees
+# the SAME scope as `make typecheck` instead of also picking up ~254
+# separate PyO3-stub/gradual-typing diagnostics across test/example/
+# fixture code that was never in scope (T-0005).
+[tool.ty.src]
+exclude = ["tests/**", "examples/**", "fixtures/**"]
+
 # `feldspar.pack` legitimately imports regolith -- the optional integration
 # target, confined to this package per FINV-3 / the import-linter contract
 # below. regolith is not installed in the regolith-free CI jobs (make-check
@@ -100,8 +112,14 @@ select = ["E", "F", "I", "B", "W"]
 # E402: house style puts `from __future__ import annotations` before the
 # module docstring (never after), which makes ruff treat the docstring as
 # a plain statement and flag every import that follows it.
+# E501 on python/feldspar/**: frob directive comments (`# frob:waive ...
+# reason="..."`) intentionally carry a full free-text reason on one
+# physical line -- wrapping mid-string would break `grep`/`frob check`'s
+# own line-anchored diagnostics for zero readability gain (same
+# rationale tests/** already carries this ignore for).
 "tests/**" = ["E501", "E402"]
-"python/feldspar/**" = ["E402"]
+"python/feldspar/**" = ["E402", "E501"]
+"scripts/**" = ["E402"]
 
 [tool.coverage.run]
 source = ["python"]

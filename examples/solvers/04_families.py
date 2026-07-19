@@ -14,10 +14,11 @@ from feldspar.solve import EXACT, SolverRegistry, make_direction
 # frob:doc docs/modules/examples.md#examples_solvers
 SHAPES = {
     # name -> (I(b, h) formula, citation)
-    "rect": (lambda b, h: b * h**3 / 12.0,
-             "handbook: Gere 9e, App. E"),
-    "tube": (lambda d_o, d_i: 3.14159265358979 * (d_o**4 - d_i**4) / 64.0,
-             "handbook: Gere 9e, App. E"),
+    "rect": (lambda b, h: b * h**3 / 12.0, "handbook: Gere 9e, App. E"),
+    "tube": (
+        lambda d_o, d_i: 3.14159265358979 * (d_o**4 - d_i**4) / 64.0,
+        "handbook: Gere 9e, App. E",
+    ),
 }
 
 
@@ -44,4 +45,4 @@ def _section_solver(name, formula, cite):
 # frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     for name, (formula, cite) in sorted(SHAPES.items()):
-        registry.register(*_section_solver(name, formula, cite)).danger_ok
+        _ = registry.register(*_section_solver(name, formula, cite)).danger_ok

@@ -30,26 +30,31 @@ regen_wall = CoupledGroup(
     group_id="heat.regen_wall_loop",
     namespace="heat",
     members=(
-        "heat.bartz_hot_side",          # q_hot(T_wall_hot, gas state)
-        "heat.wall_conduction_1d",      # dT(q, k(T), thickness)
-        "heat.gnielinski_channel",      # h_cool(Re, Pr at T_film)
-        "fluids.channel_bulk_rise",     # T_cool(x) from absorbed q
+        "heat.bartz_hot_side",  # q_hot(T_wall_hot, gas state)
+        "heat.wall_conduction_1d",  # dT(q, k(T), thickness)
+        "heat.gnielinski_channel",  # h_cool(Re, Pr at T_film)
+        "fluids.channel_bulk_rise",  # T_cool(x) from absorbed q
     ),
     boundary_inputs=(
-        "prop.chamber_pressure", "prop.mixture_ratio",
-        "fluids.coolant_mdot", "fluids.coolant_inlet_temp",
-        "mech.geom.regen_channel.width", "mech.geom.regen_channel.depth",
-        "mech.geom.regen_channel.count", "mech.geom.liner.wall_thickness",
+        "prop.chamber_pressure",
+        "prop.mixture_ratio",
+        "fluids.coolant_mdot",
+        "fluids.coolant_inlet_temp",
+        "mech.geom.regen_channel.width",
+        "mech.geom.regen_channel.depth",
+        "mech.geom.regen_channel.count",
+        "mech.geom.liner.wall_thickness",
     ),
     boundary_outputs=(
-        "thermo.wall_temp.hot_side_max",     # G24: extremal reductions;
-        "thermo.wall_temp.delta_max",        # stations are internal in
-        "fluids.coolant_outlet_temp",        # v1 (OPEN-14)
+        "thermo.wall_temp.hot_side_max",  # G24: extremal reductions;
+        "thermo.wall_temp.delta_max",  # stations are internal in
+        "fluids.coolant_outlet_temp",  # v1 (OPEN-14)
         "heat.flux.throat",
     ),
     closure="damped_fixed_point",
-    settings=dict(damping=0.5, tol=1e-4, max_iter=200,
-                  stations=64, march="injector_to_exit"),
+    settings=dict(
+        damping=0.5, tol=1e-4, max_iter=200, stations=64, march="injector_to_exit"
+    ),
     # Composite, calibrated as a unit -- NOT derived from member eps:
     accuracy=Accuracy(eps_abs=0.0, eps_rel=0.12),
     citations=(
@@ -57,7 +62,7 @@ regen_wall = CoupledGroup(
         "handbook: NASA SP-8087 sec. 2 (regen design methods)",
         "calibration: composite vs conjugate FEA sweep blake3:...",
     ),
-    conservative_for="upper",           # hot-side envelope choices
+    conservative_for="upper",  # hot-side envelope choices
     cost=0.3,
     version="1",
 )
@@ -68,4 +73,4 @@ def register(registry: SolverRegistry) -> None:
     # Members register normally (independently routable OUTSIDE the
     # cycle); the group adds the composite row. Registering members
     # whose ports form a cycle WITHOUT a group stays a registry error.
-    regen_wall.register(registry).danger_ok
+    _ = regen_wall.register(registry).danger_ok

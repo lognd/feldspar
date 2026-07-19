@@ -40,13 +40,13 @@ def _tool_missing(err: object) -> str | None:
 # frob:doc docs/modules/examples.md#examples_top
 def main() -> None:
     registry = SolverRegistry()
-    register_mech(registry)   # closed-form tier (the oracles)
-    register_fea(registry)    # discretized tier, same protocol
+    register_mech(registry)  # closed-form tier (the oracles)
+    register_fea(registry)  # discretized tier, same protocol
     registry.freeze()
 
     known = {
         # 05 geometry port naming (FRICTION F2, now specified):
-        "mech.geom.cantilever.length": Interval(0.50, 0.50),   # m
+        "mech.geom.cantilever.length": Interval(0.50, 0.50),  # m
         "mech.geom.cantilever.width": Interval(0.040, 0.042),  # m, tolerance
         "mech.geom.cantilever.height": Interval(0.060, 0.060),
         "mech.material.youngs_modulus": Interval(6.8e10, 7.1e10),  # Al scatter
@@ -73,11 +73,16 @@ def main() -> None:
         raise SystemExit(f"unexpected solve failure: {result.err}")
 
     solution = result.danger_ok
-    print(solution.explain())            # cites element formulation,
+    print(solution.explain())  # cites element formulation,
     #                                      Richardson, calibration runs
 
-    again = solve(registry, known=known, tags={"linear_elastic", "small_deflection"},
-                  target="mech.deflection.tip", eps_budget=EPS_BUDGET)
+    again = solve(
+        registry,
+        known=known,
+        tags={"linear_elastic", "small_deflection"},
+        target="mech.deflection.tip",
+        eps_budget=EPS_BUDGET,
+    )
     if again.is_ok:
         assert again.danger_ok.settings_digest == solution.settings_digest
 

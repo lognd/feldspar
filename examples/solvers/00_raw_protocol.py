@@ -8,9 +8,10 @@ coercions in 01_sugar_coercions.py are REQUIRED, and every sugar
 form must LOWER to exactly this -- one protocol, sugar on top.
 """
 
+from typani import Ok
+
 from feldspar.core import Accuracy, Domain, Interval
 from feldspar.solve import Citation, SolverRegistry, solver
-from typani import Ok
 
 
 # frob:doc docs/modules/examples.md#examples_solvers
@@ -39,4 +40,4 @@ def rect_second_moment(x):
 
 # frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
-    registry.register(*rect_second_moment.solver_direction).danger_ok
+    _ = registry.register(*rect_second_moment.solver_direction).danger_ok

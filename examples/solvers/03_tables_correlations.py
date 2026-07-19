@@ -19,11 +19,11 @@ sat_water = table_solver_1d(
     namespace="thermo",
     x_port="thermo.pressure",
     y_port="thermo.saturation_temperature",
-    x=(1e3, 1e4, 5e4, 1e5, 5e5, 1e6),          # Pa (ascending, checked)
+    x=(1e3, 1e4, 5e4, 1e5, 5e5, 1e6),  # Pa (ascending, checked)
     y=(280.1, 318.9, 354.4, 372.7, 425.0, 453.0),  # K
-    method="pchip",                             # monotone -> honest corners
-    eps_abs=0.4,                                # K; from the source's
-                                                # tabulation step, cited:
+    method="pchip",  # monotone -> honest corners
+    eps_abs=0.4,  # K; from the source's
+    # tabulation step, cited:
     citations=("handbook: NIST Webbook, saturation curve, 0.4K grid",),
     version="1",
 )
@@ -45,13 +45,13 @@ gnielinski = Correlation(
 
 @gnielinski.formula
 def _nu(x):
-    f, re, pr = (x["fluids.friction_factor"], x["fluids.reynolds"],
-                 x["fluids.prandtl"])
-    return ((f / 8) * (re - 1000) * pr
-            / (1 + 12.7 * (f / 8) ** 0.5 * (pr ** (2 / 3) - 1)))
+    f, re, pr = (x["fluids.friction_factor"], x["fluids.reynolds"], x["fluids.prandtl"])
+    return (
+        (f / 8) * (re - 1000) * pr / (1 + 12.7 * (f / 8) ** 0.5 * (pr ** (2 / 3) - 1))
+    )
 
 
 # frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
-    registry.register(*sat_water).danger_ok
-    gnielinski.register(registry).danger_ok
+    _ = registry.register(*sat_water).danger_ok
+    _ = gnielinski.register(registry).danger_ok

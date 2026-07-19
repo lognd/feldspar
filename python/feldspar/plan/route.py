@@ -29,6 +29,7 @@ __all__ = ["Route", "RouteStep", "plan"]
 _log = get_logger(__name__)
 
 
+# frob:doc docs/modules/plan.md#plan_route
 class RouteStep(BaseModel):
     """One committed step in a `Route` (01-interfaces `RouteStep`)."""
 
@@ -40,6 +41,7 @@ class RouteStep(BaseModel):
     cost: float
 
 
+# frob:doc docs/modules/plan.md#plan_route
 class Route(BaseModel):
     """The ordered result of a successful `plan()` (01-interfaces `Route`,
     AD-5 digest convention); carries enough for WO-06 to execute without
@@ -93,6 +95,7 @@ def _route_from_native(native: "_feldspar.Route") -> Route:
 _PAYLOAD_PLACEHOLDER = Interval(0.0, 0.0)
 
 
+# frob:doc docs/modules/plan.md#plan_route
 def plan(
     registry: "SolverRegistry",
     known: Mapping[str, Interval],

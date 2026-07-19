@@ -88,6 +88,7 @@ def _attempt_record(attempt: "AttemptRecord") -> "Dict[str, Any]":
     }
 
 
+# frob:doc docs/modules/plan.md#plan_report
 def render_to_dict(solution: "Solution") -> "Dict[str, Any]":
     """Machine-readable justification report (01-interfaces
     `Solution.to_dict`): the same data `render_explain` prints, as a
@@ -125,6 +126,7 @@ def _fmt_domain(label: str, d: "Dict[str, Any] | None", indent: str) -> "List[st
     return [f"{indent}{label}: box=({box}) tags=({tags})"]
 
 
+# frob:doc docs/modules/plan.md#plan_report
 def render_explain(solution: "Solution") -> str:
     """Human-readable step-by-step justification report (01-interfaces
     `Solution.explain`, 04-routing "Justification report"): per step

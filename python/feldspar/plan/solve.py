@@ -55,10 +55,12 @@ class _ExcludingRegistryView:
             if info.solver_id not in self._excluded:
                 yield info, fn
 
+    # frob:doc docs/modules/plan.md#plan_solve
     def digest(self) -> str:
         return self._registry.digest()
 
 
+# frob:doc docs/modules/plan.md#plan_solve
 def solve(
     registry: "SolverRegistry",
     known: Mapping[str, Interval],

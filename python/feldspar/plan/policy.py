@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 __all__ = ["RoutePolicy"]
 
 
+# frob:doc docs/modules/plan.md#plan_policy
 class RoutePolicy(BaseModel):
     """`fallback` (default reroute-on-failure, 04), `cache` (default ON
     content-addressed solve cache, AD-9), `threads` (M5 stub, value 1

@@ -90,6 +90,7 @@ def _load_cache_json(path: Path) -> Optional[Any]:
         return None
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 def request_digest(
     known: Mapping[str, Interval],
     tags: "frozenset[str] | set[str]",
@@ -115,6 +116,7 @@ def request_digest(
     return canonical_digest(payload)
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 def cache_key(
     registry: "SolverRegistry",
     known: Mapping[str, Interval],
@@ -153,6 +155,7 @@ def cache_key(
     return key
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 def is_route_cacheable(route: Route, registry: "SolverRegistry") -> bool:
     """A route containing any `deterministic=False` step is NEVER cached
     (04-routing "Solve cache" corollaries)."""
@@ -248,6 +251,7 @@ def _citation_from_json(data: Mapping[str, Any]) -> Citation:
     return Citation(kind=data["kind"], ref=data["ref"], note=data["note"])
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 def solution_to_jsonable(solution: Solution) -> Dict[str, Any]:
     """Manual (not `canonical_digest`) JSON lowering of a `Solution` --
     round-trippable, unlike `canonical_digest`'s one-way fold -- so the
@@ -279,6 +283,7 @@ def solution_to_jsonable(solution: Solution) -> Dict[str, Any]:
     }
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 def solution_from_jsonable(data: Mapping[str, Any]) -> Solution:
     return Solution(
         target=data["target"],
@@ -343,6 +348,7 @@ def _tools_still_consistent(
     return True
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 class SolveCache:
     """A flat content-addressed store under `.feldspar/cache/` (AD-9):
     filename IS the cache key, so `get`/`put` are pure key-value
@@ -355,6 +361,7 @@ class SolveCache:
     def _path(self, key: str) -> Path:
         return self._root / f"{key}.json"
 
+    # frob:doc docs/modules/plan.md#plan_cache
     def get(
         self, key: str, route: Route, registry: "SolverRegistry"
     ) -> Optional[Solution]:
@@ -378,6 +385,7 @@ class SolveCache:
         _log.info("cache hit: key=%s", key)
         return solution.model_copy(update={"cache_hit": True})
 
+    # frob:doc docs/modules/plan.md#plan_cache
     def put(self, key: str, solution: Solution) -> None:
         """Never called for a `deterministic=False`-containing route --
         `solve.py` guards via `is_route_cacheable` before reaching here
@@ -392,6 +400,7 @@ class SolveCache:
 StepEntry = Tuple[Dict[str, Interval], Dict[str, PayloadRef], float]
 
 
+# frob:doc docs/modules/plan.md#plan_cache
 class PayloadStepCache:
     """Per-step cache for payload-touching steps (WO-12; the 09 secs.
     3-4 per-rung/per-payload discipline, extending 04-routing "Solve
@@ -417,6 +426,7 @@ class PayloadStepCache:
     def _path(self, key: str) -> Path:
         return self._root / f"{key}.json"
 
+    # frob:doc docs/modules/plan.md#plan_cache
     def key(
         self,
         info: SolverInfo,
@@ -436,6 +446,7 @@ class PayloadStepCache:
             }
         )
 
+    # frob:doc docs/modules/plan.md#plan_cache
     def get(
         self,
         key: str,
@@ -466,6 +477,7 @@ class PayloadStepCache:
         _log.info("step cache hit: key=%s", key)
         return hull, refs, data["step_eps"]
 
+    # frob:doc docs/modules/plan.md#plan_cache
     def put(
         self,
         key: str,

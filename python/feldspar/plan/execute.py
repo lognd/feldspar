@@ -39,6 +39,7 @@ __all__ = [
 _log = get_logger(__name__)
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 class AttemptRecord(BaseModel):
     """One reroute-loop attempt (04-routing "Fallback rerouting"): the
     exclusion set going INTO this attempt, which step (if any) failed --
@@ -57,6 +58,7 @@ class AttemptRecord(BaseModel):
     error_detail: Mapping[str, Any] = {}
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 def error_to_record_fields(error: Any) -> Tuple[str, Mapping[str, Any]]:
     """`(kind, detail)` for any `_TaggedError`-shaped value (`PlanError`/
     `SolveError`) -- the ONE place a live error value gets lowered into
@@ -70,6 +72,7 @@ def error_to_record_fields(error: Any) -> Tuple[str, Mapping[str, Any]]:
     return error.kind, detail
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 class Solution(BaseModel):
     """A successful `solve()`/`execute()` result (01-interfaces
     `Solution`, 04-routing "Execution"). `eps` is the FINAL step's
@@ -112,6 +115,7 @@ class Solution(BaseModel):
     # rather than fabricating a decomposition, 04-routing "Execution").
     eps_budget: Optional[float] = None
 
+    # frob:doc docs/modules/plan.md#plan_execute
     def explain(self) -> str:
         """Renders the step-by-step justification report (04-routing
         "Justification report"): PURE rendering of this `Solution`'s
@@ -121,6 +125,7 @@ class Solution(BaseModel):
 
         return render_explain(self)
 
+    # frob:doc docs/modules/plan.md#plan_execute
     def to_dict(self) -> "Dict[str, Any]":
         """Machine-readable twin of `explain()` -- same data, JSON-safe
         shape."""
@@ -129,6 +134,7 @@ class Solution(BaseModel):
         return render_to_dict(self)
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 def route_settings_digest(route: Route, registry: "SolverRegistry") -> str:
     """Folds every step's `SolverInfo.settings_digest` (03, F1) in route
     order into ONE digest (04-routing "Execution": "fold settings
@@ -334,6 +340,7 @@ def _make_corner_fn(
     return corner_fn
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 def execute(
     route: Route,
     registry: "SolverRegistry",
@@ -361,6 +368,7 @@ def execute(
     return result.swap_err(SolveError)
 
 
+# frob:doc docs/modules/plan.md#plan_execute
 def execute_with_attribution(
     route: Route,
     registry: "SolverRegistry",

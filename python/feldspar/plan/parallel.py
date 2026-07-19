@@ -49,6 +49,7 @@ _log = get_logger(__name__)
 _E = TypeVar("_E")
 
 
+# frob:doc docs/modules/plan.md#plan_parallel
 def parallel_corner_sweep(
     box: Mapping[str, Interval],
     fn: Callable[[Mapping[str, float]], "Result[Mapping[str, float], _E]"],

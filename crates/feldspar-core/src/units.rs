@@ -45,6 +45,7 @@ impl UnitEntry {
 /// (01-interfaces `UnitSystem`). An interface, not a hard dependency
 /// (02-quantities): `feldspar-core`'s built-in table is one
 /// implementation; regolith-qty may back another.
+// frob:doc docs/modules/feldspar-core.md#core_units
 pub trait UnitSystem {
     fn dimension_of(&self, unit: &str) -> Result<Dimension, UnitError>;
     fn to_si(&self, value: f64, unit: &str) -> Result<f64, UnitError>;
@@ -57,6 +58,7 @@ pub trait UnitSystem {
 /// The built-in, dependency-free `UnitSystem` implementation. Seeded
 /// with every unit named in 01-interfaces' M1 port table plus its ingest
 /// aliases, the 02-edge-cases rows, and K/W-style compounds for Phase 2.
+// frob:doc docs/modules/feldspar-core.md#core_units
 #[derive(Debug, Clone)]
 pub struct BuiltinUnitSystem {
     table: BTreeMap<String, UnitEntry>,
@@ -66,18 +68,26 @@ pub struct BuiltinUnitSystem {
 mod dim {
     use crate::dimension::Dimension;
 
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const DIMENSIONLESS: Dimension = Dimension::new([0, 0, 0, 0, 0, 0, 0]);
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const LENGTH: Dimension = Dimension::new([1, 0, 0, 0, 0, 0, 0]);
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const TEMPERATURE: Dimension = Dimension::new([0, 0, 0, 0, 1, 0, 0]);
     // force = kg*m/s^2
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const FORCE: Dimension = Dimension::new([1, 1, -2, 0, 0, 0, 0]);
     // pressure = kg/(m*s^2)
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const PRESSURE: Dimension = Dimension::new([-1, 1, -2, 0, 0, 0, 0]);
     // angular rate = 1/s (radian is dimensionless)
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const ANGULAR_RATE: Dimension = Dimension::new([0, 0, -1, 0, 0, 0, 0]);
     // velocity = m/s
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const VELOCITY: Dimension = Dimension::new([1, 0, -1, 0, 0, 0, 0]);
     // power = kg*m^2/s^3
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub const POWER: Dimension = Dimension::new([2, 1, -3, 0, 0, 0, 0]);
 }
 
@@ -91,6 +101,7 @@ impl BuiltinUnitSystem {
     /// from already-registered simple entries so an accidental
     /// offset-in-compound is caught here, at table-build time, exactly
     /// once (FINV-11).
+    // frob:doc docs/modules/feldspar-core.md#core_units
     pub fn builtin() -> Self {
         let mut table = BTreeMap::new();
 

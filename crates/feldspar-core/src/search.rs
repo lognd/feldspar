@@ -39,6 +39,7 @@ use crate::Accuracy;
 use serde::Serialize;
 
 /// Which one-sided claim(s) a solver is conservative for (03 `ClaimSenses`).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sense {
     Upper,
@@ -51,6 +52,7 @@ impl Sense {
     /// (`"upper"`/`"lower"`/`"both"`); an unrecognized string is a
     /// caller contract bug (the Python facade only ever sends these
     /// three), so this panics rather than returning a `Result`.
+    // frob:doc docs/modules/feldspar-core.md#core_search
     pub fn parse(s: &str) -> Self {
         match s.to_ascii_lowercase().as_str() {
             "upper" => Sense::Upper,
@@ -65,6 +67,7 @@ impl Sense {
 /// relevant metadata (01-interfaces `SolverInfo`, minus everything the
 /// search never reads -- notably `tier`, which FINV-8 forbids the
 /// search from touching at all).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone)]
 pub struct SolverSummary {
     pub solver_id: String,
@@ -77,6 +80,7 @@ pub struct SolverSummary {
 }
 
 /// The planner's total error union (01-interfaces `PlanError`, FINV-5).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum PlanError {
     #[error("eps_budget must be > 0 and finite")]
@@ -92,6 +96,7 @@ pub enum PlanError {
 }
 
 /// One committed step in a `Route` (01-interfaces `RouteStep`).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone, Serialize)]
 pub struct RouteStep {
     pub solver_id: String,
@@ -104,6 +109,7 @@ pub struct RouteStep {
 /// impl; adding one just for the route digest would reach outside this
 /// module's business, so the route keeps its own small serializable
 /// shape instead).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone, Serialize)]
 pub struct SerDomain {
     pub port_box: BTreeMap<String, (f64, f64)>,
@@ -125,6 +131,7 @@ impl From<&Domain> for SerDomain {
 
 /// The ordered result of a successful `plan()` (01-interfaces `Route`,
 /// AD-5 digest convention).
+// frob:doc docs/modules/feldspar-core.md#core_search
 #[derive(Debug, Clone, Serialize)]
 pub struct Route {
     pub target: String,
@@ -348,6 +355,7 @@ fn regenerate_candidates(
 /// (marshalling done by the caller -- this function never touches
 /// Python); `known` and `tags` are the request's known ports/tag set;
 /// `sense` filters `conservative_for` edges (A-3).
+// frob:doc docs/modules/feldspar-core.md#core_search
 pub fn plan(
     solvers: &[SolverSummary],
     known: &BTreeMap<String, Interval>,

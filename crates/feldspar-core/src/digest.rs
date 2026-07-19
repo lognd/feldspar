@@ -9,6 +9,7 @@ use serde::Serialize;
 /// in the workspace), so two maps built in different insertion orders
 /// serialize identically -- this is what makes the digest map-order
 /// stable (02-edge-cases WO-02 row) without any extra sorting step here.
+// frob:doc docs/modules/feldspar-core.md#core_digest
 pub fn canonical_digest<T: Serialize>(value: &T) -> String {
     let bytes = serde_json::to_vec(value).expect("T's Serialize impl cannot fail for our types");
     blake3::hash(&bytes).to_hex().to_string()
@@ -17,6 +18,7 @@ pub fn canonical_digest<T: Serialize>(value: &T) -> String {
 /// Shortest round-trip `f64` formatting (the 05 deck's one home).
 /// `ryu` is pure Rust and platform-independent (AD-13's determinism
 /// argument extends to formatting, not just arithmetic).
+// frob:doc docs/modules/feldspar-core.md#core_digest
 pub fn format_f64(x: f64) -> String {
     let mut buf = ryu::Buffer::new();
     buf.format(x).to_string()

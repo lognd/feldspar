@@ -25,6 +25,7 @@ use crate::symbolic::{differentiate, EvalError, Expr};
 /// offer, because the regolith boundary and the margin rule always
 /// speak intervals (02) -- a future representation is a new `impl`,
 /// never a second dispatch path.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub trait Propagation {
     /// The (possibly lossy) collapse to the pack-boundary `Interval`
     /// representation. Identity for `Interval` itself.
@@ -51,6 +52,7 @@ fn corner_candidates(iv: &Interval) -> [f64; 2] {
 /// values (1 for degenerate, 2 otherwise), sorted lexicographically by
 /// value in port-name order (BTreeMap's key order) so serial and future
 /// parallel (M5, AD-10) assembly are bit-identical (FINV-1/FINV-9).
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn enumerate_corners(box_: &BTreeMap<String, Interval>) -> Vec<BTreeMap<String, f64>> {
     let ports: Vec<&String> = box_.keys().collect();
     let mut corners: Vec<BTreeMap<String, f64>> = vec![BTreeMap::new()];
@@ -111,6 +113,7 @@ pub fn enumerate_corners(box_: &BTreeMap<String, Interval>) -> Vec<BTreeMap<Stri
 /// above this layer) -- constructing a degenerate `Interval` from a
 /// non-finite value here would be a caller contract violation, not a
 /// recoverable condition this function should paper over.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn corner_sweep<E>(
     box_: &BTreeMap<String, Interval>,
     mut eval: impl FnMut(&BTreeMap<String, f64>) -> Result<BTreeMap<String, f64>, E>,
@@ -148,6 +151,7 @@ pub fn corner_sweep<E>(
 ///
 /// Panics under the same caller contract as `corner_sweep`: every value
 /// in `results` is assumed finite.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn hull_from_results(results: &[BTreeMap<String, f64>]) -> BTreeMap<String, Interval> {
     let mut hull: BTreeMap<String, Interval> = BTreeMap::new();
     for outputs in results {
@@ -169,6 +173,7 @@ pub fn hull_from_results(results: &[BTreeMap<String, f64>]) -> BTreeMap<String, 
 /// Constructs the result directly (like `Accuracy`'s derived
 /// arithmetic): `eps` is a solver-declared non-negative model error, not
 /// untrusted literal data, so this is not a checked `Result` path.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn inflate(iv: Interval, eps: f64) -> Interval {
     Interval {
         lo: iv.lo - eps,
@@ -182,6 +187,7 @@ pub fn inflate(iv: Interval, eps: f64) -> Interval {
 /// error already rides in `out_hull`'s width via `inflate` at each
 /// consuming step -- summing eps scalars along the route is exactly
 /// the unsound shortcut this function replaces (audit A-1).
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn total_error(out_hull: Interval, model_eps: f64) -> f64 {
     out_hull.half_width() + model_eps
 }
@@ -190,6 +196,7 @@ pub fn total_error(out_hull: Interval, model_eps: f64) -> f64 {
 /// (02 "Values are uncertain": "Normal ... first-order (delta-method)
 /// propagation ... Planned, not v1"; landed here, WO-22, R4). Frozen,
 /// `stddev >= 0`.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Normal {
     pub mean: f64,
@@ -202,6 +209,7 @@ pub struct Normal {
 /// deviations is the documented, fixed choice -- changing it is a
 /// visible, versioned event exactly like a `CANON_VERSION` bump, not a
 /// silent tuning knob.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub const NORMAL_TO_INTERVAL_SIGMA: f64 = 3.0;
 
 impl Propagation for Normal {
@@ -220,6 +228,7 @@ impl Propagation for Normal {
 /// A numeric step evaluation callback: `inputs -> Result<f64, EvalError>`
 /// (named per clippy `type_complexity` -- this exact shape recurs across
 /// `DerivativeMode::Numeric` and its callers).
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub type NumericEval<'a> = dyn Fn(&BTreeMap<String, f64>) -> Result<f64, EvalError> + 'a;
 
 /// Which source a step's partial derivative comes from (11 sec. 4 R4):
@@ -228,6 +237,7 @@ pub type NumericEval<'a> = dyn Fn(&BTreeMap<String, f64>) -> Result<f64, EvalErr
 /// (deterministic central finite difference over the step's compiled
 /// eval). Chosen PER STEP, never per solve -- the one `Propagation`
 /// protocol, not a second dispatch path.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub enum DerivativeMode<'a> {
     /// Differentiate `expr` symbolically and evaluate the derivative at
     /// `inputs` (exact, up to the underlying law's own accuracy band).
@@ -240,6 +250,7 @@ pub enum DerivativeMode<'a> {
 
 /// One input port's contribution to a delta-method propagation: its
 /// `Normal` uncertainty and which derivative source to use for it.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub struct DeltaInput<'a> {
     pub port: String,
     pub value: Normal,
@@ -286,6 +297,7 @@ fn partial_derivative(
 /// partial). `eval` computes the step's OWN output (used for the mean);
 /// callers needing a symbolic mean should pass an `eval` that simply
 /// calls `Expr::eval`.
+// frob:doc docs/modules/feldspar-core.md#core_propagation
 pub fn delta_propagate(
     inputs: &[DeltaInput<'_>],
     eval: impl Fn(&BTreeMap<String, f64>) -> Result<f64, EvalError>,

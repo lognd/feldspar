@@ -5,6 +5,7 @@ use crate::error::CoreError;
 
 /// A closed interval `[lo, hi]`; the worst-case-bounds uncertainty
 /// representation that crosses the pack boundary (02).
+// frob:doc docs/modules/feldspar-core.md#core_interval
 #[derive(Debug, Clone, Copy, PartialOrd)]
 pub struct Interval {
     pub lo: f64,
@@ -23,6 +24,7 @@ impl PartialEq for Interval {
 impl Interval {
     /// Checked constructor: `Err` on a non-finite bound or `lo > hi`
     /// (02-edge-cases WO-02 rows).
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn new(lo: f64, hi: f64) -> Result<Self, CoreError> {
         if !lo.is_finite() {
             return Err(CoreError::NonFiniteBound(lo));
@@ -37,36 +39,43 @@ impl Interval {
     }
 
     /// The degenerate interval `[x, x]`.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn point(x: f64) -> Result<Self, CoreError> {
         Self::new(x, x)
     }
 
     /// `hi - lo`; zero for a degenerate (point) interval.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn width(&self) -> f64 {
         self.hi - self.lo
     }
 
     /// `width() / 2`.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn half_width(&self) -> f64 {
         self.width() / 2.0
     }
 
     /// `(lo + hi) / 2`.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn midpoint(&self) -> f64 {
         (self.lo + self.hi) / 2.0
     }
 
     /// Whether `x` lies in the closed interval.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn contains(&self, x: f64) -> bool {
         self.lo <= x && x <= self.hi
     }
 
     /// Whether `self` sits entirely inside `outer` (Domain box-subset rule).
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn is_subset(&self, outer: &Interval) -> bool {
         outer.lo <= self.lo && self.hi <= outer.hi
     }
 
     /// The smallest interval containing both `self` and `other`.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub fn hull(&self, other: &Interval) -> Interval {
         Interval {
             lo: self.lo.min(other.lo),
@@ -75,6 +84,7 @@ impl Interval {
     }
 
     /// Bit-pattern equality (NaN-free by construction) usable for hashing.
+    // frob:doc docs/modules/feldspar-core.md#core_interval
     pub(crate) fn bits(&self) -> (u64, u64) {
         (self.lo.to_bits(), self.hi.to_bits())
     }

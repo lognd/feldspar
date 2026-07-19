@@ -6,6 +6,7 @@ use crate::interval::Interval;
 
 /// Why an `admits()` check failed; carries enough detail to explain the
 /// rejection (01-interfaces: "DomainViolation carries port/tag details").
+// frob:doc docs/modules/feldspar-core.md#core_domain
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DomainViolation {
     /// A required port was not supplied by the caller at all.
@@ -29,6 +30,7 @@ pub enum DomainViolation {
 /// A solver's validity region: a box of per-port allowed intervals plus
 /// free-string regime tags. BTree-backed for deterministic, sorted
 /// iteration (FINV-1) since domains feed digests.
+// frob:doc docs/modules/feldspar-core.md#core_domain
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Domain {
     pub port_box: BTreeMap<String, Interval>,
@@ -36,6 +38,7 @@ pub struct Domain {
 }
 
 impl Domain {
+    // frob:doc docs/modules/feldspar-core.md#core_domain
     pub fn new(port_box: BTreeMap<String, Interval>, tags: BTreeSet<String>) -> Self {
         Self { port_box, tags }
     }
@@ -43,6 +46,7 @@ impl Domain {
     /// `Ok(())` iff every box entry has a supplied, subset-matching input
     /// and every required tag is present in the caller's tag set. Checked
     /// in sorted (BTree) order so the first violation is deterministic.
+    // frob:doc docs/modules/feldspar-core.md#core_domain
     pub fn admits(
         &self,
         inputs: &BTreeMap<String, Interval>,

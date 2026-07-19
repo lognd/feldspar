@@ -39,6 +39,7 @@ pub use units::{BuiltinUnitSystem, UnitSystem};
 
 /// Emits one tracing span and info event; WO-01 smoke test fixture proving
 /// a Rust-side span reaches Python logging through the pyo3-log bridge.
+// frob:doc docs/modules/feldspar-core.md#core_lib
 pub fn emit_smoke_span() {
     let span = tracing::info_span!("feldspar_core.smoke");
     let _enter = span.enter();

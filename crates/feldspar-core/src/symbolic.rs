@@ -27,12 +27,14 @@ use crate::interval::Interval;
 /// bump this, and every stored derivation digest changes on purpose, not
 /// silently. Folded into every derivation's provenance so a mismatch is
 /// detectable rather than a mystery digest drift.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 pub const CANON_VERSION: u32 = 1;
 
 /// A named unary function around a subexpression. Open-ended by design
 /// (R1 "extend later without a breaking change"): adding `Sin`, `Exp`,
 /// `Ln`, ... appends variants and their inverse rules without touching
 /// the `Expr` shape. Only `Sqrt` is invertible in v1.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnaryFn {
     /// Principal (non-negative) square root; range constraint `arg >= 0`.
@@ -47,6 +49,7 @@ pub enum UnaryFn {
 /// helpers, so subtraction and division never appear as nodes here.
 /// `Add`/`Mul` are n-ary, flattened, and their operands are stored in
 /// the canonical total order (`cmp`) after `canonicalize`.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// A port reference (the free variables a law solves among).
@@ -90,6 +93,7 @@ impl Expr {
     /// order is total (inputs are NaN-free by construction). Vars compare
     /// by byte order; `Add`/`Mul` compare operand-wise then by length;
     /// `Pow` compares base then exponent. Deterministic across platforms.
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     #[allow(clippy::should_implement_trait)]
     pub fn cmp(&self, other: &Expr) -> std::cmp::Ordering {
         use std::cmp::Ordering;
@@ -139,6 +143,7 @@ impl Expr {
     /// by `cmp`. Deliberately does NOT distribute, collect like terms, or
     /// simplify `sqrt(x^2)` -- keeping the rewrite confluent and cheap so
     /// the canonical form is a fixed point (idempotent).
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     pub fn canonicalize(&self) -> Expr {
         match self {
             Expr::Var(_) | Expr::Lit(_) => self.clone(),
@@ -232,6 +237,7 @@ impl Expr {
     /// representation changes and floats go through the one `format_f64`
     /// home (ryu shortest round-trip, platform-stable). Assumes the tree
     /// is already `canonicalize`d.
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     pub fn canonical_string(&self) -> String {
         match self {
             Expr::Var(name) => format!("V:{name}"),
@@ -260,6 +266,7 @@ impl Expr {
     /// CAS): a stack walk substituting `inputs[port]`. `Err(EvalError)`
     /// for a missing port or a domain fault (negative `sqrt` arg, `0^neg`)
     /// -- the derived `SolveFn` surfaces this as a recoverable value.
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     pub fn eval(&self, inputs: &BTreeMap<String, f64>) -> Result<f64, EvalError> {
         match self {
             Expr::Var(name) => inputs
@@ -328,6 +335,7 @@ impl Expr {
 }
 
 /// A comparison direction for a domain predicate (11 sec. 2).
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cmp {
     /// `<`
@@ -344,6 +352,7 @@ pub enum Cmp {
 /// `predicate_to_box` normalizes it to a single-port affine bound where
 /// boundable and refuses (an `Err`) otherwise -- never a silently-wrong
 /// hull.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq)]
 pub struct Predicate {
     pub lhs: Expr,
@@ -354,6 +363,7 @@ pub struct Predicate {
 impl Predicate {
     /// Its canonical string (for provenance / `explain`), reusing
     /// `Expr::canonical_string` on both sides around the comparator.
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     pub fn canonical_string(&self) -> String {
         let cmp_str = match self.cmp {
             Cmp::Lt => "<",
@@ -373,6 +383,7 @@ impl Predicate {
 /// Which root/branch a non-unique inversion took (R3). Extensible for
 /// future periodic inverses; v1 uses `Principal` (odd roots, sqrt-out)
 /// and `Positive`/`Negative` (even roots).
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Branch {
     /// The single real principal value (odd roots, `sqrt` outward).
@@ -385,6 +396,7 @@ pub enum Branch {
 
 impl Branch {
     /// Short provenance label (`"principal"` / `"+"` / `"-"`).
+    // frob:doc docs/modules/feldspar-core.md#core_symbolic
     pub fn label(&self) -> &'static str {
         match self {
             Branch::Principal => "principal",
@@ -398,6 +410,7 @@ impl Branch {
 /// closed-form right-hand side, the branch taken, any admission
 /// predicates the inversion imposed (e.g. `sqrt` range `>= 0`,
 /// non-zero divisor), and the canonical string for provenance.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq)]
 pub struct Inversion {
     pub solved_for: String,
@@ -410,6 +423,7 @@ pub struct Inversion {
 /// Total error set for the symbolic kernel (FINV-5; mirrors
 /// `DomainViolation`'s named-detail pattern). Every fallible declaration-
 /// time operation returns one of these as a value, never an exception.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum SymbolicError {
     /// `target` cannot be isolated in closed form: it appears zero or
@@ -439,6 +453,7 @@ pub enum SymbolicError {
 }
 
 /// Why a variable could not be isolated (the `NonInvertible` detail).
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NonInvertibleReason {
     /// The target does not appear in the equation at all.
@@ -469,6 +484,7 @@ impl std::fmt::Display for NonInvertibleReason {
 
 /// A numeric-evaluation fault from `Expr::eval` (recoverable, surfaced by
 /// the derived `SolveFn`; distinct from declaration-time `SymbolicError`).
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum EvalError {
     /// An input port had no supplied value.
@@ -496,6 +512,7 @@ pub enum EvalError {
 ///
 /// `branch` selects the root for a known multi-branch op; pass `None` to
 /// get the `MultiBranch` listing back and let the author choose.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 pub fn invert_for(
     lhs: &Expr,
     rhs: &Expr,
@@ -694,6 +711,7 @@ fn peel(
 /// simply a new operation whose OUTPUT passes through the existing
 /// pinned canonicalizer like any other derived `Expr` (11 sec. 4 "R2
 /// RESOLVED" is untouched by this addition).
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 pub fn differentiate(expr: &Expr, var: &str) -> Expr {
     if expr.count_var(var) == 0 {
         return Expr::Lit(0.0);
@@ -774,6 +792,7 @@ pub fn differentiate(expr: &Expr, var: &str) -> Expr {
 /// these to derive one direction each; multi-occurrence vars are reported
 /// (via `invert_for`) as `NonInvertible`, to be hand-written beside the
 /// derived directions (11 sec. 2 "Values, not exceptions").
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 pub fn invertible_targets(lhs: &Expr, rhs: &Expr) -> BTreeSet<String> {
     let expr = Expr::Add(vec![lhs.clone(), Expr::Neg(Box::new(rhs.clone()))]).canonicalize();
 
@@ -817,6 +836,7 @@ fn collect_vars(expr: &Expr, names: &mut BTreeSet<String>) {
 /// `Domain` unchanged (regime flags are declared, not derived). Refuses
 /// silently-wrong hulls: a nonlinear/multi-var predicate is an `Err`, not
 /// a dropped constraint.
+// frob:doc docs/modules/feldspar-core.md#core_symbolic
 pub fn predicate_to_box(
     predicates: &[Predicate],
     declared_box: &BTreeMap<String, Interval>,

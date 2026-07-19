@@ -2,6 +2,7 @@
 //! (01-interfaces `feldspar.core`; FINV-5 -- error values, never exceptions).
 
 /// Errors from `Interval` construction (01-interfaces `CoreError`).
+// frob:doc docs/modules/feldspar-core.md#core_error
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum CoreError {
     /// A bound was NaN or +/-infinity.
@@ -15,6 +16,7 @@ pub enum CoreError {
 /// Errors from `UnitSystem` lookups and table construction (01-interfaces
 /// `UnitError`; FINV-11 -- storage is coherent SI, conversion at the
 /// ingest/print boundary only).
+// frob:doc docs/modules/feldspar-core.md#core_error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum UnitError {
     /// The unit label has no table entry; never guessed (02-edge-cases).

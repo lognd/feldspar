@@ -65,6 +65,7 @@ def _exec_disabled() -> bool:
 
 
 # frob:doc docs/modules/elec.md#elec_ngspice
+# frob:waive TEST005 reason="measured 47.8% branch on 2026-07-19; kill-switch + PATH-probe branches partly env-gated (real ngspice absent in CI); backfill T-0014"
 def find_ngspice() -> Result[Path, SolveError]:
     """Locates the `ngspice` executable: `FELDSPAR_DISABLE_NGSPICE`
     kill-switch first (T-0016 -- if set, refuses immediately with

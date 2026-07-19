@@ -28,19 +28,23 @@ ideal_gas = Relation(
     version="1",
 )
 
+# frob:doc docs/modules/examples.md#examples_solvers
 R = 287.05  # J/(kg K)
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @ideal_gas.direction(solves_for="thermo.temperature")
 def t_from_pv(x):
     return x["thermo.pressure"] * x["thermo.specific_volume"] / R
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @ideal_gas.direction(solves_for="thermo.pressure")
 def p_from_tv(x):
     return R * x["thermo.temperature"] / x["thermo.specific_volume"]
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @ideal_gas.direction(solves_for="thermo.specific_volume")
 def v_from_tp(x):
     return R * x["thermo.temperature"] / x["thermo.pressure"]
@@ -49,6 +53,7 @@ def v_from_tp(x):
     #   @ideal_gas.direction(solves_for=..., domain={...override...})
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     # Emits thermo.ideal_gas.t_from_pv / .p_from_tv / .v_from_tp --
     # three rows in the graph, one home for the shared metadata.

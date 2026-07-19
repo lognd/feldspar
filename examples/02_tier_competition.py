@@ -10,6 +10,7 @@ from feldspar.core import Accuracy, Domain, Interval
 from feldspar.plan import RoutePolicy, solve
 from feldspar.solve import Citation, SolverRegistry, solver
 
+# frob:doc docs/modules/examples.md#examples_top
 COMMON = dict(
     namespace="mech",
     inputs=("mech.pressure.internal", "mech.geom.cylinder.ratio"),
@@ -21,6 +22,7 @@ COMMON = dict(
 )
 
 
+# frob:doc docs/modules/examples.md#examples_top
 @solver(
     **COMMON,
     solver_id_suffix="chart",
@@ -37,6 +39,7 @@ def lame_chart(x):
     }
 
 
+# frob:doc docs/modules/examples.md#examples_top
 @solver(
     **COMMON,
     solver_id_suffix="exact",
@@ -53,6 +56,7 @@ def lame_exact(x):
     }
 
 
+# frob:doc docs/modules/examples.md#examples_top
 def main() -> None:
     registry = SolverRegistry()
     for fn in (lame_chart, lame_exact):

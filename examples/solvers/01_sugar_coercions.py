@@ -19,6 +19,7 @@ SolverInfo/SolveFn are indistinguishable from 00's, digest-equal):
 from feldspar.core import PortDecl
 from feldspar.solve import EXACT, SolverRegistry, solver
 
+# frob:doc docs/modules/examples.md#examples_solvers
 PORTS = (
     PortDecl(name="mech.section.width", unit="m"),
     PortDecl(name="mech.section.height", unit="m"),
@@ -26,6 +27,7 @@ PORTS = (
 )
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
     inputs=("mech.section.width", "mech.section.height"),
@@ -41,6 +43,7 @@ def rect_second_moment(x):
     return x["mech.section.width"] * x["mech.section.height"] ** 3 / 12.0
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     registry.declare_ports(*PORTS).danger_ok          # F12: once, here
     registry.register(*rect_second_moment.solver_direction).danger_ok

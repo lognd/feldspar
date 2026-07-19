@@ -12,6 +12,7 @@ from regolith.harness.registry import ModelRegistry, default_registry
 from feldspar.pack.models import DEFAULT_DEFLECTION_CLAIM_KIND
 
 
+# frob:doc docs/modules/examples.md#examples_top
 def main() -> None:
     # `default_registry()` is register_all() (regolith's own built-ins)
     # + load_packs() (every discovered `regolith.plugins` model_pack, in

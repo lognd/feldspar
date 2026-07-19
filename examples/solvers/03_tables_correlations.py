@@ -51,6 +51,7 @@ def _nu(x):
             / (1 + 12.7 * (f / 8) ** 0.5 * (pr ** (2 / 3) - 1)))
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     registry.register(*sat_water).danger_ok
     gnielinski.register(registry).danger_ok

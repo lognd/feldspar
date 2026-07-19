@@ -13,9 +13,11 @@ from feldspar.solve import Citation, SolverRegistry, solver
 
 logging.basicConfig(level=logging.INFO)
 
+# frob:doc docs/modules/examples.md#examples_top
 R_AIR = 287.05  # J/(kg K), dry air
 
 
+# frob:doc docs/modules/examples.md#examples_top
 @solver(
     namespace="thermo",
     inputs=("thermo.pressure", "thermo.specific_volume"),
@@ -39,6 +41,7 @@ def ideal_gas_pv_to_t(x):
     return {"thermo.temperature": pv / R_AIR}
 
 
+# frob:doc docs/modules/examples.md#examples_top
 def main() -> None:
     registry = SolverRegistry()
     registration = registry.register(*ideal_gas_pv_to_t.solver_direction)

@@ -17,6 +17,7 @@ from feldspar.solve import SolverRegistry
 # dominated by youngs_modulus's magnitude, so a realistic eps budget
 # needs to be generous at PLANNING time; the REALIZED (post-execution)
 # eps is what the assertion below actually checks.
+# frob:doc docs/modules/examples.md#examples_top
 EPS_BUDGET = 1e10
 
 
@@ -36,6 +37,7 @@ def _tool_missing(err: object) -> str | None:
     return None
 
 
+# frob:doc docs/modules/examples.md#examples_top
 def main() -> None:
     registry = SolverRegistry()
     register_mech(registry)   # closed-form tier (the oracles)

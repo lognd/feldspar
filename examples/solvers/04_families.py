@@ -11,6 +11,7 @@ family member (deterministic, greppable).
 
 from feldspar.solve import EXACT, SolverRegistry, make_direction
 
+# frob:doc docs/modules/examples.md#examples_solvers
 SHAPES = {
     # name -> (I(b, h) formula, citation)
     "rect": (lambda b, h: b * h**3 / 12.0,
@@ -40,6 +41,7 @@ def _section_solver(name, formula, cite):
     # than writing them longhand.
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     for name, (formula, cite) in sorted(SHAPES.items()):
         registry.register(*_section_solver(name, formula, cite)).danger_ok

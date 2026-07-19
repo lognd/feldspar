@@ -17,11 +17,13 @@ from feldspar.core import Accuracy
 from feldspar.fea.mesh import MeshSettings
 from feldspar.solve import ClaimSenses, solver
 
+# frob:doc docs/modules/examples.md#examples_solvers
 MESH = MeshSettings(
     family="cantilever", element_type="C3D20", char_length=2e-3, seed=7
 )
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
     inputs=("mech.geom.cantilever.length", "mech.geom.cantilever.width",
@@ -49,6 +51,7 @@ def fea_cantilever_tip(x):
 
 
 # -- M2 target shape: the abstraction edge (not registrable in M1) --
+# frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
     inputs=("mech.geom.realized",),          # PAYLOAD port (rank=payload)

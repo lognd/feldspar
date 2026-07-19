@@ -63,6 +63,7 @@ regen_wall = CoupledGroup(
 )
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     # Members register normally (independently routable OUTSIDE the
     # cycle); the group adds the composite row. Registering members

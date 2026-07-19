@@ -13,6 +13,7 @@ from feldspar.solve import Citation, SolverRegistry, solver
 from typani import Ok
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 @solver(
     namespace="mech",
     inputs=("mech.section.width", "mech.section.height"),
@@ -36,5 +37,6 @@ def rect_second_moment(x):
     return Ok({"mech.section.second_moment": b * h**3 / 12.0})
 
 
+# frob:doc docs/modules/examples.md#examples_solvers
 def register(registry: SolverRegistry) -> None:
     registry.register(*rect_second_moment.solver_direction).danger_ok

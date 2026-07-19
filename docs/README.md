@@ -90,6 +90,13 @@ docs/
     work-orders/WO-01..WO-22      agent-executable work orders
     FINV-audit.md                 the invariant audit checklist
 
+  modules/     per-package module contract docs (frob COV001 doc
+               edges target these; one file per python/feldspar
+               subpackage, one section per module, one anchor per
+               symbol-group): calib.md, elec.md, examples.md, fea.md,
+               fluids.md, heat.md, logging_setup.md, mech.md, pack.md,
+               plan.md, solve.md, testing.md, thermo.md, top.md
+
 examples/          target-API pressure tests (written before code;
                    friction log -> spec changes in its README)
   lithos/          hematite/cuprite end-to-end fixtures + the

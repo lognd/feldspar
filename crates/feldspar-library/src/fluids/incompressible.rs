@@ -122,6 +122,35 @@ pub extern "C" fn fluids_minor_loss_dp(k_factor: f64, density: f64, velocity: f6
     k_factor * density * velocity * velocity / 2.0
 }
 
+/// Sharp-edged orifice-plate pressure drop (T-0022), solved for dp
+/// from the standard discharge-coefficient flow convention
+/// `Q = Cd * A * sqrt(2*dp/rho)`: `dp = (rho/2) * (Q / (Cd*A))^2`.
+/// `flow_rate` and the returned `dp` share the same sign convention as
+/// the caller (this function takes/returns MAGNITUDES; sign handling
+/// is the Python caller's job, same as `fluids_darcy_dp`'s velocity
+/// argument).
+///
+/// Citation: ISO 5167-2:2003 (orifice-plate flow measurement); White,
+/// *Fluid Mechanics*, 8th ed., sec. 6.11 (flow measurement) for the
+/// beta = d/D validity band the Python caller checks.
+// frob:doc docs/modules/feldspar-library.md#library_fluids_incompressible
+// frob:ticket T-0022
+// frob:ticket T-0025
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn fluids_orifice_dp(
+    discharge_coeff: f64,
+    area: f64,
+    density: f64,
+    flow_rate: f64,
+) -> f64 {
+    if discharge_coeff <= 0.0 || area <= 0.0 {
+        return 0.0;
+    }
+    let q_over_ca = flow_rate / (discharge_coeff * area);
+    density * q_over_ca * q_over_ca / 2.0
+}
+
 /// Series pipe-network head/pressure loss combination: losses at a
 /// shared flow rate add. `dp_total = dp1 + dp2`.
 ///
@@ -229,6 +258,29 @@ mod tests {
     fn minor_loss_dp_matches_k_rho_v2_over_2() {
         let dp = fluids_minor_loss_dp(0.9, 1000.0, 2.0);
         assert!((dp - (0.9 * 1000.0 * 2.0 * 2.0 / 2.0)).abs() < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_orifice_dp kind="unit"
+    // frob:ticket T-0022
+    // frob:ticket T-0025
+    #[test]
+    fn orifice_dp_matches_discharge_coefficient_closed_form() {
+        let cd = 0.6;
+        let area = std::f64::consts::PI * (0.01_f64 / 2.0).powi(2);
+        let density = 1000.0;
+        let flow = 2.0e-4;
+        let dp = fluids_orifice_dp(cd, area, density, flow);
+        let expected = (density / 2.0) * (flow / (cd * area)).powi(2);
+        assert!((dp - expected).abs() / expected < 1e-9);
+    }
+
+    // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_orifice_dp kind="unit"
+    // frob:ticket T-0022
+    // frob:ticket T-0025
+    #[test]
+    fn orifice_dp_is_zero_for_degenerate_cd_or_area() {
+        assert_eq!(fluids_orifice_dp(0.0, 1.0, 1000.0, 1.0), 0.0);
+        assert_eq!(fluids_orifice_dp(0.6, 0.0, 1000.0, 1.0), 0.0);
     }
 
     // frob:tests crates/feldspar-library/src/fluids/incompressible.rs::fluids_npsh_available kind="unit"

@@ -17,13 +17,26 @@ names the schema publishes, never a second wire format).
 Scope (this WO's honest coverage declaration -- named cuts, not silent
 gaps, per the pack contract 03):
 
-- Edge kinds: ONLY `pipe` and `imposer` are IN COVERAGE.
+- Edge kinds: `pipe`, `imposer`, `orifice` (T-0022), and `hx_segment`
+  (T-0023) are IN COVERAGE.
   * `pipe`: an ordinary loop/tree branch; its flow is a Hardy-Cross
     unknown.
   * `imposer`: a FIXED, externally-known flow rate (a metered/
     positive-displacement branch) -- not solved, just asserted.
-  Any other edge kind (`hose`, `orifice`, `valve`, `pump`,
-  `regulator`, `filter`, `hx_segment`, `mixer`) reports an honest
+  * `orifice` (T-0022): a sharp-edged orifice-plate flow restriction;
+    its flow is a Hardy-Cross unknown, dp from the standard
+    discharge-coefficient closed form (see `_orifice_dp_and_k`),
+    domain-refused outside the beta/Cd validity band it cites.
+  * `hx_segment` (T-0023): a fixed-hydraulic-resistance segment (e.g.
+    a heat-exchanger coil's flow-side loss curve, curve-fit by the
+    caller to one coefficient); its flow is a Hardy-Cross unknown, dp
+    from a quadratic resistance law (see `_hx_segment_dp_and_k`).
+    Models ONLY the hydraulic resistance -- NOT the thermal duty, NOT
+    heat transfer or effectiveness; that stays a named cut (`thermo.py`
+    is still unwired to this module, see the property-resolution
+    paragraph below).
+  Any other edge kind (`hose`, `valve`, `pump`, `regulator`, `filter`,
+  `mixer`) reports an honest
   `SolveError.OutOfDomain(payload_feature_violation(...))` naming the
   unsupported kind, never a silent approximation or a fabricated
   convergence.
@@ -32,6 +45,22 @@ gaps, per the pack contract 03):
   (`EdgeParams2`, D131's `regolith-lower::extract` seam) and the
   mixer-outlet medium record (`EdgeParams3`) are CUT -- named above,
   needing the WO-32 extraction seam this pass does not wire in.
+  T-0024 recon (this pass): the corpus's lowered `geom_extract` shape
+  is `{"source": "geom_extract", "record": {"digest": <str>, "name":
+  <str>}, "selector": <str>}` (see `examples/lithos/systems/
+  small_office/.regolith/payloads/6d8d34...`, the hydronics.fluo
+  `ret`/`supply` pipe edges) -- but the `digest` field is an EMPTY
+  placeholder string in every corpus fixture that carries this shape
+  today (the upstream WO-31 realized-CAD extraction has not landed a
+  real digest yet). Wiring an actual resolver.resolve(digest) call
+  here would therefore refuse on empty-digest anyway in every case
+  the corpus currently exercises -- so this pass adds ONLY a more
+  precise refusal (malformed-shape vs. well-formed-but-unresolvable
+  are named distinctly, see `_Edge.__init__`) rather than a resolution
+  hook whose wire contract (what a RESOLVED extraction payload look
+  likes -- a scalar? a named table?) is not yet observable from this
+  repo. Follow-up filed as T-0025 (report-only) for whoever holds the
+  WO-32/lithos side of this seam.
 - Fluid properties: `pipe`/`imposer` edges carry LITERAL
   `density`/`viscosity` values in their own `values` dict (a deviation
   from full `MediumRef` property-record resolution, which would need
@@ -119,6 +148,25 @@ _WHITE_NETWORK_CITATION = Citation(
     kind="handbook",
     ref="White, Fluid Mechanics, 8th ed., sec. 6.8 (pipe networks)",
 )
+# frob:ticket T-0022
+_ORIFICE_CITATION = Citation(
+    kind="standard",
+    ref="ISO 5167-2:2003, orifice-plate flow measurement "
+    "(discharge-coefficient convention Q = Cd*A*sqrt(2*dp/rho)); "
+    "White, Fluid Mechanics, 8th ed., sec. 6.11 (flow measurement) "
+    "for the beta = d/D validity band [0.2, 0.75]",
+)
+# frob:ticket T-0023
+_HX_SEGMENT_CITATION = Citation(
+    kind="standard",
+    ref="Crane Technical Paper 410, 'Flow of Fluids Through Valves, "
+    "Fittings, and Pipe' (lumped-resistance/K-factor method), applied "
+    "here as a caller-supplied fixed resistance coefficient standing "
+    "in for a heat-exchanger segment's flow-side loss curve -- NOT a "
+    "thermal/heat-transfer model",
+)
+_ORIFICE_BETA_MIN = 0.2
+_ORIFICE_BETA_MAX = 0.75
 
 # ---------------------------------------------------------------------------
 # D154 wire-format subset (feldspar-owned, field-name-compatible with
@@ -174,6 +222,13 @@ def _scalar_value(interval: dict[str, Any]) -> float:
     return (float(interval["lo"]) + float(interval["hi"])) / 2.0
 
 
+#: Edge kinds whose flow is a Hardy-Cross unknown (contrasted with
+#: `imposer`, the only fixed-flow kind this module supports) -- pipe,
+#: orifice (T-0022), and hx_segment (T-0023) all participate in loop
+#: correction the same way, they differ only in their dp(Q) law.
+_UNKNOWN_FLOW_KINDS = frozenset({"pipe", "orifice", "hx_segment"})
+
+
 def _require_keys(edge_id: str, values: dict[str, Any], keys: tuple[str, ...]) -> None:
     """Validates that every key in `keys` is present in `values` before
     `_Edge.__init__` subscripts it -- a missing key (e.g. an `imposer`
@@ -202,11 +257,30 @@ class _Edge:
         "density",
         "viscosity",
         "flow",
+        "cd",
+        "bore_diameter",
+        "resistance",
     )
 
     def __init__(self, edge: _FlowEdge):
         params = edge.params
         source = params.get("source")
+        if source == "geom_extract":
+            # T-0024 recon (see module docstring): validate the
+            # LOWERED shape's own required keys first (a malformed
+            # geom_extract record is a distinct, more actionable
+            # refusal than "unsupported at all") before refusing --
+            # this repo has no seam to actually RESOLVE `record.digest`
+            # into a scalar (the wire contract of a resolved payload is
+            # not observable from feldspar alone), so every geom_extract
+            # edge is refused either way, just with a sharper reason.
+            _require_keys(edge.id, params, ("record", "selector"))
+            record = params.get("record")
+            if not isinstance(record, dict) or not record.get("digest"):
+                raise _UnsupportedFeature(
+                    edge.id, "edge_params:geom_extract:unresolved_digest"
+                )
+            raise _UnsupportedFeature(edge.id, "edge_params:geom_extract")
         if source != "scalars":
             raise _UnsupportedFeature(edge.id, f"edge_params:{source or 'unknown'}")
         values = params.get("values", {})
@@ -214,6 +288,7 @@ class _Edge:
         self.a = edge.a
         self.b = edge.b
         self.kind = edge.kind
+        self.cd = self.bore_diameter = self.resistance = 0.0
         if edge.kind == "pipe":
             _require_keys(
                 edge.id, values, ("length", "diameter", "density", "viscosity")
@@ -229,6 +304,55 @@ class _Edge:
             self.length = self.diameter = self.roughness = 0.0
             self.density = self.viscosity = 0.0
             self.flow = _scalar_value(values["flow_rate"])
+        elif edge.kind == "orifice":
+            # T-0022: sharp-edged orifice plate. `pipe_diameter` (D,
+            # the approach run) is used ONLY to check the beta = d/D
+            # validity band the discharge-coefficient closed form (ISO
+            # 5167-2, `_ORIFICE_CITATION`) is honestly cited for --
+            # outside it, this is not a silently-wrong number, it is a
+            # refusal.
+            _require_keys(
+                edge.id,
+                values,
+                ("cd", "bore_diameter", "pipe_diameter", "density"),
+            )
+            cd = _scalar_value(values["cd"])
+            bore_diameter = _scalar_value(values["bore_diameter"])
+            pipe_diameter = _scalar_value(values["pipe_diameter"])
+            if not (0.0 < cd <= 1.0):
+                raise _UnsupportedFeature(edge.id, "orifice_cd_out_of_range")
+            beta = bore_diameter / pipe_diameter if pipe_diameter else math.inf
+            if not (_ORIFICE_BETA_MIN <= beta <= _ORIFICE_BETA_MAX):
+                raise _UnsupportedFeature(edge.id, "orifice_beta_out_of_range")
+            self.length = self.roughness = 0.0
+            self.diameter = pipe_diameter
+            self.density = _scalar_value(values["density"])
+            self.viscosity = 0.0
+            self.cd = cd
+            self.bore_diameter = bore_diameter
+            self.flow = 0.0  # Hardy-Cross unknown, seeded below
+        elif edge.kind == "hx_segment":
+            # T-0023: a K-factor-only minor-loss model (White sec.
+            # 6.10 / Crane TP-410, `_HX_SEGMENT_CITATION`) for the
+            # segment's flow-side resistance -- NOT a thermal model.
+            # `density` is read as a LITERAL value on the edge itself,
+            # same deviation from full `MediumRef` resolution the pipe
+            # kind already carries (module docstring's property-
+            # resolution named cut; thermo.py's CoolProp wrapper is
+            # NOT wired into this call site this pass either).
+            _require_keys(edge.id, values, ("k_factor", "diameter", "density"))
+            resistance = _scalar_value(values["k_factor"])
+            diameter = _scalar_value(values["diameter"])
+            if resistance < 0.0:
+                raise _UnsupportedFeature(edge.id, "hx_segment_negative_resistance")
+            if diameter <= 0.0:
+                raise _UnsupportedFeature(edge.id, "hx_segment_nonpositive_diameter")
+            self.length = self.roughness = 0.0
+            self.diameter = diameter
+            self.density = _scalar_value(values["density"])
+            self.viscosity = 0.0
+            self.resistance = resistance
+            self.flow = 0.0  # Hardy-Cross unknown, seeded below
         else:
             raise _UnsupportedFeature(edge.id, f"edge_kind:{edge.kind}")
 
@@ -288,6 +412,68 @@ def _pipe_dp_and_k(edge: _Edge, flow: float) -> tuple[float, float]:
         h = max(m * 1e-6, 1e-12)
         k = (_dp_mag(m + h) - dp_mag) / h
     return dp, k
+
+
+def _orifice_dp_and_k(edge: _Edge, flow: float) -> tuple[float, float]:
+    """`(dp, dh/dQ)` for one orifice edge (T-0022) at the given signed
+    flow, via the Rust `fluids_orifice_dp` home (NO DUPLICATION -- the
+    ISO 5167 discharge-coefficient closed form `Q = Cd*A*sqrt(2*dp/
+    rho)` solved for dp lives ONE place, `feldspar-library`'s
+    `incompressible.rs`, `_ORIFICE_CITATION`). Exactly quadratic in Q
+    (unlike the pipe case, no laminar/turbulent transition applies
+    here), so the slope is the exact analytic derivative, not a
+    numerical difference."""
+    from feldspar import _feldspar
+
+    area = math.pi * (edge.bore_diameter / 2.0) ** 2
+
+    def _dp_mag(m: float) -> float:
+        return _feldspar.fluids_orifice_dp(edge.cd, area, edge.density, m)
+
+    m = abs(flow)
+    dp_mag = _dp_mag(m)
+    dp = math.copysign(dp_mag, flow) if flow != 0.0 else 0.0
+    coeff = edge.density / (2.0 * (edge.cd * area) ** 2) if area > 0 else 0.0
+    k = 2.0 * coeff * m
+    return dp, k
+
+
+def _hx_segment_dp_and_k(edge: _Edge, flow: float) -> tuple[float, float]:
+    """`(dp, dh/dQ)` for one hx_segment edge (T-0023) at the given
+    signed flow, via the SAME Rust `fluids_minor_loss_dp` home
+    `incompressible.py`'s own K-factor minor-loss direction wraps (NO
+    DUPLICATION -- `_HX_SEGMENT_CITATION`, Crane TP-410): `dp = K * rho
+    * v^2 / 2` with `v = Q/A`. Models ONLY the flow-side hydraulic
+    resistance -- NOT heat transfer/effectiveness (module docstring's
+    named cut)."""
+    from feldspar import _feldspar
+
+    area = math.pi * (edge.diameter / 2.0) ** 2
+
+    def _dp_mag(m: float) -> float:
+        velocity = m / area if area > 0 else 0.0
+        return _feldspar.fluids_minor_loss_dp(edge.resistance, edge.density, velocity)
+
+    m = abs(flow)
+    dp_mag = _dp_mag(m)
+    dp = math.copysign(dp_mag, flow) if flow != 0.0 else 0.0
+    coeff = edge.resistance * edge.density / (2.0 * area * area) if area > 0 else 0.0
+    k = 2.0 * coeff * m
+    return dp, k
+
+
+def _edge_dp_and_k(edge: _Edge, flow: float) -> tuple[float, float]:
+    """Dispatches to the right dp(Q) law for any `_UNKNOWN_FLOW_KINDS`
+    edge kind (pipe/orifice/hx_segment) -- the ONE place that maps edge
+    kind to head-loss model, so `_hardy_cross_solve`, `edge_dp`, and
+    `hardy_cross_fn`'s row-building all agree (NO DUPLICATION)."""
+    if edge.kind == "pipe":
+        return _pipe_dp_and_k(edge, flow)
+    if edge.kind == "orifice":
+        return _orifice_dp_and_k(edge, flow)
+    if edge.kind == "hx_segment":
+        return _hx_segment_dp_and_k(edge, flow)
+    return 0.0, 0.0
 
 
 class _SpanningTree:
@@ -414,7 +600,7 @@ def _seed_continuity_respecting_flows(
     loop flows alone never fabricate continuity, they only preserve
     whatever the seed started with."""
     for idx, e in enumerate(edges):
-        if e.kind == "pipe" and idx not in tree.tree_edges:
+        if e.kind in _UNKNOWN_FLOW_KINDS and idx not in tree.tree_edges:
             e.flow = 1e-4  # arbitrary nonzero chord seed
 
     incident: dict[str, list[tuple[int, int]]] = {n: [] for n in nodes}
@@ -435,9 +621,11 @@ def _seed_continuity_respecting_flows(
         parent_e_idx = tree.parent_edge[node]
         parent_e = edges[parent_e_idx]
         if len(incident[node]) == 1:
-            if parent_e.kind == "pipe":
+            if parent_e.kind in _UNKNOWN_FLOW_KINDS:
                 _log.info(
-                    "hardy_cross: dead-end pipe %s forced to zero flow", parent_e.id
+                    "hardy_cross: dead-end %s edge %s forced to zero flow",
+                    parent_e.kind,
+                    parent_e.id,
                 )
                 parent_e.flow = 0.0
             continue
@@ -448,7 +636,7 @@ def _seed_continuity_respecting_flows(
         )
         sign_here = -1 if parent_e.a == node else 1
         required = -balance * sign_here
-        if parent_e.kind == "pipe":
+        if parent_e.kind in _UNKNOWN_FLOW_KINDS:
             parent_e.flow = required
         elif abs(required - parent_e.flow) > _CONSERVATION_TOL:
             _log.warning(
@@ -509,11 +697,11 @@ def _hardy_cross_solve(
             denominator = 0.0
             for edge_idx, sign in loop:
                 edge = edges[edge_idx]
-                if edge.kind != "pipe":
+                if edge.kind not in _UNKNOWN_FLOW_KINDS:
                     numerator += sign * 0.0  # imposer contributes no loop head term
                     continue
                 signed_flow = sign * edge.flow
-                dp, k = _pipe_dp_and_k(edge, signed_flow)
+                dp, k = _edge_dp_and_k(edge, signed_flow)
                 numerator += dp
                 denominator += k
             if denominator == 0.0:
@@ -533,7 +721,7 @@ def _hardy_cross_solve(
                 loop_edge_ids = [edges[edge_idx].id for edge_idx, _sign in loop]
                 _log.warning(
                     "hardy_cross: all-imposer cycle-basis loop %s has no "
-                    "pipe unknown and no head-loss model to verify its "
+                    "flow unknown and no head-loss model to verify its "
                     "balance -- cannot certify convergence",
                     loop_edge_ids,
                 )
@@ -546,7 +734,7 @@ def _hardy_cross_solve(
             max_dq = max(max_dq, abs(dq))
             for edge_idx, sign in loop:
                 edge = edges[edge_idx]
-                if edge.kind == "pipe":
+                if edge.kind in _UNKNOWN_FLOW_KINDS:
                     edge.flow += sign * dq
         _log.debug("hardy_cross: iteration %d max|dQ|=%s", iteration, max_dq)
         if max_dq < _HC_TOL:
@@ -621,18 +809,18 @@ def solve_flownet_bytes(data: bytes) -> "Result[SolvedNetwork, SolveError]":
 # frob:doc docs/modules/fluids.md#fluids_network
 def edge_dp(edge: "_Edge") -> float:
     """The converged signed pressure drop across one solved edge (a->b
-    positive sense): pipes via Darcy-Weisbach at the converged flow
-    (`_pipe_dp_and_k`, NO DUPLICATION -- the same helper `hardy_cross_
-    fn`'s own row-building loop calls); imposer edges report `0.0` --
-    the module's own named cut (no head-loss model for a fixed-flow
+    positive sense): pipe/orifice/hx_segment via `_edge_dp_and_k` (NO
+    DUPLICATION -- the same dispatcher `hardy_cross_fn`'s own
+    row-building loop calls); imposer edges report `0.0` -- the
+    module's own named cut (no head-loss model for a fixed-flow
     branch, see `_hardy_cross_solve`'s all-imposer-loop refusal for the
     same admission stated as a hard error there; here, on an edge that
     is merely PART of a longer queried path rather than the whole loop,
     a zero contribution is the honest "this branch's head loss is not
     modeled" statement, not a fabricated number)."""
-    if edge.kind != "pipe":
+    if edge.kind not in _UNKNOWN_FLOW_KINDS:
         return 0.0
-    dp, _k = _pipe_dp_and_k(edge, edge.flow)
+    dp, _k = _edge_dp_and_k(edge, edge.flow)
     return dp
 
 
@@ -715,8 +903,8 @@ def _make_hardy_cross_direction(resolver: PayloadResolver):
         rows = []
         for edge in edges:
             dp = 0.0
-            if edge.kind == "pipe":
-                dp, _k = _pipe_dp_and_k(edge, edge.flow)
+            if edge.kind in _UNKNOWN_FLOW_KINDS:
+                dp, _k = _edge_dp_and_k(edge, edge.flow)
             rows.append({"edge_id": edge.id, "flow_rate": edge.flow, "dp": dp})
         content = json.dumps({"edges": rows}, sort_keys=True).encode()
         ref = resolver.store("table", content, "fluids.network.hardy_cross")

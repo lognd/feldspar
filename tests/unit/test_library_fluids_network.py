@@ -91,6 +91,60 @@ def _pipe(
     }
 
 
+# frob:ticket T-0022
+# frob:ticket T-0025
+def _orifice(
+    edge_id: str,
+    a: str,
+    b: str,
+    cd: float,
+    bore_diameter: float,
+    pipe_diameter: float,
+    density: float,
+) -> dict:
+    return {
+        "id": edge_id,
+        "a": a,
+        "b": b,
+        "kind": "orifice",
+        "params": {
+            "source": "scalars",
+            "values": {
+                "cd": _scalar(cd, ""),
+                "bore_diameter": _scalar(bore_diameter),
+                "pipe_diameter": _scalar(pipe_diameter),
+                "density": _scalar(density, "kg/m^3"),
+            },
+        },
+    }
+
+
+# frob:ticket T-0023
+# frob:ticket T-0025
+def _hx_segment(
+    edge_id: str,
+    a: str,
+    b: str,
+    k_factor: float,
+    diameter: float = 0.02,
+    density: float = 1000.0,
+) -> dict:
+    return {
+        "id": edge_id,
+        "a": a,
+        "b": b,
+        "kind": "hx_segment",
+        "params": {
+            "source": "scalars",
+            "values": {
+                "k_factor": _scalar(k_factor, ""),
+                "diameter": _scalar(diameter),
+                "density": _scalar(density, "kg/m^3"),
+            },
+        },
+    }
+
+
 def _imposer(edge_id: str, a: str, b: str, flow_rate: float) -> dict:
     return {
         "id": edge_id,
@@ -208,10 +262,17 @@ def test_unsupported_edge_kind_is_honest_indeterminate():
     assert result.err.violation.tag == "edge_kind:valve"
 
 
+# frob:ticket T-0024
+# frob:ticket T-0025
 def test_geometry_extract_params_are_cut_honestly():
     """`EdgeParams2` (geometry-extract selector, `source: geom_extract`)
     is a named cut this pass -- reported as OutOfDomain, never silently
-    treated as scalars."""
+    treated as scalars. T-0024: a `record` that is not the lowered
+    `{digest, name}` dict shape (or that carries an empty/placeholder
+    digest, matching every corpus fixture observed so far) is refused
+    with the more specific `unresolved_digest` tag -- this repo has no
+    seam to resolve a real digest into a scalar either way (see the
+    module docstring's T-0024 recon note)."""
     resolver, fn = _setup()
     payload = {
         "nodes": ["n1", "n2"],
@@ -231,7 +292,38 @@ def test_geometry_extract_params_are_cut_honestly():
     }
     result = _solve(resolver, fn, payload)
     assert result.is_err
-    assert result.err.violation.tag == "edge_params:geom_extract"
+    assert result.err.violation.tag == "edge_params:geom_extract:unresolved_digest"
+
+
+# frob:ticket T-0024
+# frob:ticket T-0025
+def test_geometry_extract_with_lowered_shape_and_empty_digest_is_cut_honestly():
+    """The REAL corpus shape (`examples/lithos/systems/small_office/
+    .regolith/payloads/...`, hydronics.fluo's `ret`/`supply` pipe
+    edges): `record` is a `{digest, name}` dict, but every observed
+    fixture's digest is an empty placeholder string (WO-31 realized-CAD
+    extraction has not landed a real one yet) -- refused the same way,
+    named `unresolved_digest`, not `edge_params:geom_extract` bare."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["n1", "n2"],
+        "edges": [
+            {
+                "id": "ret",
+                "a": "n1",
+                "b": "n2",
+                "kind": "pipe",
+                "params": {
+                    "source": "geom_extract",
+                    "record": {"digest": "", "name": "riser.return_run"},
+                    "selector": "riser.return_run",
+                },
+            }
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.violation.tag == "edge_params:geom_extract:unresolved_digest"
 
 
 # frob:tests python/feldspar/fluids/network.py::_Edge kind="regression"
@@ -361,3 +453,173 @@ def test_dead_end_pipe_forced_to_zero_flow():
     assert result.is_ok
     rows = _solution_rows(resolver, result)
     assert rows["dead"]["flow_rate"] == pytest.approx(0.0, abs=1e-12)
+
+
+# --- T-0022: orifice edge kind -----------------------------------------
+
+
+# frob:ticket T-0022
+# frob:ticket T-0025
+# frob:tests crates/feldspar-py/src/library/fluids.rs::fluids_orifice_dp_py kind="unit"
+def test_orifice_series_dp_matches_iso5167_closed_form():
+    """T-0022 calibration oracle: a single orifice in series between
+    two imposers carries the imposed flow exactly (series network, no
+    loop unknown to correct), so its reported dp must match the ISO
+    5167 discharge-coefficient closed form `dp = (rho/2)*(Q/(Cd*A))^2`
+    computed independently right here, not the solver's own code path
+    (same posture as the pipe Hagen-Poiseuille oracle above)."""
+    resolver, fn = _setup()
+    q = 2.0e-4
+    cd, bore, pipe_d, density = 0.6, 0.01, 0.02, 1000.0
+    payload = {
+        "nodes": ["src", "n1", "n2", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", q),
+            _orifice("O", "n1", "n2", cd, bore, pipe_d, density),
+            _imposer("imp_out", "n2", "sink", q),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_ok
+    rows = _solution_rows(resolver, result)
+    area = math.pi * (bore / 2.0) ** 2
+    expected_dp = (density / 2.0) * (q / (cd * area)) ** 2
+    assert rows["O"]["flow_rate"] == pytest.approx(q, rel=1e-9)
+    assert rows["O"]["dp"] == pytest.approx(expected_dp, rel=1e-9)
+
+
+# frob:ticket T-0022
+# frob:ticket T-0025
+def test_orifice_beta_out_of_range_is_honest_refusal():
+    """A bore/pipe diameter ratio outside the ISO 5167 validity band
+    (0.2-0.75) is refused, not silently extrapolated."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["src", "n1", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", 1e-4),
+            _orifice("O", "n1", "sink", 0.6, 0.001, 0.02, 1000.0),  # beta=0.05
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.violation.tag == "orifice_beta_out_of_range"
+
+
+# frob:ticket T-0022
+# frob:ticket T-0025
+def test_orifice_cd_out_of_range_is_honest_refusal():
+    """A discharge coefficient outside (0, 1] is unphysical -- refused
+    rather than silently accepted."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["src", "n1", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", 1e-4),
+            _orifice("O", "n1", "sink", 1.4, 0.01, 0.02, 1000.0),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.violation.tag == "orifice_cd_out_of_range"
+
+
+# --- T-0023: hx_segment edge kind ---------------------------------------
+
+
+# frob:ticket T-0023
+# frob:ticket T-0025
+def test_hx_segment_series_dp_matches_minor_loss_oracle():
+    """T-0023 calibration oracle: a single hx_segment in series between
+    two imposers carries the imposed flow exactly, so its reported dp
+    must match the K-factor minor-loss closed form `dp = K*rho*v^2/2`
+    (White sec. 6.10 / Crane TP-410) computed independently right here,
+    not the solver's own code path."""
+    resolver, fn = _setup()
+    q = 1.0e-4
+    k_factor, diameter, density = 2.5, 0.02, 1000.0
+    payload = {
+        "nodes": ["src", "n1", "n2", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", q),
+            _hx_segment("coil", "n1", "n2", k_factor, diameter, density),
+            _imposer("imp_out", "n2", "sink", q),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_ok
+    rows = _solution_rows(resolver, result)
+    area = math.pi * (diameter / 2.0) ** 2
+    velocity = q / area
+    expected_dp = k_factor * density * velocity * velocity / 2.0
+    assert rows["coil"]["flow_rate"] == pytest.approx(q, rel=1e-9)
+    assert rows["coil"]["dp"] == pytest.approx(expected_dp, rel=1e-9)
+
+
+# frob:ticket T-0023
+# frob:ticket T-0025
+def test_hx_segment_symmetric_parallel_splits_evenly():
+    """Two identical-resistance hx_segment branches in parallel split
+    an imposed flow evenly by symmetry -- an oracle independent of the
+    exact resistance value (same reasoning as the symmetric pipe case
+    above)."""
+    resolver, fn = _setup()
+    q_total = 1.0e-4
+    payload = {
+        "nodes": ["src", "n1", "n2", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", q_total),
+            _hx_segment("coil1", "n1", "n2", 5.0e7),
+            _hx_segment("coil2", "n1", "n2", 5.0e7),
+            _imposer("imp_out", "n2", "sink", q_total),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_ok
+    rows = _solution_rows(resolver, result)
+    assert rows["coil1"]["flow_rate"] == pytest.approx(q_total / 2.0, rel=1e-6)
+    assert rows["coil2"]["flow_rate"] == pytest.approx(q_total / 2.0, rel=1e-6)
+
+
+# frob:ticket T-0023
+# frob:ticket T-0025
+def test_hx_segment_negative_resistance_is_honest_refusal():
+    """A negative resistance coefficient is unphysical -- refused."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["src", "n1", "sink"],
+        "edges": [
+            _imposer("imp_in", "src", "n1", 1e-4),
+            _hx_segment("coil", "n1", "sink", -1.0),
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.violation.tag == "hx_segment_negative_resistance"
+
+
+# frob:ticket T-0023
+# frob:ticket T-0025
+def test_hx_segment_missing_resistance_is_honest_indeterminate():
+    """T-0023: the REAL corpus fixture (`examples/lithos/systems/
+    small_office/.regolith/payloads/...`, hydronics.fluo's `coil1`/
+    `coil2` edges) carries `hx_segment` edges with an EMPTY `values`
+    dict -- no resistance data at all yet. This must surface as the
+    `_require_keys` totality path (T-0021), a named `missing_param`
+    OutOfDomain, never a bare `KeyError` crash."""
+    resolver, fn = _setup()
+    payload = {
+        "nodes": ["n1", "n2"],
+        "edges": [
+            {
+                "id": "coil1",
+                "a": "n1",
+                "b": "n2",
+                "kind": "hx_segment",
+                "params": {"source": "scalars", "values": {}},
+            }
+        ],
+    }
+    result = _solve(resolver, fn, payload)
+    assert result.is_err
+    assert result.err.violation.tag == "missing_param:k_factor"

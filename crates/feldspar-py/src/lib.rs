@@ -36,7 +36,8 @@ use library::{
     fluids_haaland_friction_factor_py, fluids_isentropic_stagnation_pressure_ratio_py,
     fluids_isentropic_stagnation_temp_ratio_py, fluids_joukowsky_dp_py,
     fluids_laminar_friction_factor_py, fluids_minor_loss_dp_py, fluids_normal_shock_mach2_py,
-    fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_parallel_flow_py,
+    fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_orifice_dp_py,
+    fluids_parallel_flow_py,
     fluids_pump_operating_flow_py, fluids_pump_operating_head_py, fluids_reynolds_number_py,
     fluids_series_dp_py, heat_churchill_chu_horizontal_cylinder_nusselt_py,
     heat_churchill_chu_vertical_plate_nusselt_py, heat_coefficient_from_nusselt_py,
@@ -75,6 +76,8 @@ fn smoke_span() -> PyResult<()> {
 /// registers the quantity-core classes and free functions.
 // frob:doc docs/modules/feldspar-py.md#py_lib
 // frob:ticket T-0020
+// frob:ticket T-0022
+// frob:ticket T-0025
 #[pymodule]
 fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -105,6 +108,7 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fluids_haaland_friction_factor_py, m)?)?;
     m.add_function(wrap_pyfunction!(fluids_darcy_dp_py, m)?)?;
     m.add_function(wrap_pyfunction!(fluids_minor_loss_dp_py, m)?)?;
+    m.add_function(wrap_pyfunction!(fluids_orifice_dp_py, m)?)?;
     m.add_function(wrap_pyfunction!(fluids_series_dp_py, m)?)?;
     m.add_function(wrap_pyfunction!(fluids_parallel_flow_py, m)?)?;
     m.add_function(wrap_pyfunction!(fluids_pump_operating_flow_py, m)?)?;

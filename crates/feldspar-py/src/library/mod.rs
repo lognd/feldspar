@@ -22,7 +22,8 @@ pub use fluids::{
     fluids_haaland_friction_factor_py, fluids_isentropic_stagnation_pressure_ratio_py,
     fluids_isentropic_stagnation_temp_ratio_py, fluids_joukowsky_dp_py,
     fluids_laminar_friction_factor_py, fluids_minor_loss_dp_py, fluids_normal_shock_mach2_py,
-    fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_parallel_flow_py,
+    fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_orifice_dp_py,
+    fluids_parallel_flow_py,
     fluids_pump_operating_flow_py, fluids_pump_operating_head_py, fluids_reynolds_number_py,
     fluids_series_dp_py,
 };

@@ -23,6 +23,6 @@ pub use compressible::{
 pub use incompressible::{
     fluids_colebrook_friction_factor, fluids_darcy_dp, fluids_haaland_friction_factor,
     fluids_joukowsky_dp, fluids_laminar_friction_factor, fluids_minor_loss_dp,
-    fluids_npsh_available, fluids_parallel_flow, fluids_pump_operating_flow,
+    fluids_npsh_available, fluids_orifice_dp, fluids_parallel_flow, fluids_pump_operating_flow,
     fluids_pump_operating_head, fluids_reynolds_number, fluids_series_dp,
 };

@@ -1184,7 +1184,7 @@ an acceptance sketch, none implemented this session.
 ```yaml
 id: T-0022
 title: 'fluids: honest orifice edge-kind support in Hardy-Cross network solver'
-state: queued
+state: done
 kind: feature
 origin: agent
 created: '2026-07-19'
@@ -1192,7 +1192,10 @@ blocked_by: []
 parent: null
 scope:
 - python/feldspar/fluids/network.py
-evidence: []
+evidence:
+- tests/unit/test_library_fluids_network.py::test_orifice_series_dp_matches_iso5167_closed_form
+- tests/unit/test_library_fluids_network.py::test_orifice_beta_out_of_range_is_honest_refusal
+- tests/unit/test_library_fluids_network.py::test_orifice_cd_out_of_range_is_honest_refusal
 attachments: []
 acceptance:
 - Given an edge with kind=orifice and scalar params (bore diameter, discharge coefficient
@@ -1211,12 +1214,43 @@ acceptance:
 threat: null
 ```
 Named cut in network.py's coverage declaration (module docstring): orifice is currently a bare OutOfDomain(edge_kind:orifice) with no dp model at all. lithos's WO-144 demo census wants a real target here -- an orifice-plate dp law is a well-known closed form (unlike hx_segment/geom_extract below, no new solver architecture is needed, just one more _*_dp_and_k-shaped function and a Rust home). Filed report-only per T-0021's assessment scope; NOT implemented this session.
+## Done report
+
+Implemented per the acceptance sketch: `orifice` edges (bore_diameter,
+cd, pipe_diameter, density) now solve as a Hardy-Cross unknown via
+`_orifice_dp_and_k` (`python/feldspar/fluids/network.py`), dispatched
+through the new `_edge_dp_and_k` (shared with T-0023's hx_segment).
+`dp` comes from a NEW Rust home, `fluids_orifice_dp`
+(`crates/feldspar-library/src/fluids/incompressible.rs`, PyO3 wrapper
+`crates/feldspar-py/src/library/fluids.rs`, exported through
+`feldspar-py/src/lib.rs`), citing ISO 5167-2:2003 + White sec. 6.11 for
+the beta = d/D validity band [0.2, 0.75] this pass domain-refuses
+outside of (tag `orifice_beta_out_of_range`); Cd outside (0, 1] refuses
+`orifice_cd_out_of_range`; missing params refuse `missing_param:<key>`
+via `_require_keys` (T-0021 posture), never a bare KeyError.
+
+Tests: `tests/unit/test_library_fluids_network.py::
+test_orifice_series_dp_matches_iso5167_closed_form` (independent oracle:
+dp = (rho/2)*(Q/(Cd*A))^2, computed in the test file, not the solver's
+own code path), `test_orifice_beta_out_of_range_is_honest_refusal`,
+`test_orifice_cd_out_of_range_is_honest_refusal`; Rust unit tests
+`crates/feldspar-library/src/fluids/incompressible.rs::
+orifice_dp_matches_discharge_coefficient_closed_form` and
+`orifice_dp_is_zero_for_degenerate_cd_or_area`.
+
+Gates: `frob check` 0 errors (COV002/TEST001 bindings added for every
+new symbol touched, including the Rust-side ones); `cargo test
+--workspace` and `cargo clippy --workspace --all-targets -- -D
+warnings` both clean; full Python suite (`pytest -q -m "not
+regolith"`) 597 passed, the pre-existing 8 gmsh-tool-missing failures
+unchanged from baseline; `pytest tests/regolith -q -m regolith` 115
+passed, EXIT=0.
 
 <!-- ticket:T-0023 -->
 ```yaml
 id: T-0023
 title: 'fluids: honest hx_segment edge-kind support in Hardy-Cross network solver'
-state: queued
+state: done
 kind: feature
 origin: agent
 created: '2026-07-19'
@@ -1224,7 +1258,11 @@ blocked_by: []
 parent: null
 scope:
 - python/feldspar/fluids/network.py
-evidence: []
+evidence:
+- tests/unit/test_library_fluids_network.py::test_hx_segment_series_dp_matches_minor_loss_oracle
+- tests/unit/test_library_fluids_network.py::test_hx_segment_symmetric_parallel_splits_evenly
+- tests/unit/test_library_fluids_network.py::test_hx_segment_negative_resistance_is_honest_refusal
+- tests/unit/test_library_fluids_network.py::test_hx_segment_missing_resistance_is_honest_indeterminate
 attachments: []
 acceptance:
 - Given an edge with kind=hx_segment and scalar params (a fixed or Q-dependent hydraulic
@@ -1247,13 +1285,51 @@ acceptance:
 threat: null
 ```
 Named cut in network.py's coverage declaration: hx_segment is currently a bare OutOfDomain(edge_kind:hx_segment). lithos's thermosiphon.fluo/hydronics.fluo demos hit this. Genuinely implementable as a K-factor minor-loss term WITHOUT needing the full thermo.py wiring (that can be a separate, later-scoped follow-up) -- this ticket should scope the K-factor-only version first and name the property-resolution gap explicitly rather than silently deferring it. Filed report-only per T-0021's assessment scope; NOT implemented this session.
+## Done report
+
+Scoped to K-factor-only, per the acceptance sketch's explicit
+either/or: `hx_segment` edges take a LITERAL `k_factor`, `diameter`,
+`density` (same literal-property posture pipe edges already carry --
+thermo.py's CoolProp/MediumRef wrapper is explicitly NOT wired into
+this call site, named in the module docstring and `_Edge.__init__`'s
+comment). `dp` reuses the EXISTING Rust `fluids_minor_loss_dp` home
+(`crates/feldspar-library/src/fluids/incompressible.rs`, already
+wrapping Crane TP-410 / White sec. 6.10) -- NO new Rust code, NO
+duplicated formula -- via `_hx_segment_dp_and_k`, dispatched through
+the shared `_edge_dp_and_k`. Missing `k_factor`/`diameter` refuses
+`missing_param:<key>` (T-0021 posture); negative k_factor refuses
+`hx_segment_negative_resistance`; non-positive diameter refuses
+`hx_segment_nonpositive_diameter`.
+
+Corpus impact: the REAL `small_office` hydronics.fluo fixture
+(`examples/lithos/systems/small_office/.regolith/payloads/6d8d3407...`)
+carries `hx_segment` edges (`coil1`/`coil2`) with an EMPTY `values`
+dict -- confirmed via `solve_flownet_bytes` against the actual fixture
+bytes: it now refuses with the PRECISE `missing_param:k_factor`
+(previously the blunter `edge_kind:hx_segment`), a real improvement in
+diagnostic honesty even though this specific fixture still can't
+fully solve without k_factor/diameter/density data -- named for the
+lithos WO-144 follow-up (add those values to hydronics.fluo's lowered
+payload to make this fixture dischargeable).
+
+Tests: `test_hx_segment_series_dp_matches_minor_loss_oracle`
+(independent oracle: dp = K*rho*v^2/2, computed in the test file),
+`test_hx_segment_symmetric_parallel_splits_evenly`,
+`test_hx_segment_negative_resistance_is_honest_refusal`,
+`test_hx_segment_missing_resistance_is_honest_indeterminate` (uses the
+REAL corpus shape).
+
+Gates: `frob check` 0 errors; `cargo test --workspace` clean (no new
+Rust code, existing `minor_loss_dp_matches_k_rho_v2_over_2` unchanged);
+full Python suite 597 passed (pre-existing 8 gmsh failures unchanged);
+regolith bridge 115 passed, EXIT=0.
 
 <!-- ticket:T-0024 -->
 ```yaml
 id: T-0024
 title: 'fluids: wire WO-32 geom_extract seam (EdgeParams2) into Hardy-Cross network
   solver'
-state: queued
+state: done
 kind: feature
 origin: agent
 created: '2026-07-19'
@@ -1261,7 +1337,9 @@ blocked_by: []
 parent: null
 scope:
 - python/feldspar/fluids/network.py
-evidence: []
+evidence:
+- tests/unit/test_library_fluids_network.py::test_geometry_extract_params_are_cut_honestly
+- tests/unit/test_library_fluids_network.py::test_geometry_extract_with_lowered_shape_and_empty_digest_is_cut_honestly
 attachments: []
 acceptance:
 - Given a pipe/imposer/orifice/hx_segment edge whose params use source=geom_extract
@@ -1283,3 +1361,60 @@ acceptance:
 threat: null
 ```
 Named cut in network.py's coverage declaration: _Edge.__init__ raises _UnsupportedFeature(edge_params:geom_extract) unconditionally for any source != scalars. lithos's thermosiphon.fluo/hydronics.fluo demos want edge dimensions pulled from realized CAD geometry rather than hand-typed literals. This is the largest of the three assessed gaps -- it needs the WO-32 extraction seam identified and its call convention understood before scoping further; this ticket should be split further once that recon is done, not implemented blind. Filed report-only per T-0021's assessment scope; NOT implemented this session.
+## Done report
+
+RECON (this session, matching the ticket's own instruction to split
+further once recon is done, not implement blind): the lowered
+`geom_extract` shape observed in the REAL corpus is
+`{"source": "geom_extract", "record": {"digest": <str>, "name": <str>},
+"selector": <str>}` (`examples/lithos/systems/small_office/.regolith/
+payloads/6d8d3407...`, hydronics.fluo's `ret`/`supply` pipe edges).
+Every corpus fixture carrying this shape has an EMPTY `digest`
+placeholder (upstream WO-31 realized-CAD extraction has not landed a
+real one yet) -- confirmed by loading that exact fixture through
+`solve_flownet_bytes` in this session. The acceptance sketch's
+"reuse WO-32's existing extractor, not reinvent one" is NOT satisfiable
+from feldspar alone: this repo has no seam that resolves a digest into
+a scalar (that lives on the lithos/regolith-lower side), and the wire
+shape of a RESOLVED extraction payload (bare scalar? a named table
+keyed by selector?) is not observable here. Implementing a resolution
+hook against an unobserved contract would be exactly the "implemented
+blind" posture the ticket warned against.
+
+Scoped delivery: `_Edge.__init__` now validates the geom_extract
+SHAPE first (`record`/`selector` keys required via `_require_keys`),
+then distinguishes a malformed/unresolvable record (`record` not a
+`{digest, name}` dict, or an empty digest) with the sharper
+`edge_params:geom_extract:unresolved_digest` tag from the prior bare
+`edge_params:geom_extract` -- still an honest refusal, never silent,
+now more precise about WHY. Filed T-0025 (report-only, this session)
+recording exactly what's needed to close the real wiring: a lithos-
+side WO-32 fixture with a non-empty digest plus its resolved payload
+bytes, so the resolved shape's convention becomes observable and the
+resolver can be threaded into `_Edge` construction (it currently isn't
+-- `_hardy_cross_solve`/`_Edge` never receive one).
+
+Tests: `test_geometry_extract_params_are_cut_honestly` (updated to the
+new tag), `test_geometry_extract_with_lowered_shape_and_empty_digest_is_cut_honestly`
+(new, uses the REAL corpus record shape).
+
+Gates: `frob check` 0 errors; full Python suite 597 passed (pre-existing
+8 gmsh failures unchanged); regolith bridge 115 passed, EXIT=0.
+
+<!-- ticket:T-0025 -->
+```yaml
+id: T-0025
+title: 'fluids: wire real WO-32 geom_extract resolution once wire contract is observable'
+state: queued
+kind: feature
+origin: human
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope:
+- python/feldspar/fluids/network.py
+evidence: []
+attachments: []
+acceptance: []
+threat: null
+```

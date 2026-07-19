@@ -58,6 +58,20 @@ pub fn fluids_minor_loss_dp_py(k_factor: f64, density: f64, velocity: f64) -> f6
 }
 
 // frob:doc docs/modules/feldspar-py.md#py_library_fluids
+// frob:ticket T-0022
+// frob:ticket T-0025
+#[pyfunction]
+#[pyo3(name = "fluids_orifice_dp")]
+pub fn fluids_orifice_dp_py(
+    discharge_coeff: f64,
+    area: f64,
+    density: f64,
+    flow_rate: f64,
+) -> f64 {
+    feldspar_library::fluids::fluids_orifice_dp(discharge_coeff, area, density, flow_rate)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_fluids
 #[pyfunction]
 #[pyo3(name = "fluids_series_dp")]
 pub fn fluids_series_dp_py(dp1: f64, dp2: f64) -> f64 {

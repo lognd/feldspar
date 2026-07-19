@@ -921,3 +921,20 @@ T-0018 is DONE -- all 8 acceptance items delivered on the MODEL side.
 The lithos stdlib record-population ticket (companion, D270 ruling 4)
 is the next step for populating real `MaterialRecord` instances; it
 is out of this ticket's scope (feldspar repo) by design.
+
+<!-- ticket:T-0019 -->
+```yaml
+id: T-0019
+title: consume FlownetPayload.claim_target (retire 0.0/1.0 direction convention)
+state: queued
+kind: feature
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope: []
+evidence: []
+attachments: []
+acceptance: []
+threat: null
+```

@@ -55,6 +55,7 @@ _log = get_logger(__name__)
 __all__ = ["build_engine_catalog"]
 
 
+# frob:doc docs/modules/top.md#top_catalog
 def build_engine_catalog(resolver: PayloadResolver) -> SolverRegistry:
     """Builds and freezes the full closed-form + FEA + payload-step
     engine registry (WO-07/WO-08/WO-12 lineage). Import-cheap callers

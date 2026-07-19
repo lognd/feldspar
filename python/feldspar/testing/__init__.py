@@ -49,6 +49,7 @@ def _corner_callback(fn):
     return _call
 
 
+# frob:doc docs/modules/testing.md#testing_init
 def assert_solverpack_conforms(
     register_fn: RegisterFn,
     *,

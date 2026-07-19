@@ -66,6 +66,7 @@ __all__ = [
 ]
 
 
+# frob:doc docs/modules/top.md#top_core
 class CoreError(ErrorSet):
     """`Interval` construction failures (01-interfaces `CoreError`)."""
 
@@ -73,6 +74,7 @@ class CoreError(ErrorSet):
     InvertedInterval = "interval lo > hi"
 
 
+# frob:doc docs/modules/top.md#top_core
 class UnitError(ErrorSet):
     """`UnitSystem` lookup/conversion failures (01-interfaces `UnitError`)."""
 
@@ -81,6 +83,7 @@ class UnitError(ErrorSet):
     OffsetInCompound = "an affine (offset) unit was used inside a compound unit"
 
 
+# frob:doc docs/modules/top.md#top_core
 class DomainViolation:
     """Why a `Domain.admits()` check failed; carries port/tag detail
     (01-interfaces: "DomainViolation carries port/tag details")."""
@@ -205,6 +208,7 @@ UnitSystem.to_si = _unit_system_to_si
 UnitSystem.from_si = _unit_system_from_si
 
 #: `Accuracy(0.0, 0.0)`; the EXACT constant (01-interfaces).
+# frob:doc docs/modules/top.md#top_core
 EXACT: Accuracy = _feldspar.exact_accuracy()
 
 
@@ -278,6 +282,7 @@ def _to_jsonable(obj: Any) -> Any:
     return obj
 
 
+# frob:doc docs/modules/top.md#top_core
 def canonical_digest(obj: Any) -> str:
     """Canonical-JSON -> blake3 digest of any value built from core
     frozen classes, pydantic models, and/or plain JSON-safe Python data
@@ -288,6 +293,7 @@ def canonical_digest(obj: Any) -> str:
     return _feldspar.canonical_digest(_to_jsonable(obj))
 
 
+# frob:doc docs/modules/top.md#top_core
 def corner_sweep(
     box: Mapping[str, Interval],
     fn: Callable[[Mapping[str, float]], "Result[Mapping[str, float], Any]"],
@@ -309,6 +315,7 @@ def corner_sweep(
         return Err(exc.args[0])
 
 
+# frob:doc docs/modules/top.md#top_core
 def enumerate_corners(box: Mapping[str, Interval]) -> Iterable[Mapping[str, float]]:
     """The enumerate half of `corner_sweep` (WO-15, 09 sec. 6), exposed
     standalone so a caller can evaluate corners itself -- e.g.
@@ -320,6 +327,7 @@ def enumerate_corners(box: Mapping[str, Interval]) -> Iterable[Mapping[str, floa
     return _feldspar.enumerate_corners(dict(box))
 
 
+# frob:doc docs/modules/top.md#top_core
 def hull_from_results(
     results: Iterable[Mapping[str, float]],
 ) -> Mapping[str, Interval]:

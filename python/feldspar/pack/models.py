@@ -2212,29 +2212,46 @@ class AcShuntCapacitorModel(_ClosedFormEngineModel):
 # model (lithos recon `scratch_recon_thermo_fluids.md` sec. 1.5/5,
 # F126.1) and start discharging for real when this pack is installed.
 #
-# EDGE/NODE SELECTION CONVENTION (the one piece of wiring this WO
-# invents, since it has no lithos-side counterpart yet -- flagged for
-# the lithos-side translate work, WO-141's other half, to confirm or
-# adapt): the `FlownetPayload` schema (fluorite/03 sec. 2) has no
-# "which edge/node does this claim mean" field, and `DischargeRequest`
-# has no string-valued channel beyond payload refs -- `inputs` is
-# `Mapping[str, Interval]` (regolith/07, `harness/model.py`), floats
-# only. Rather than invent a NEW lithos-side payload kind or schema
-# field (out of this WO's scope -- schemas are single-sourced Rust,
-# `lithos:CLAUDE.md`), these models reuse the ONE existing dynamic
-# channel `ModelSignature.accepts` already permits: `accepts()` only
-# requires the DECLARED `inputs` tuple's ports be PRESENT (a subset
-# check, `harness/signature.py:74-82`), so a request MAY carry
-# additional named scalar entries beyond what any signature declares.
-# The convention: the translate side names the SELECTED edge/node ids
-# themselves as EXTRA keys in `DischargeRequest.inputs` (any pinned
-# `Interval`, e.g. `Interval(lo=1.0, hi=1.0)`, as a presence flag) --
-# `estimate()` here intersects `request.inputs.keys()` against the
-# resolved network's actual edge/node ids to recover the selection,
-# never guessing which edge a claim means. This needs ZERO lithos
-# schema changes: it is ordinary `given:` scalar data from the
-# translate side's point of view, just keyed by the domain identifier
-# instead of a physical-quantity name.
+# EDGE/NODE SELECTION CONVENTION -- T-0019 UPDATE: SCHEMA_VERSION 31
+# added `FlownetPayload.claim_target: ClaimTarget | None` (`claim_kind`
+# + `role`), the typed field the paragraph below's own escalation
+# asked for. Every model below now PREFERS `claim_target` when the
+# resolved payload carries one (unambiguous, no guessing against
+# unrelated `inputs` keys) and falls back to the legacy convention
+# ONLY for pre-31 payloads that have no `claim_target` at all. The
+# legacy convention is not removed -- old content-addressed payloads
+# already sitting in a store predate this field and must keep
+# resolving -- but it is now the FALLBACK, documented here and on each
+# model's own docstring, never the preferred path for new payloads.
+#
+# Original convention (kept verbatim for the fallback path): the
+# `FlownetPayload` schema (fluorite/03 sec. 2) had no "which edge/node
+# does this claim mean" field, and `DischargeRequest` has no string-
+# valued channel beyond payload refs -- `inputs` is `Mapping[str,
+# Interval]` (regolith/07, `harness/model.py`), floats only. Rather
+# than invent a NEW lithos-side payload kind or schema field, these
+# models reused the ONE existing dynamic channel `ModelSignature.
+# accepts` already permits: `accepts()` only requires the DECLARED
+# `inputs` tuple's ports be PRESENT (a subset check, `harness/
+# signature.py:74-82`), so a request MAY carry additional named scalar
+# entries beyond what any signature declares. The convention: the
+# translate side names the SELECTED edge/node ids themselves as EXTRA
+# keys in `DischargeRequest.inputs` (any pinned `Interval`, e.g.
+# `Interval(lo=1.0, hi=1.0)`, as a presence flag) -- `estimate()` here
+# intersects `request.inputs.keys()` against the resolved network's
+# actual edge/node ids to recover the selection, never guessing which
+# edge a claim means.
+#
+# `claim_target.role` string convention THIS ticket introduces (no
+# lithos-side counterpart yet either -- same flagged-for-the-
+# translate-work status the original convention carried): a bare edge
+# id for `FluidsMdotModel`; a comma-joined sorted edge-id list for
+# `FluidsFlowImbalanceModel`'s sibling set; an `"<from>-><to>"` node
+# pair (the same arrow notation `FluidsDpModel`'s own docstring already
+# uses) for `FluidsDpModel`. Each model's `estimate()` parses its own
+# shape and returns an honest `DomainError` naming the role string
+# verbatim if it does not parse -- never a silent fallback to the
+# legacy `inputs` scan when `claim_target` IS present but malformed.
 # ---------------------------------------------------------------------------
 
 # frob:doc docs/modules/pack.md#pack_models
@@ -2246,12 +2263,27 @@ DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND = "fluids.flow_imbalance"
 # frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FLUIDS_DP_CLAIM_KIND = "fluids.dp"
 
-#: `fluids.dp`'s two path-endpoint selector keys carry a fixed role
-#: value (0.0 for the "from" node, 1.0 for the "to" node) so direction
-#: survives even though the endpoints arrive as unordered dict keys --
-#: see `FluidsDpModel`'s own docstring.
+#: DEPRECATED (T-0019): the legacy `inputs`-presence-flag fallback's
+#: two path-endpoint selector keys carry a fixed role value (0.0 for
+#: the "from" node, 1.0 for the "to" node) so direction survives even
+#: though the endpoints arrive as unordered dict keys -- see
+#: `FluidsDpModel`'s own docstring. Only reached when the resolved
+#: payload has no `claim_target` (pre-SCHEMA_VERSION-31); new payloads
+#: should carry `claim_target.role = "<from>-><to>"` instead.
 _DP_FROM_ROLE = 0.0
 _DP_TO_ROLE = 1.0
+
+#: Separator `FluidsFlowImbalanceModel` uses to pack a sibling edge-id
+#: SET into `claim_target.role`'s single string (T-0019: `ClaimTarget.
+#: role` is one optional string, this model needs >= 2 ids -- see the
+#: module WO-141 section comment above).
+_FLOW_IMBALANCE_ROLE_SEP = ","
+
+#: Separator `FluidsDpModel` uses to pack the from/to node-id pair into
+#: `claim_target.role`'s single string (T-0019; mirrors this model's
+#: own `<from> -> <to>` docstring notation, without the surrounding
+#: spaces so the role string round-trips as a plain identifier pair).
+_DP_ROLE_SEP = "->"
 
 
 def _resolve_solved_network(
@@ -2288,6 +2320,7 @@ def _resolve_solved_network(
 
 
 # frob:doc docs/modules/pack.md#pack_models
+# frob:ticket T-0019
 class FluidsMdotModel(Model):
     """Single-edge mass/volumetric flow-rate query over a solved
     Hardy-Cross network (`fluids.mdot(<edge>)`), one instance per
@@ -2297,12 +2330,16 @@ class FluidsMdotModel(Model):
     comparison `fluids.mdot(edge) >= lo`).
 
     Reports the converged `flow_rate` (m^3/s, signed by the edge's own
-    `a->b` sense) of whichever ONE edge in the resolved flownet the
-    request's extra `inputs` keys select (see this file's WO-141
-    section-comment for the selection convention). Exactly one
-    matching edge id is required to close the claim; zero or more than
-    one is an honest `DomainError` naming the ambiguity -- never a
-    guess at which edge was meant."""
+    `a->b` sense) of whichever ONE edge in the resolved flownet is
+    selected. PREFERS the resolved payload's `claim_target.role` (a
+    bare edge id, T-0019) when present; falls back to the request's
+    extra `inputs` keys (DEPRECATED, see this file's WO-141
+    section-comment) only for pre-SCHEMA_VERSION-31 payloads with no
+    `claim_target` at all. Exactly one matching edge id is required to
+    close the claim; zero or more than one -- or a `claim_target.role`
+    naming an edge id absent from this network -- is an honest
+    `DomainError` naming the ambiguity, never a guess at which edge was
+    meant."""
 
     def __init__(
         self, *, claim_kind: str = DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND, sense: ClaimSense
@@ -2344,6 +2381,7 @@ class FluidsMdotModel(Model):
         keeps winning when it applies."""
         return _PAYLOAD_TIER_COST
 
+    # frob:ticket T-0019
     # frob:waive TEST005 reason="measured 9.1% branch cov on 2026-07-18; FluidsMdotModel.estimate's margin-seeking branches are genuinely exercised by regolith-marked tests (test_pack_wo141_fluids_network.py) -- excluded from THIS coverage run by the -m the regolith-exclusion filter (local lithos checkout is present and the suite passes; stamped coverage deliberately excludes regolith-marked tests fleet-wide, same as pack/converters.py). Backfill T-0014."
     # frob:doc docs/modules/pack.md#pack_models
     def estimate(
@@ -2357,19 +2395,39 @@ class FluidsMdotModel(Model):
             return Err(network_result.danger_err)
         network = network_result.danger_ok
 
-        selected = [edge_id for edge_id in request.inputs if edge_id in network.by_id]
-        if len(selected) != 1:
-            return Err(
-                DomainError(
-                    model_id=self.model_id,
-                    message=(
-                        f"fluids.mdot needs exactly one selected edge id among "
-                        f"the request's inputs to match a flownet edge; found "
-                        f"{len(selected)}: {sorted(selected)}"
-                    ),
+        claim_target = network.payload.claim_target
+        if claim_target is not None:
+            role = claim_target.role
+            if role is None or role not in network.by_id:
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            "fluids.mdot needs claim_target.role to name "
+                            f"exactly one flownet edge id; found role={role!r}"
+                        ),
+                    )
                 )
-            )
-        edge = network.by_id[selected[0]]
+            edge = network.by_id[role]
+        else:
+            # DEPRECATED fallback (T-0019): pre-31 payload, no
+            # claim_target -- recover the selection from the legacy
+            # inputs presence-flag convention.
+            selected = [
+                edge_id for edge_id in request.inputs if edge_id in network.by_id
+            ]
+            if len(selected) != 1:
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            f"fluids.mdot needs exactly one selected edge id "
+                            f"among the request's inputs to match a flownet "
+                            f"edge; found {len(selected)}: {sorted(selected)}"
+                        ),
+                    )
+                )
+            edge = network.by_id[selected[0]]
         _log.info(
             "%s: edge=%s flow_rate=%s (sense.upper=%s)",
             self.model_id,
@@ -2381,6 +2439,7 @@ class FluidsMdotModel(Model):
 
 
 # frob:doc docs/modules/pack.md#pack_models
+# frob:ticket T-0019
 class FluidsFlowImbalanceModel(Model):
     """Sibling-branch flow-distribution-uniformity query over a solved
     Hardy-Cross network (`fluids.flow_imbalance([e1, e2, ...])`), an
@@ -2390,10 +2449,14 @@ class FluidsFlowImbalanceModel(Model):
     < 5%` shape, `docs/guide/03-fluorite-guide.md:239` -- read there,
     not reproduced here).
 
-    The selected edge SET is whichever two-or-more edge ids the
-    request's extra `inputs` keys name (this file's WO-141 section
-    comment); fewer than two matching edges cannot express an
-    imbalance and is an honest `DomainError`, not a fabricated `0%`."""
+    The selected edge SET is whichever two-or-more edge ids are named.
+    PREFERS the resolved payload's `claim_target.role` (T-0019: a
+    `_FLOW_IMBALANCE_ROLE_SEP`-joined sorted edge-id list) when
+    present; falls back to the request's extra `inputs` keys
+    (DEPRECATED, this file's WO-141 section comment) only for
+    pre-SCHEMA_VERSION-31 payloads with no `claim_target`. Fewer than
+    two matching edges cannot express an imbalance and is an honest
+    `DomainError`, not a fabricated `0%`."""
 
     def __init__(
         self, *, claim_kind: str = DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND
@@ -2425,6 +2488,7 @@ class FluidsFlowImbalanceModel(Model):
     def cost(self) -> int:
         return _PAYLOAD_TIER_COST
 
+    # frob:ticket T-0019
     # frob:waive TEST005 reason="measured 6.7% branch cov on 2026-07-18; FluidsFlowImbalanceModel.estimate's margin-seeking branches are genuinely exercised by regolith-marked tests (test_pack_wo141_fluids_network.py) -- excluded from THIS coverage run by the -m the regolith-exclusion filter (local lithos checkout is present and the suite passes; stamped coverage deliberately excludes regolith-marked tests fleet-wide, same as pack/converters.py). Backfill T-0014."
     # frob:doc docs/modules/pack.md#pack_models
     def estimate(
@@ -2438,20 +2502,44 @@ class FluidsFlowImbalanceModel(Model):
             return Err(network_result.danger_err)
         network = network_result.danger_ok
 
-        selected = sorted(
-            edge_id for edge_id in request.inputs if edge_id in network.by_id
-        )
-        if len(selected) < 2:
-            return Err(
-                DomainError(
-                    model_id=self.model_id,
-                    message=(
-                        f"fluids.flow_imbalance needs at least two selected "
-                        f"edge ids among the request's inputs that match "
-                        f"flownet edges; found {len(selected)}: {selected}"
-                    ),
-                )
+        claim_target = network.payload.claim_target
+        if claim_target is not None:
+            role = claim_target.role or ""
+            candidates = [part for part in role.split(_FLOW_IMBALANCE_ROLE_SEP) if part]
+            selected = sorted(
+                edge_id for edge_id in candidates if edge_id in network.by_id
             )
+            if len(selected) < 2 or len(selected) != len(set(candidates)):
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            "fluids.flow_imbalance needs claim_target.role to "
+                            f"name at least two matching flownet edge ids "
+                            f"({_FLOW_IMBALANCE_ROLE_SEP!r}-joined); found "
+                            f"role={role!r}, matched {len(selected)}: {selected}"
+                        ),
+                    )
+                )
+        else:
+            # DEPRECATED fallback (T-0019): pre-31 payload, no
+            # claim_target -- recover the selection from the legacy
+            # inputs presence-flag convention.
+            selected = sorted(
+                edge_id for edge_id in request.inputs if edge_id in network.by_id
+            )
+            if len(selected) < 2:
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            f"fluids.flow_imbalance needs at least two "
+                            f"selected edge ids among the request's inputs "
+                            f"that match flownet edges; found "
+                            f"{len(selected)}: {selected}"
+                        ),
+                    )
+                )
         flows = [abs(network.by_id[edge_id].flow) for edge_id in selected]
         mean_flow = sum(flows) / len(flows)
         if mean_flow <= 0.0:
@@ -2477,6 +2565,7 @@ class FluidsFlowImbalanceModel(Model):
 
 
 # frob:doc docs/modules/pack.md#pack_models
+# frob:ticket T-0019
 class FluidsDpModel(Model):
     """Multi-segment (multi-path) pressure-drop query over a solved
     Hardy-Cross network (`fluids.dp(<from> -> <to>)`), an upper-bound
@@ -2496,14 +2585,18 @@ class FluidsDpModel(Model):
     are absent AND a flownet payload is present, i.e. exactly the
     multi-path case the single-segment model cannot cover.
 
-    Path endpoints: the request's extra `inputs` keys name exactly TWO
-    node ids present in the resolved flownet (this file's WO-141
-    section comment); each carries a fixed ROLE value distinguishing
-    direction -- `_DP_FROM_ROLE` (0.0) for the origin, `_DP_TO_ROLE`
-    (1.0) for the destination (an unordered pair of dict keys alone
-    cannot carry direction, and `fluids.dp(a -> b)` is directional:
-    `dp(a -> b) == -dp(b -> a)`). Anything other than exactly one
-    origin and one destination match is an honest `DomainError`."""
+    Path endpoints: PREFERS the resolved payload's `claim_target.role`
+    (T-0019: `"<from>-><to>"`, `_DP_ROLE_SEP`-joined, both node ids
+    present in the resolved flownet) when present. Falls back
+    (DEPRECATED, this file's WO-141 section comment) only for
+    pre-SCHEMA_VERSION-31 payloads with no `claim_target`: the
+    request's extra `inputs` keys name exactly TWO node ids, each
+    carrying a fixed ROLE value distinguishing direction -- `_DP_FROM_
+    ROLE` (0.0) for the origin, `_DP_TO_ROLE` (1.0) for the destination
+    (an unordered pair of dict keys alone cannot carry direction, and
+    `fluids.dp(a -> b)` is directional: `dp(a -> b) == -dp(b -> a)`).
+    Anything other than exactly one origin and one destination match
+    is an honest `DomainError`."""
 
     def __init__(self, *, claim_kind: str = DEFAULT_FLUIDS_DP_CLAIM_KIND) -> None:
         self._claim_kind = claim_kind
@@ -2538,6 +2631,7 @@ class FluidsDpModel(Model):
         honest relative expense")."""
         return _PAYLOAD_TIER_COST
 
+    # frob:ticket T-0019
     # frob:waive TEST005 reason="measured 6.2% branch cov on 2026-07-18; FluidsDpModel.estimate's margin-seeking branches are genuinely exercised by regolith-marked tests (test_pack_wo141_fluids_network.py) -- excluded from THIS coverage run by the -m the regolith-exclusion filter (local lithos checkout is present and the suite passes; stamped coverage deliberately excludes regolith-marked tests fleet-wide, same as pack/converters.py). Backfill T-0014."
     # frob:doc docs/modules/pack.md#pack_models
     def estimate(
@@ -2551,33 +2645,60 @@ class FluidsDpModel(Model):
             return Err(network_result.danger_err)
         network = network_result.danger_ok
 
-        from_nodes = [
-            node_id
-            for node_id, interval in request.inputs.items()
-            if node_id in network.incidence
-            and interval.lo == interval.hi == _DP_FROM_ROLE
-        ]
-        to_nodes = [
-            node_id
-            for node_id, interval in request.inputs.items()
-            if node_id in network.incidence
-            and interval.lo == interval.hi == _DP_TO_ROLE
-        ]
-        if len(from_nodes) != 1 or len(to_nodes) != 1:
-            return Err(
-                DomainError(
-                    model_id=self.model_id,
-                    message=(
-                        "fluids.dp needs exactly one 'from' node "
-                        f"(role={_DP_FROM_ROLE}) and one 'to' node "
-                        f"(role={_DP_TO_ROLE}) among the request's inputs "
-                        f"matching flownet node ids; found "
-                        f"from={sorted(from_nodes)} to={sorted(to_nodes)}"
-                    ),
+        claim_target = network.payload.claim_target
+        if claim_target is not None:
+            role = claim_target.role or ""
+            parts = role.split(_DP_ROLE_SEP)
+            if (
+                len(parts) != 2
+                or not parts[0]
+                or not parts[1]
+                or parts[0] not in network.incidence
+                or parts[1] not in network.incidence
+            ):
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            "fluids.dp needs claim_target.role shaped "
+                            f"'<from>{_DP_ROLE_SEP}<to>' naming two flownet "
+                            f"node ids; found role={role!r}"
+                        ),
+                    )
                 )
-            )
+            from_node, to_node = parts[0], parts[1]
+        else:
+            # DEPRECATED fallback (T-0019): pre-31 payload, no
+            # claim_target -- recover the endpoints from the legacy
+            # inputs role-value convention.
+            from_nodes = [
+                node_id
+                for node_id, interval in request.inputs.items()
+                if node_id in network.incidence
+                and interval.lo == interval.hi == _DP_FROM_ROLE
+            ]
+            to_nodes = [
+                node_id
+                for node_id, interval in request.inputs.items()
+                if node_id in network.incidence
+                and interval.lo == interval.hi == _DP_TO_ROLE
+            ]
+            if len(from_nodes) != 1 or len(to_nodes) != 1:
+                return Err(
+                    DomainError(
+                        model_id=self.model_id,
+                        message=(
+                            "fluids.dp needs exactly one 'from' node "
+                            f"(role={_DP_FROM_ROLE}) and one 'to' node "
+                            f"(role={_DP_TO_ROLE}) among the request's "
+                            f"inputs matching flownet node ids; found "
+                            f"from={sorted(from_nodes)} to={sorted(to_nodes)}"
+                        ),
+                    )
+                )
+            from_node, to_node = from_nodes[0], to_nodes[0]
 
-        path_result = find_path_edges(network, from_nodes[0], to_nodes[0])
+        path_result = find_path_edges(network, from_node, to_node)
         if path_result.is_err:
             return Err(map_engine_error(self.model_id, path_result.danger_err))
         path = path_result.danger_ok
@@ -2585,8 +2706,8 @@ class FluidsDpModel(Model):
         _log.info(
             "%s: path %s -> %s (%d edges) total dp=%s",
             self.model_id,
-            from_nodes[0],
-            to_nodes[0],
+            from_node,
+            to_node,
             len(path),
             total_dp,
         )

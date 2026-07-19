@@ -135,10 +135,31 @@ class _FlowEdge(BaseModel):
     params: dict[str, Any]
 
 
+# frob:ticket T-0019
+class _ClaimTarget(BaseModel):
+    """Field-name-compatible subset of `regolith._schema.models.
+    ClaimTarget` (SCHEMA_VERSION 31, T-0019): which claim/role a
+    discharge over this payload answers. `role` is untyped free text
+    here -- `feldspar.pack.models` owns the per-claim-kind convention
+    for what a role string MEANS (a bare edge id, a comma-joined edge
+    set, an `a->b` node pair), this module only parses the wire
+    shape."""
+
+    model_config = ConfigDict(extra="ignore")
+    claim_kind: str
+    role: str | None = None
+
+
+# frob:ticket T-0019
 class _FlownetPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
     nodes: list[str]
     edges: list[_FlowEdge]
+    #: `None` for pre-31 payloads and whole-network solves (T-0019):
+    #: absence is NOT an error, it just means the caller (`feldspar.
+    #: pack.models`) falls back to the legacy `DischargeRequest.inputs`
+    #: presence-flag convention this field replaces.
+    claim_target: _ClaimTarget | None = None
 
 
 def _scalar_value(interval: dict[str, Any]) -> float:

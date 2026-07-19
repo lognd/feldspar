@@ -926,15 +926,92 @@ is out of this ticket's scope (feldspar repo) by design.
 ```yaml
 id: T-0019
 title: consume FlownetPayload.claim_target (retire 0.0/1.0 direction convention)
-state: queued
+state: done
 kind: feature
 origin: agent
 created: '2026-07-19'
 blocked_by: []
 parent: null
-scope: []
-evidence: []
+scope:
+- python/feldspar/fluids/network.py
+- python/feldspar/pack/models.py
+- tests/regolith/test_payload_resolver_bridge.py
+evidence:
+- tests/regolith/test_payload_resolver_bridge.py::test_mdot_prefers_claim_target_role_over_legacy_inputs
+- tests/regolith/test_payload_resolver_bridge.py::test_mdot_falls_back_to_legacy_inputs_when_no_claim_target
+- tests/regolith/test_payload_resolver_bridge.py::test_flow_imbalance_prefers_claim_target_role_edge_set
+- tests/regolith/test_payload_resolver_bridge.py::test_dp_prefers_claim_target_role_arrow_pair
 attachments: []
 acceptance: []
 threat: null
 ```
+## Done report
+
+SCHEMA_VERSION 31 added `FlownetPayload.claim_target: ClaimTarget |
+None` (`claim_kind` + `role`) to lithos, replacing the documented
+`DischargeRequest.inputs` 0.0/1.0 presence-flag convention the WO-141
+fluids pack bridge invented for want of a typed field. This ticket
+teaches the three fluids pack models to prefer it.
+
+Models updated (`python/feldspar/pack/models.py`):
+- `FluidsMdotModel.estimate`: `claim_target.role` (a bare edge id)
+  selects the single edge when present.
+- `FluidsFlowImbalanceModel.estimate`: `claim_target.role` (a
+  `_FLOW_IMBALANCE_ROLE_SEP`-joined, i.e. comma-joined, sorted edge-id
+  list -- this ticket's own convention, `role` being one optional
+  string per the schema) selects the sibling edge set.
+- `FluidsDpModel.estimate`: `claim_target.role` (an `"<from>-><to>"`
+  pair, `_DP_ROLE_SEP` = "->", matching the model's own docstring
+  arrow notation) selects the path endpoints.
+
+Fallback semantics: when the resolved `FlownetPayload` has no
+`claim_target` at all (pre-31 payload), each model falls back to the
+EXACT pre-existing legacy `inputs` presence-flag / `_DP_FROM_ROLE`/
+`_DP_TO_ROLE` scan, unchanged -- this is the documented deprecation
+path, not a removal; old content-addressed payloads already in a store
+predate the field and must keep resolving. When `claim_target` IS
+present but its `role` does not parse (wrong id, missing separator,
+wrong arity), that is an honest `DomainError` naming the role string
+verbatim -- never a silent fallback to the legacy scan.
+
+Wire-format plumbing (`python/feldspar/fluids/network.py`): added
+`_ClaimTarget` (field-name-compatible with `regolith._schema.models.
+ClaimTarget`) and a `claim_target: _ClaimTarget | None = None` field
+on the feldspar-owned `_FlownetPayload` wire subset (this module never
+imports `regolith`, FINV-3/10) so `SolvedNetwork.payload.claim_target`
+reaches the pack models unchanged.
+
+Tests: added 10 new cases to `tests/regolith/
+test_payload_resolver_bridge.py` (claim_target-carrying cases both
+ways per model -- prefers claim_target over a conflicting legacy
+inputs key, falls back when claim_target is absent, and one malformed-
+role DomainError case each for mdot and dp) using the same asymmetric
+two-branch Hagen-Poiseuille calibration network `test_pack_wo141_
+fluids_network.py` already uses as an independent closed-form oracle.
+Calibration results (expected flow/imbalance/dp values) are UNCHANGED
+from the legacy-path tests -- same oracle, same numbers, only the
+selection channel differs. All pre-existing WO-141 tests
+(`test_pack_wo141_fluids_network.py`, exercising the legacy fallback
+path exclusively) still pass unmodified.
+
+Ran (regolith-marked, this env has the local lithos editable install
+so these DO run): `uv run pytest tests/regolith/
+test_payload_resolver_bridge.py tests/regolith/
+test_pack_wo141_fluids_network.py -m regolith -q` -> 25 passed.
+Ran (full non-regolith suite, unaffected by this change but re-run for
+safety): `uv run pytest tests/ -n auto -m "not regolith and not fea
+and not spice"` -> 568 passed. `make coverage` re-stamped (83% total,
+unchanged shape -- new claim_target branches on the fluids models are
+covered by the newly-added regolith-marked tests, excluded from the
+stamped run by the pre-existing regolith-exclusion filter, same
+posture as every other margin-seeking `estimate()` in this file).
+Nothing could not run in this environment -- gmsh/ccx/ngspice remain
+absent (pre-existing T-0014 floor, unrelated to this ticket) but no
+fluids-network test in scope needs them.
+
+Verification: `frob check` -> gates 0 errors, 1 warning (pre-existing,
+unrelated), 55 waived. `uv run ty check python/` -> all checks passed.
+`uv run ruff check`/`ruff format --check` -> clean. `uv run
+lint-imports` -> FINV-3/10 contract kept (regolith imports still
+confined to `feldspar.pack`; `feldspar.fluids.network` still imports
+nothing from `regolith`).

@@ -214,6 +214,7 @@ _PROPERTY_UNITS = {
 }
 
 
+# frob:doc docs/modules/thermo.md#thermo_properties
 def register(registry: SolverRegistry) -> int:
     """Registers every `thermo.<fluid>.<property>` direction (density,
     specific heat, viscosity) for every calibrated fluid. Declares the

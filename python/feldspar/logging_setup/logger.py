@@ -20,6 +20,7 @@ def _init() -> None:
     _initialized = True
 
 
+# frob:doc docs/modules/logging_setup.md#logging_setup_logger
 def get_logger(name: str) -> logging.Logger:
     """Returns a module logger, initializing the dictConfig setup on first call."""
     _init()

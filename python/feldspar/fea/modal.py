@@ -119,6 +119,7 @@ def _make_modal_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:waive TEST005 reason="measured 20.0% branch cov on 2026-07-18; register()'s branches gate on gmsh/ccx tool presence (T-0014's documented external-tool floor), neither installed in this sandbox. Backfill T-0014."
 # frob:doc docs/modules/fea.md#fea_modal
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Registers the ccx modal direction only (WO-16); the port table

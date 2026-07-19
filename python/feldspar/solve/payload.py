@@ -93,6 +93,7 @@ class PayloadResolver(Protocol):
     caller (the pack/executor boundary), never a feldspar-owned global.
     """
 
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; PayloadResolver.resolve is a Protocol stub (body is `...`, no real branches to exercise) -- real implementations (NoStoreResolver, RegolithResolverAdapter, DictResolver fixtures) each carry their own tests. Backfill T-0014."
     # frob:doc docs/modules/solve.md#solve_payload
     def resolve(self, ref: PayloadRef) -> "Result[bytes, SolveError]":
         """Look up `ref.digest`'s content; `Err(SolveError.DanglingDigest)`
@@ -100,6 +101,7 @@ class PayloadResolver(Protocol):
         rows)."""
         ...
 
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; PayloadResolver.store is a Protocol stub (body is `...`) -- same as .resolve above, real implementations carry their own tests. Backfill T-0014."
     # frob:doc docs/modules/solve.md#solve_payload
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Deposit `content` and return its content-addressed ref (the

@@ -82,6 +82,7 @@ class SolverPackEntryPoint(Protocol):
         """The entry-point name (the pack's id, one per group member)."""
         ...
 
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; SolverPackEntryPoint.load is a Protocol stub (body is `...`) -- FakeSolverPackEntryPoint (tests/unit/test_solver_packs.py) is the tested implementation. Backfill T-0014."
     # frob:doc docs/modules/solve.md#solve_packs
     def load(self) -> object:
         """Resolve the entry point's target object (a real EntryPoint
@@ -89,6 +90,7 @@ class SolverPackEntryPoint(Protocol):
         ...
 
     # frob:doc docs/modules/solve.md#solve_packs
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; SolverPackEntryPoint.dist is a Protocol stub (body is `...`) -- FakeSolverPackEntryPoint (tests/unit/test_solver_packs.py) is the tested implementation. Backfill T-0014."
     @property
     def dist(self) -> "object | None":
         """The owning distribution, whose `.version` is the pack

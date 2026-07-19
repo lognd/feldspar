@@ -167,6 +167,7 @@ def run_ccx(deck: str, timeout_s: float) -> Result[CcxRun, SolveError]:
         )
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; probe_tools presence-checks the external ccx binary, which is not installed in this sandbox (T-0014's documented external-tool floor) -- only the absent-tool branch is reachable here. Backfill T-0014."
 # frob:doc docs/modules/fea.md#fea_ccx
 def probe_tools() -> Result[None, SolveError]:
     """Thin `find_ccx()` wrapper dropping the `Ok` payload -- the

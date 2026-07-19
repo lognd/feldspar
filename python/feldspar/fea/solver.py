@@ -459,6 +459,7 @@ _CYLINDER_SETTINGS_DIGEST = _fold_settings_digest(
     settings=_CYLINDER_SETTINGS_DIGEST,
     deterministic=True,
 )
+# frob:waive TEST005 reason="measured 36.7% branch cov on 2026-07-18; calls build_cylinder_mesh, which requires gmsh (T-0014's documented external-tool floor, not installed in this sandbox). Backfill T-0014."
 def cylinder_bore(x):
     geometry = CylinderGeometry(
         inner_radius=x["mech.geom.cylinder.inner_radius"],

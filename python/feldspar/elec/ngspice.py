@@ -89,6 +89,7 @@ def _parse_tool_version(output: str) -> str:
     return "unknown"
 
 
+# frob:waive TEST005 reason="measured 12.5% branch cov on 2026-07-18; the external ngspice binary boundary (T-0014's documented external-tool floor, not installed in this sandbox). Backfill T-0014."
 # frob:doc docs/modules/elec.md#elec_ngspice
 def run_ngspice(deck: str, timeout_s: float) -> Result[NgspiceRun, SolveError]:
     """Writes `deck` to `job.cir` in a throwaway tempdir, runs

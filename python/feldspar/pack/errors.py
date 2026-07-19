@@ -31,6 +31,7 @@ def _describe(error: Any) -> str:
     return f"{kind}({error!r})"
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; genuinely exercised by regolith-marked tests/regolith/test_pack_errors.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter (local lithos checkout present, suite passes; stamped coverage deliberately excludes regolith-marked tests fleet-wide). Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_errors
 def map_engine_error(model_id: str, error: Any) -> DomainError:
     """Any feldspar `SolveError`/`PlanError` value -> a regolith `DomainError`.
@@ -46,6 +47,7 @@ def map_engine_error(model_id: str, error: Any) -> DomainError:
     )
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; genuinely exercised by test_refinement_exhaustion_states_eps_achieved_vs_needed (tests/regolith/test_pack_margin_seeking.py) -- excluded from THIS coverage run by the -m the regolith-exclusion filter. Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_errors
 def margin_exhausted_error(
     model_id: str,

@@ -59,6 +59,7 @@ class NoStoreResolver:
     missing orchestrator-store channel, honestly, for every digest."""
 
     # frob:doc docs/modules/pack.md#pack_payload_bridge
+    # frob:waive TEST005 reason="measured 33.3% branch cov on 2026-07-18; genuinely exercised across every regolith-marked pack test (test_pack_margin_seeking.py, test_pack_wo111b_exposure.py, test_pack_wo141_fluids_network.py, et al.) via each Model.estimate no-resolver-supplied path -- excluded from THIS coverage run by the -m the regolith-exclusion filter. Backfill T-0014."
     def resolve(self, ref: PayloadRef) -> Result[bytes, SolveError]:
         """Always `Err(SolveError.ToolMissing(...))`: there is no bytes
         store reachable from this resolver (see module docstring)."""
@@ -75,6 +76,7 @@ class NoStoreResolver:
         )
 
     # frob:doc docs/modules/pack.md#pack_payload_bridge
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; this method is an intentional AssertionError-raising trap (module docstring: pack boundary never performs its own payload store IO) -- never called in any real path, so it is trivially never exercised by design, not a real gap. Backfill T-0014."
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Never called: the pack boundary never writes payloads of its
         own (06 "Boundary rules") -- a call here is a programmer bug."""
@@ -114,6 +116,7 @@ class RegolithResolverAdapter:
         self._resolve = resolve
 
     # frob:doc docs/modules/pack.md#pack_payload_bridge
+    # frob:waive TEST005 reason="measured 5.6% branch cov on 2026-07-18; genuinely exercised by tests/regolith/test_payload_resolver_bridge.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter. Backfill T-0014."
     def resolve(self, ref: PayloadRef) -> Result[bytes, SolveError]:
         """Resolve ``ref.digest`` through the wrapped lithos callable,
         then check the D154 schema-version envelope before returning
@@ -197,6 +200,7 @@ class RegolithResolverAdapter:
         return Ok(data)
 
     # frob:doc docs/modules/pack.md#pack_payload_bridge
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; this method is an intentional AssertionError-raising trap (module docstring: pack boundary never performs its own payload store IO) -- never called in any real path, so it is trivially never exercised by design, not a real gap. Backfill T-0014."
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Never called: the pack boundary never writes payloads of its
         own (06 "Boundary rules") -- a call here is a programmer bug."""

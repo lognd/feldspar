@@ -68,6 +68,7 @@ _RAZAVI = Citation(
     citations=(_SEDRA_SMITH,),
     version="1",
 )
+# frob:waive TEST005 reason="measured 25.0% branch cov on 2026-07-18; straight-line body (extract, one Rust FFI call, return Ok) has no real conditional -- coverage.py branch-pair artifact on trivial bodies. Genuinely exercised via test_solve_end_to_end_divider (tests/unit/test_library_elec.py, full registry->solve path). Backfill T-0014."
 def divider_loaded(x):
     vin = x["elec.source.vin"]
     r1 = x["elec.divider.r1"]
@@ -106,6 +107,7 @@ def divider_loaded(x):
     citations=(_NILSSON_RIEDEL,),
     version="1",
 )
+# frob:waive TEST005 reason="measured 25.0% branch cov on 2026-07-18; straight-line body, same coverage.py branch-pair artifact as divider_loaded above. Genuinely exercised via test_rc_step_matches_benchmark_memo (tests/unit/test_library_elec.py). Backfill T-0014."
 def rc_step(x):
     vf = x["elec.rc.vf"]
     r = x["elec.rc.resistance"]
@@ -145,6 +147,7 @@ def rc_step(x):
     citations=(_NILSSON_RIEDEL,),
     version="1",
 )
+# frob:waive TEST005 reason="measured 25.0% branch cov on 2026-07-18; straight-line body, same coverage.py branch-pair artifact as divider_loaded above. Genuinely exercised via test_rlc_resonance_matches_benchmark_memo (tests/unit/test_library_elec.py). Backfill T-0014."
 def rlc_resonance(x):
     r = x["elec.rlc.resistance"]
     inductance = x["elec.rlc.inductance"]

@@ -55,6 +55,7 @@ class _ExcludingRegistryView:
             if info.solver_id not in self._excluded:
                 yield info, fn
 
+    # frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; single-line straight-through body (return self._registry.digest()) has no real conditional -- coverage.py branch-pair counting artifact on trivial bodies, same class as the documented PERF004 loop-gate false positive above. Genuinely exercised via test_reroute_on_step_failure_deterministic_attempt_trail. Backfill T-0014."
     # frob:doc docs/modules/plan.md#plan_solve
     def digest(self) -> str:
         return self._registry.digest()

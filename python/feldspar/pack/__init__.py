@@ -59,6 +59,7 @@ _log = get_logger(__name__)
 __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
+# frob:waive TEST005 reason="measured 2.6% branch cov on 2026-07-18; genuinely exercised by tests/regolith/test_pack_conformance.py (imports and calls feldspar.pack.register against a real registry) -- excluded from THIS coverage run by the -m the regolith-exclusion filter. Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_init
 def register(registry: Any) -> None:
     """Registers feldspar's regolith models on `registry` (a

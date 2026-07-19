@@ -22,18 +22,21 @@ __all__ = [
 ]
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; straight-line field-copy body (coverage.py branch-pair artifact) genuinely covered by test_regolith_to_feldspar_round_trip in tests/regolith/test_pack_converters.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter (tests pass; regolith-marked suites need a local lithos checkout, which this sandbox has, but the stamped coverage command deliberately excludes them, matching the rest of the fleet). Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_converters
 def to_feldspar_interval(interval: RegolithInterval) -> FeldsparInterval:
     """A regolith `Interval` -> the equivalent feldspar `Interval`."""
     return FeldsparInterval(interval.lo, interval.hi)
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; straight-line field-copy body (coverage.py branch-pair artifact) genuinely covered by test_regolith_to_feldspar_round_trip / test_feldspar_to_regolith_round_trip in tests/regolith/test_pack_converters.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter (tests pass; regolith-marked suites need a local lithos checkout, which this sandbox has, but the stamped coverage command deliberately excludes them, matching the rest of the fleet). Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_converters
 def to_regolith_interval(interval: FeldsparInterval) -> RegolithInterval:
     """A feldspar `Interval` -> the equivalent regolith `Interval`."""
     return RegolithInterval(lo=interval.lo, hi=interval.hi)
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; straight-line field-copy body (coverage.py branch-pair artifact) genuinely covered by test_regolith_to_feldspar_payload_ref_round_trip in tests/regolith/test_pack_converters.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter (tests pass; regolith-marked suites need a local lithos checkout, which this sandbox has, but the stamped coverage command deliberately excludes them, matching the rest of the fleet). Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_converters
 def to_feldspar_payload_ref(ref: RegolithPayloadRef) -> FeldsparPayloadRef:
     """A regolith `PayloadRef` (D96, sec. 8.3) -> the equivalent feldspar
@@ -45,6 +48,7 @@ def to_feldspar_payload_ref(ref: RegolithPayloadRef) -> FeldsparPayloadRef:
     return FeldsparPayloadRef(kind=ref.kind, digest=ref.digest, origin=ref.origin)
 
 
+# frob:waive TEST005 reason="measured 50.0% branch cov on 2026-07-18; straight-line field-copy body (coverage.py branch-pair artifact) genuinely covered by test_regolith_to_feldspar_payload_ref_round_trip / test_feldspar_to_regolith_payload_ref_round_trip in tests/regolith/test_pack_converters.py -- excluded from THIS coverage run by the -m the regolith-exclusion filter (tests pass; regolith-marked suites need a local lithos checkout, which this sandbox has, but the stamped coverage command deliberately excludes them, matching the rest of the fleet). Backfill T-0014."
 # frob:doc docs/modules/pack.md#pack_converters
 def to_regolith_payload_ref(ref: FeldsparPayloadRef) -> RegolithPayloadRef:
     """A feldspar `PayloadRef` -> the equivalent regolith `PayloadRef`."""

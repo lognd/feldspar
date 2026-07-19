@@ -136,6 +136,7 @@ def _probe_ngspice_tools():
     settings=_DIVIDER_SETTINGS_DIGEST,
     deterministic=True,
 )
+# frob:waive TEST005 reason="measured 55.0% branch cov on 2026-07-18; the ngspice-backed discretized twin of elec/closed_form.py::divider_loaded -- requires the ngspice binary (T-0014's documented external-tool floor, not installed in this sandbox). Backfill T-0014."
 def divider(x):
     vin = x["elec.source.vin"]
     r1 = x["elec.divider.r1"]
@@ -231,6 +232,7 @@ _RC_STEP_ACCURACY = {
     settings=_RC_STEP_SETTINGS_DIGEST,
     deterministic=True,
 )
+# frob:waive TEST005 reason="measured 6.7% branch cov on 2026-07-18; the ngspice-backed discretized twin of elec/closed_form.py::rc_step -- requires the ngspice binary (T-0014's documented external-tool floor, not installed in this sandbox). Backfill T-0014."
 def rc_step(x):
     vf = x["elec.rc.vf"]
     r = x["elec.rc.resistance"]

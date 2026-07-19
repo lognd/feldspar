@@ -30,6 +30,8 @@ module with the declaration-free WO-07/WO-08 modules must call their
 `register()` FIRST or declare their ports; the port-table unification
 is WO-14 boundary work."""
 
+# frob:waive TEST005 reason="measured 52.6% module line cov on 2026-07-18; both registered directions call through gmsh (build_cantilever_mesh)/ccx (fea.ccx), neither installed in this sandbox (T-0014's documented external-tool floor). Backfill T-0014."
+
 from feldspar.core import Accuracy, Domain, Interval, PortDecl, Rank
 from feldspar.fea import ccx
 from feldspar.fea.deck import build_cantilever_deck

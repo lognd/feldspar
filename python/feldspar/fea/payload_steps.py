@@ -61,10 +61,12 @@ __all__ = [
 #: The cantilever family's parametric-geometry payload port (kind
 #: `geometry.parametric`, 09 sec. 4): its content is the frozen
 #: `CantileverGeometry` family params as JSON.
+# frob:doc docs/modules/fea.md#fea_payload_steps
 GEOMETRY_PORT = "mech.geom.cantilever.parametric"
 
 #: The cantilever mesh payload port (kind `mesh`): its content is the
 #: gmsh-free `MeshData` arrays as JSON.
+# frob:doc docs/modules/fea.md#fea_payload_steps
 MESH_PORT = "mech.mesh.cantilever"
 
 # The one fixed mesh level for the M2 graph step (the WO-08 pair's h;
@@ -241,6 +243,7 @@ def _make_static_from_mesh_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/fea.md#fea_payload_steps
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Declares this module's OWN port table (the two payload ports --
     payload ports NEED declared kinds; see the module docstring's F12

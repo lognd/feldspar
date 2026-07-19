@@ -30,6 +30,7 @@ _log = get_logger(__name__)
 _LOG_TAIL_LINES = 20
 
 
+# frob:doc docs/modules/fea.md#fea_ccx
 class CcxRun(BaseModel):
     """A completed CalculiX run: the `.dat`/`.frd` output CONTENTS (not
     paths -- the tempdir they were written under is gone by the time this
@@ -43,6 +44,7 @@ class CcxRun(BaseModel):
     tool_version: str
 
 
+# frob:doc docs/modules/fea.md#fea_ccx
 def find_ccx() -> Result[Path, SolveError]:
     """Locates the `ccx` executable: `FELDSPAR_CCX` env var first (must
     point at an existing executable file), then `PATH` via `shutil.which`.
@@ -84,6 +86,7 @@ def _parse_tool_version(output: str) -> str:
     return "unknown"
 
 
+# frob:doc docs/modules/fea.md#fea_ccx
 def run_ccx(deck: str, timeout_s: float) -> Result[CcxRun, SolveError]:
     """Writes `deck` to `job.inp` in a throwaway tempdir, runs
     `ccx -i job` (ccx's own convention: jobname without extension) with
@@ -164,6 +167,7 @@ def run_ccx(deck: str, timeout_s: float) -> Result[CcxRun, SolveError]:
         )
 
 
+# frob:doc docs/modules/fea.md#fea_ccx
 def probe_tools() -> Result[None, SolveError]:
     """Thin `find_ccx()` wrapper dropping the `Ok` payload -- the
     `probe_tools` convention `plan/cache.py`'s `_tools_still_consistent`

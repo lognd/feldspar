@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 __all__ = ["Material", "CantileverGeometry", "CylinderGeometry"]
 
 
+# frob:doc docs/modules/fea.md#fea_geometry
 class Material(BaseModel):
     """Linear-elastic isotropic material properties (SI units).
     `density` (WO-16, modal tier) defaults to a nominal steel density so
@@ -29,6 +30,7 @@ class Material(BaseModel):
     density: float = 7850.0  # kg/m^3 -- WO-16 modal tier's mass term
 
 
+# frob:doc docs/modules/fea.md#fea_geometry
 class CantileverGeometry(BaseModel):
     """Rectangular-box cantilever dimensions (SI units)."""
 
@@ -39,6 +41,7 @@ class CantileverGeometry(BaseModel):
     height: float  # m
 
 
+# frob:doc docs/modules/fea.md#fea_geometry
 class CylinderGeometry(BaseModel):
     """Thick-wall axisymmetric cylinder dimensions (SI units)."""
 

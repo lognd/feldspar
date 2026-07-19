@@ -59,6 +59,7 @@ __all__ = ["SolveSettings", "ToolVersions", "register"]
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/fea.md#fea_solver
 class SolveSettings(BaseModel):
     """ccx invocation flags that can change a successful answer.
     `timeout_s` is deliberately EXCLUDED (WO-08 contract): a longer/
@@ -70,6 +71,7 @@ class SolveSettings(BaseModel):
     omp_num_threads: int = 1
 
 
+# frob:doc docs/modules/fea.md#fea_solver
 class ToolVersions(BaseModel):
     """Best-effort external tool version strings folded into the
     settings_digest. `gmsh_version` is a fixed "unknown" placeholder --
@@ -287,6 +289,7 @@ _CANTILEVER_COST_CURVE = CostCurve(
 _CANTILEVER_RUNG_CACHE = RungCache()
 
 
+# frob:doc docs/modules/fea.md#fea_solver
 @solver(
     namespace="fea.static_deflection",
     inputs=(
@@ -427,6 +430,7 @@ _CYLINDER_SETTINGS_DIGEST = _fold_settings_digest(
 )
 
 
+# frob:doc docs/modules/fea.md#fea_solver
 @solver(
     namespace="fea.static_stress",
     inputs=(
@@ -543,6 +547,7 @@ cantilever.solver_direction[1].probe_tools = _probe_tools  # ty: ignore[unresolv
 cylinder_bore.solver_direction[1].probe_tools = _probe_tools  # ty: ignore[unresolved-attribute]
 
 
+# frob:doc docs/modules/fea.md#fea_solver
 def register(registry: SolverRegistry) -> None:
     """Registers both FEA (discretized-tier) directions (WO-08).
 

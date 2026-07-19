@@ -30,6 +30,7 @@ __all__ = [
 ]
 
 
+# frob:doc docs/modules/fea.md#fea_mesh
 class MeshSettings(BaseModel):
     """Fixed meshing knobs for one family: element type plus the single
     refinement parameter (char_length) the h/h/2 Richardson pair varies."""
@@ -43,6 +44,7 @@ class MeshSettings(BaseModel):
     seed: int = 0  # fixed seed, constant
 
 
+# frob:doc docs/modules/fea.md#fea_mesh
 class MeshData(BaseModel):
     """Plain, gmsh-free mesh arrays: 1-indexed ccx node ids (index i ->
     node id i+1), element connectivity in ccx's expected node order, and
@@ -103,6 +105,7 @@ def _subdivisions(dimension: float, char_length: float) -> int:
     return max(1, round(dimension / char_length))
 
 
+# frob:doc docs/modules/fea.md#fea_mesh
 def build_cantilever_mesh(
     geometry: CantileverGeometry, settings: MeshSettings
 ) -> Result[MeshData, SolveError]:
@@ -240,6 +243,7 @@ def build_cantilever_mesh(
         gmsh.finalize()
 
 
+# frob:doc docs/modules/fea.md#fea_mesh
 def build_cylinder_mesh(
     geometry: CylinderGeometry, settings: MeshSettings
 ) -> Result[MeshData, SolveError]:

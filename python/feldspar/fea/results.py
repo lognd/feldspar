@@ -87,6 +87,7 @@ def _parse_three_column_table(
     return Ok(rows)
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def parse_dat_displacements(
     text: str,
 ) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
@@ -128,6 +129,7 @@ def _principal_stresses(
     return (s1, s2, s3)
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def parse_dat_principal_stresses(
     text: str,
 ) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
@@ -181,6 +183,7 @@ def parse_dat_principal_stresses(
     return Ok(rows)
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def parse_dat_frequencies(
     text: str,
 ) -> Result[Mapping[int, Tuple[float, float, float]], SolveError]:
@@ -250,6 +253,7 @@ def parse_dat_frequencies(
     return Ok(rows)
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def first_mode_frequency(
     frequencies: Mapping[int, Tuple[float, float, float]],
 ) -> float:
@@ -260,6 +264,7 @@ def first_mode_frequency(
     return frequencies[first_mode][2]
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def max_displacement_magnitude(
     displacements: Mapping[int, Tuple[float, float, float]],
 ) -> float:
@@ -271,6 +276,7 @@ def max_displacement_magnitude(
     )
 
 
+# frob:doc docs/modules/fea.md#fea_results
 def max_von_mises(
     principal_stresses: Mapping[int, Tuple[float, float, float]],
 ) -> float:

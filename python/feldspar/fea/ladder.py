@@ -41,6 +41,7 @@ __all__ = ["RungCache", "climb_richardson_ladder"]
 RungT = TypeVar("RungT")
 
 
+# frob:doc docs/modules/fea.md#fea_ladder
 class RungCache:
     """In-process cache from `(solver_id, version, rung_settings, box)`
     to a rung's raw scalar value. Lighter than the WO-12
@@ -57,6 +58,7 @@ class RungCache:
         self.hits = 0
         self.misses = 0
 
+    # frob:doc docs/modules/fea.md#fea_ladder
     @staticmethod
     def key(solver_id: str, version: str, rung_settings: object, box: object) -> str:
         return canonical_digest(
@@ -68,6 +70,7 @@ class RungCache:
             }
         )
 
+    # frob:doc docs/modules/fea.md#fea_ladder
     def get(self, key: str) -> Optional[float]:
         value = self._store.get(key)
         if value is None:
@@ -78,10 +81,12 @@ class RungCache:
             _log.debug("RungCache hit: key=%s", key)
         return value
 
+    # frob:doc docs/modules/fea.md#fea_ladder
     def put(self, key: str, value: float) -> None:
         self._store[key] = value
 
 
+# frob:doc docs/modules/fea.md#fea_ladder
 def climb_richardson_ladder(
     rungs: Sequence[RungT],
     run_rung: Callable[[RungT], "Result[float, SolveError]"],

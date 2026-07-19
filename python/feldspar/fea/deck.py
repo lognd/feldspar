@@ -145,6 +145,7 @@ def _modal_step_block(num_modes: int) -> str:
     return f"*STEP\n*FREQUENCY\n{num_modes}\n*END STEP"
 
 
+# frob:doc docs/modules/fea.md#fea_deck
 def build_cantilever_modal_deck(
     mesh: MeshData, material: Material, num_modes: int = 1
 ) -> str:
@@ -199,6 +200,7 @@ def _static_step_block(cload_block: str, output_request: str) -> str:
     return f"*STEP\n*STATIC\n{cload_block}\n{output_request}\n*END STEP"
 
 
+# frob:doc docs/modules/fea.md#fea_deck
 def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) -> str:
     """Render a full ccx .inp deck for one cantilever mesh: fixed FIXED
     set (DOFs 1-3), tip_force split evenly across TIP as DOF-3 (height)
@@ -239,6 +241,7 @@ def build_cantilever_deck(mesh: MeshData, material: Material, tip_force: float) 
     return "\n".join(sections) + "\n"
 
 
+# frob:doc docs/modules/fea.md#fea_deck
 def build_cylinder_deck(mesh: MeshData, material: Material, pressure: float) -> str:
     """Render a full ccx .inp deck for one cylinder mesh: axial (DOF 2)
     fixed on every node (documented plane-strain-style simplification,

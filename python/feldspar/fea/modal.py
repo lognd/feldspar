@@ -119,6 +119,7 @@ def _make_modal_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/fea.md#fea_modal
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Registers the ccx modal direction only (WO-16); the port table
     (`FIRST_MODE_PORT`, `mech.material.density`) and the mesh/geometry

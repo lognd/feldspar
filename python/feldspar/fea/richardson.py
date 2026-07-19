@@ -23,15 +23,18 @@ __all__ = [
 # levels (h, h/2) the order cannot be empirically measured -- that needs
 # at least three points -- so this is a fixed, cited constant, not a
 # per-call estimate.
+# frob:doc docs/modules/fea.md#fea_richardson
 THEORETICAL_ORDER = 2.0
 
 # Conservative inflation factor applied to the extrapolation correction
 # to form the reported eps in the normal (non-fallback) path. This is a
 # chosen conservative margin, not evidence-derived; it can be revisited
 # once real ccx/gmsh runs are available to calibrate against.
+# frob:doc docs/modules/fea.md#fea_richardson
 SAFETY_FACTOR = 1.5
 
 
+# frob:doc docs/modules/fea.md#fea_richardson
 class RichardsonResult(BaseModel):  # frozen
     """Outcome of a two-mesh Richardson extrapolation: value, order used,
     conservative eps, and whether the safe fallback fired."""
@@ -44,6 +47,7 @@ class RichardsonResult(BaseModel):  # frozen
     fallback_used: bool
 
 
+# frob:doc docs/modules/fea.md#fea_richardson
 def richardson_extrapolate(
     value_h: float,
     value_h2: float,

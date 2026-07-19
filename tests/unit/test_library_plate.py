@@ -39,6 +39,7 @@ def test_ss_max_stress_matches_hand_computed():
     assert v == pytest.approx(4.95e6, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/plate.py::plate_circular_uniform_clamped_max_stress kind="unit"
 def test_clamped_max_stress_matches_hand_computed():
     """sigma = 3*q*a^2/(4*t^2) = 3*1e4*0.01/(4*2.5e-5) = 3.0 MPa."""
     _i, fn = _solvers()["mech.plate.plate_circular_uniform_clamped_max_stress"]
@@ -46,6 +47,7 @@ def test_clamped_max_stress_matches_hand_computed():
     assert v == pytest.approx(3.0e6, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/plate.py::plate_circular_uniform_ss_max_deflection kind="unit"
 def test_ss_max_deflection_matches_hand_computed():
     """y = q*a^4*(5+nu)/(64*D*(1+nu))."""
     _i, fn = _solvers()["mech.plate.plate_circular_uniform_ss_max_deflection"]
@@ -54,6 +56,7 @@ def test_ss_max_deflection_matches_hand_computed():
     assert v == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/plate.py::plate_circular_uniform_clamped_max_deflection kind="unit"
 def test_clamped_max_deflection_matches_hand_computed():
     """y = q*a^4/(64*D)."""
     _i, fn = _solvers()["mech.plate.plate_circular_uniform_clamped_max_deflection"]
@@ -83,6 +86,7 @@ def test_simply_supported_more_severe_than_clamped():
     assert ss_y > cl_y
 
 
+# frob:tests python/feldspar/mech/plate.py::plate_circular_uniform_ss_max_stress kind="unit"
 def test_plate_nonpositive_is_honest_indeterminate():
     _i, fn = _solvers()["mech.plate.plate_circular_uniform_ss_max_stress"]
     bad = dict(_CASE)

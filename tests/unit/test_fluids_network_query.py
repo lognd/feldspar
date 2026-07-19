@@ -140,6 +140,7 @@ def test_find_path_edges_unknown_node_is_honest_out_of_domain() -> None:
     assert path.err.violation.tag == "unknown_node"
 
 
+# frob:tests python/feldspar/solve/errors.py::SolveError.ParseFailed kind="unit"
 def test_solve_flownet_bytes_rejects_malformed_json_honestly() -> None:
     result = solve_flownet_bytes(b"not json")
     assert result.is_err

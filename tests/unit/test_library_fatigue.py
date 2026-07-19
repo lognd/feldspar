@@ -57,6 +57,7 @@ def _solvers(resolver=None) -> dict:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/mech/fatigue.py::fatigue_endurance_limit_baseline kind="unit"
 def test_baseline_endurance_limit_matches_hand_computed():
     """Sut=630e6 Pa -> Se' = 0.5*630e6 = 315e6 Pa."""
     _info, fn = _solvers()["mech.fatigue.fatigue_endurance_limit_baseline"]
@@ -67,6 +68,7 @@ def test_baseline_endurance_limit_matches_hand_computed():
     )
 
 
+# frob:tests python/feldspar/mech/fatigue.py::fatigue_marin_surface_factor kind="unit"
 def test_baseline_endurance_limit_nonpositive_is_honest_indeterminate():
     _info, fn = _solvers()["mech.fatigue.fatigue_endurance_limit_baseline"]
     result = fn({"mech.fatigue.baseline.sut": 0.0})
@@ -105,6 +107,7 @@ def test_marin_surface_factor_matches_hand_computed():
     )
 
 
+# frob:tests python/feldspar/mech/fatigue.py::fatigue_marin_endurance_limit kind="unit"
 def test_marin_surface_factor_nonpositive_is_honest_indeterminate():
     _info, fn = _solvers()["mech.fatigue.fatigue_marin_surface_factor"]
     result = fn(
@@ -399,6 +402,7 @@ def test_sn_cycles_to_failure_midpoint_matches_hand_computed():
     ] == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/fatigue.py::fatigue_sn_cycles_to_failure kind="unit"
 def test_sn_cycles_to_failure_outside_knee_range_is_honest_indeterminate():
     """A stress far above the knee drives N below 1e3 -- outside the
     line's honest validity range (named cut)."""

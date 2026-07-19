@@ -244,6 +244,7 @@ class TestCantileverRoute:
         ).danger_ok
         assert route_a.digest == route_b.digest
 
+    # frob:tests python/feldspar/plan/cache.py::request_digest kind="unit"
     def test_payload_in_digest_is_its_hash(self) -> None:
         """FINV-12: two different geometry payloads -> different request
         digests; the ref's `origin` provenance does NOT fold."""
@@ -346,6 +347,7 @@ class TestPayloadErrorValues:
         assert result.is_err
         assert result.danger_err == SolveError.MissingPayload(port=GEOM_PORT)
 
+    # frob:tests python/feldspar/solve/errors.py::SolveError.PayloadKindMismatch kind="unit"
     def test_kind_mismatch_at_execution(self) -> None:
         """02-edge-cases WO-12: a wrong-kind ref at a declared payload
         port -> Err(PayloadKindMismatch) naming both kinds."""
@@ -369,6 +371,7 @@ class TestPayloadErrorValues:
             actual_kind="spectrum",
         )
 
+    # frob:tests python/feldspar/plan/execute.py::execute_with_attribution kind="unit"
     def test_dangling_digest_surfaces_as_error_value(self) -> None:
         """02-edge-cases WO-12: a ref whose hash the store cannot
         resolve -> the solver's Err(DanglingDigest) surfaces with
@@ -649,6 +652,7 @@ class TestFeaPayloadStepsRegistration:
     against real tools is tests/integration/test_fea_payload_steps.py
     (`fea`-marked)."""
 
+    # frob:tests python/feldspar/mech/closed_form.py::declare_core_ports kind="unit"
     def test_registers_and_plans_the_acceptance_route(self) -> None:
         from feldspar.fea.payload_steps import (
             GEOMETRY_PORT as REAL_GEOM_PORT,

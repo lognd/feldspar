@@ -44,6 +44,7 @@ def test_parallel_corner_sweep_matches_serial_at_any_thread_count(
     assert serial.danger_ok == parallel.danger_ok
 
 
+# frob:tests python/feldspar/core.py::enumerate_corners kind="unit"
 def test_parallel_corner_sweep_serial_fallthrough_short_circuits() -> None:
     """`thread_count<=1` must short-circuit on the FIRST corner's `Err`,
     exactly like `corner_sweep` -- never evaluating corners AFTER the

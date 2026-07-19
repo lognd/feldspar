@@ -34,6 +34,7 @@ pytestmark = pytest.mark.regolith
         PlanError.CyclicPortEquivalence(),
     ],
 )
+# frob:tests python/feldspar/pack/errors.py::map_engine_error kind="unit"
 def test_every_variant_maps_to_domain_error(error: object) -> None:
     """Every `SolveError`/`PlanError` variant -> a `DomainError` embedding
     the original kind/fields in its message -- never an exception, never

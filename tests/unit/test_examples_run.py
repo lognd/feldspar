@@ -38,6 +38,8 @@ def test_01_register_and_solve_runs() -> None:
 
 
 # frob:tests python/feldspar/plan kind="integration"
+# frob:tests examples/02_tier_competition.py::lame_chart kind="unit"
+# frob:tests examples/02_tier_competition.py::lame_exact kind="unit"
 def test_02_tier_competition_runs() -> None:
     """Loose budget picks the cheap chart tier, tight budget forces the
     exact closed form -- both routing outcomes exercised in one run."""

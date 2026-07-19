@@ -59,6 +59,7 @@ def test_zero_load_inertia_limit():
     assert v == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/drive.py::drive_acceleration_torque kind="unit"
 def test_drive_bad_inputs_honest_indeterminate():
     _i, fn = _solvers()["mech.drive.drive_acceleration_torque"]
     bad = dict(_CASE)

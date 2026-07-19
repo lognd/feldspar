@@ -384,6 +384,7 @@ def test_cache_key_changes_when_feldspar_version_changes(monkeypatch, tmp_path) 
     assert key_before != key_after
 
 
+# frob:tests python/feldspar/plan/cache.py::is_route_cacheable kind="unit"
 def test_deterministic_false_route_never_cached(tmp_path) -> None:
     registry = SolverRegistry()
 

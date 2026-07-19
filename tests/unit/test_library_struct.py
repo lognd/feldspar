@@ -171,6 +171,7 @@ def test_inclined_member_orientation_is_honest_indeterminate():
     assert "orientation" in result.err.violation
 
 
+# frob:tests python/feldspar/mech/struct.py::solve_frame_payload kind="unit"
 def test_missing_section_material_is_honest_indeterminate():
     """No out-of-band resolved EA/EI supplied for a member -> `Err`,
     never a fabricated property."""
@@ -447,6 +448,7 @@ def test_bearing_without_declared_tributary_stays_honestly_deferred():
     assert _close(result.danger_ok["reactions"]["A"][1], 0.0, tol=1.0)
 
 
+# frob:tests python/feldspar/mech/struct.py::resolve_tributary_loads kind="unit"
 def test_area_tributary_without_receiving_member_length_is_honest_indeterminate():
     """An `area` tributary needs the receiving member's length to
     spread the resultant into a UDL -- `resolve_tributary_loads` must

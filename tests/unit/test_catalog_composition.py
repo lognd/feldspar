@@ -168,6 +168,7 @@ def test_full_catalog_ports_are_fully_declared():
     assert not missing, f"undeclared ports referenced by the catalog: {sorted(missing)}"
 
 
+# frob:tests python/feldspar/catalog.py::build_engine_catalog kind="unit"
 def test_full_catalog_is_deterministic():
     """Two builds digest identically (FINV-1 at the composition
     level)."""

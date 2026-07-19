@@ -54,6 +54,7 @@ def _declare_ideal_gas_ports(registry: SolverRegistry) -> None:
     )
 
 
+# frob:tests examples/solvers/02_relations.py::p_from_tv kind="unit"
 def test_toy_ideal_gas_registers_freezes_iterates_sorted() -> None:
     """Acceptance: 'a toy thermo.ideal_gas solver registers, freezes,
     iterates sorted'."""
@@ -79,6 +80,7 @@ def test_toy_ideal_gas_registers_freezes_iterates_sorted() -> None:
     assert ids == ["thermo.p_from_tv", "thermo.t_from_pv"]
 
 
+# frob:tests examples/solvers/02_relations.py::t_from_pv kind="unit"
 def test_registry_digest_stable_and_folds_every_solver() -> None:
     ideal_gas = _ideal_gas_relation()
 
@@ -123,6 +125,7 @@ def test_duplicate_solver_id_is_err() -> None:
     assert result.err == RegistryError.DuplicateSolverId(solver_id=info.solver_id)
 
 
+# frob:tests python/feldspar/solve/registry.py::SolverRegistry.declare_ports kind="unit"
 def test_port_unit_conflict() -> None:
     registry = SolverRegistry()
     registry.declare_ports(PortDecl("mech.p", "Pa"))
@@ -785,6 +788,7 @@ def test_err_result_passes_through() -> None:
     )
 
 
+# frob:tests python/feldspar/solve/errors.py::SolveError.ToolFailed kind="unit"
 def test_solve_error_variants_are_total() -> None:
     """FINV-5 exhaustiveness: every named SolveError variant is
     constructible (executor enforcement lands in WO-04/WO-06)."""

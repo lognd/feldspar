@@ -96,6 +96,7 @@ def test_cantilever_is_eps_seeking() -> None:
     assert infos["fea.static_stress.cylinder_bore"].eps_seeking is False
 
 
+# frob:tests python/feldspar/solve/_build.py::invoke_solve_fn kind="unit"
 def test_no_budget_context_runs_fixed_first_pair(monkeypatch) -> None:
     log: list = []
     _install_fakes(monkeypatch, log)

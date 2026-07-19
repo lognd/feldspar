@@ -124,6 +124,7 @@ def test_duplicate_solver_id_across_packs_names_both() -> None:
     assert dup.owned_by == "pack_one"
 
 
+# frob:tests python/feldspar/solve/packs.py::load_solver_packs kind="unit"
 def test_namespace_squatting_is_rejected() -> None:
     """A pack registering under a bare standard namespace (`mech`, no
     own sub-namespace) is skipped LOUDLY -- the "no squatting" rule."""

@@ -46,6 +46,7 @@ def test_l10_ball_matches_hand_computed():
     assert got == pytest.approx(343.0, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/bearing_life.py::bearing_basic_rating_life_l10_ball kind="unit"
 def test_l10_ball_nonpositive_rating_is_honest_indeterminate():
     _info, fn = _solvers()["mech.bearing.bearing_basic_rating_life_l10_ball"]
     result = fn(
@@ -93,6 +94,7 @@ def test_l10_roller_matches_hand_computed():
     assert got == pytest.approx(213.7470, rel=1e-4)
 
 
+# frob:tests python/feldspar/mech/bearing_life.py::bearing_basic_rating_life_l10_roller kind="unit"
 def test_l10_roller_nonpositive_rating_is_honest_indeterminate():
     _info, fn = _solvers()["mech.bearing.bearing_basic_rating_life_l10_roller"]
     result = fn(
@@ -129,6 +131,7 @@ def test_l10h_matches_hand_computed():
     assert got == pytest.approx(3_175.93, rel=1e-4)
 
 
+# frob:tests python/feldspar/mech/bearing_life.py::bearing_basic_rating_life_l10h kind="unit"
 def test_l10h_nonpositive_l10_is_honest_indeterminate():
     _info, fn = _solvers()["mech.bearing.bearing_basic_rating_life_l10h"]
     result = fn({"mech.bearing.l10": 0.0, "mech.bearing.speed_rpm": 1_800.0})

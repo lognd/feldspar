@@ -64,6 +64,7 @@ def test_eps_is_always_nonnegative_and_finite():
         assert math.isfinite(result.eps)
 
 
+# frob:tests python/feldspar/fea/richardson.py::richardson_extrapolate kind="unit"
 def test_order_used_is_always_reported():
     """order_used must reflect the fixed theoretical order passed in,
     even when the fallback path fires and discards the extrapolation

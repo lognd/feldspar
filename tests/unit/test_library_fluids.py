@@ -61,6 +61,8 @@ def test_colebrook_root_is_self_consistent():
     assert f == pytest.approx(0.02012, rel=5e-3)
 
 
+# frob:tests python/feldspar/fluids/incompressible.py::colebrook_friction_factor kind="unit"
+# frob:tests python/feldspar/fluids/incompressible.py::haaland_friction_factor kind="unit"
 def test_haaland_matches_colebrook_within_two_percent():
     """Benchmarks memo 3.1: 'confirm Haaland within +/-2% of
     Colebrook.'"""
@@ -80,6 +82,7 @@ def test_haaland_matches_colebrook_within_two_percent():
     assert abs(f_haaland - f_colebrook) / f_colebrook < 0.02
 
 
+# frob:tests python/feldspar/fluids/incompressible.py::series_dp kind="unit"
 def test_series_network_dp_reduction():
     """Benchmarks memo 3.2, series case: h1=3.0 m, h2=2.0 m ->
     h_total=5.0 m exact."""
@@ -91,6 +94,7 @@ def test_series_network_dp_reduction():
     )
 
 
+# frob:tests python/feldspar/fluids/incompressible.py::parallel_flow kind="unit"
 def test_parallel_network_flow_reduction():
     """Benchmarks memo 3.2, parallel case: two identical branches each
     Q=0.006 m^3/s -> Q_total=0.012 m^3/s exact."""
@@ -102,6 +106,8 @@ def test_parallel_network_flow_reduction():
     )
 
 
+# frob:tests python/feldspar/fluids/incompressible.py::pump_operating_flow kind="unit"
+# frob:tests python/feldspar/fluids/incompressible.py::pump_operating_head kind="unit"
 def test_pump_operating_point_matches_memo_case():
     """Benchmarks memo 3.3: H0=50m, a=2000, H_static=10m, R=3000 ->
     Q*=0.08944 m^3/s, H*=34.0 m. Tolerance +/-0.1% exact."""
@@ -150,6 +156,7 @@ def test_npsh_available_known_answer():
     assert npsh == pytest.approx(expected, rel=1e-6)
 
 
+# frob:tests python/feldspar/fluids/incompressible.py::joukowsky_dp kind="unit"
 def test_joukowsky_water_hammer_dp():
     """Joukowsky: dp = rho*a*dV. Water rho=1000, wave speed a=1200 m/s
     (typical steel pipe), instantaneous closure dV=2 m/s ->
@@ -177,6 +184,8 @@ def test_joukowsky_water_hammer_dp():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/fluids/compressible.py::isentropic_stagnation_temp_ratio kind="unit"
+# frob:tests python/feldspar/fluids/compressible.py::isentropic_stagnation_pressure_ratio kind="unit"
 def test_isentropic_stagnation_ratios_known_case():
     """Air, k=1.4, M=0.5: T0/T = 1 + 0.2*0.25 = 1.05;
     p0/p = 1.05^(1.4/0.4) = 1.05^3.5 = 1.1858 (Anderson ch. 3)."""
@@ -192,6 +201,8 @@ def test_isentropic_stagnation_ratios_known_case():
     assert p_ratio == pytest.approx(1.05**3.5, rel=1e-9)
 
 
+# frob:tests python/feldspar/fluids/compressible.py::normal_shock_mach2 kind="unit"
+# frob:tests python/feldspar/fluids/compressible.py::normal_shock_pressure_ratio kind="unit"
 def test_normal_shock_known_case():
     """Air, k=1.4, M1=2.0: M2 = sqrt((1+0.2*4)/(1.4*4-0.2)) =
     sqrt(1.8/5.4) = 0.5774; p2/p1 = 1 + (2*1.4/2.4)*(4-1) = 4.5

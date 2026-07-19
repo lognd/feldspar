@@ -72,6 +72,7 @@ def test_climbs_further_when_budget_demands_it() -> None:
     assert calls == [0, 1, 2]
 
 
+# frob:tests python/feldspar/solve/errors.py::SolveError.LadderExhausted kind="unit"
 def test_zero_budget_exhausts_the_ladder() -> None:
     run_rung, _calls = _run_rung_factory()
     result = climb_richardson_ladder(
@@ -114,6 +115,7 @@ def test_deterministic_twice() -> None:
     assert calls_1 == calls_2
 
 
+# frob:tests python/feldspar/fea/ladder.py::climb_richardson_ladder kind="unit"
 def test_requires_at_least_two_rungs() -> None:
     run_rung, _calls = _run_rung_factory()
     with pytest.raises(RuntimeError):

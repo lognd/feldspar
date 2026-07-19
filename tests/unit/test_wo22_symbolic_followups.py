@@ -221,6 +221,7 @@ def test_resweep_derived_produces_tight_residual_record() -> None:
     assert record.digest
 
 
+# frob:tests python/feldspar/calib/store.py::read_record kind="unit"
 def test_resweep_all_derived_writes_records_for_every_non_exact_derived_direction(
     tmp_path: Path,
 ) -> None:

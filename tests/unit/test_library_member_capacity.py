@@ -203,6 +203,7 @@ def test_euler_critical_buckling_load_nonpositive_is_honest_indeterminate():
     assert result.err.kind == "OutOfDomain"
 
 
+# frob:tests python/feldspar/mech/member_capacity.py::axial_yield_buckling_capacity_e3 kind="unit"
 def test_solver_ids_registered_under_mech_member_namespace():
     solvers = _solvers()
     assert "mech.member.flexural_yield_capacity_f2" in solvers

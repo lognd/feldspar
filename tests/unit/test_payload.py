@@ -71,6 +71,7 @@ class TestRegistrationKindChecking:
         table = registry.port_table()
         assert table["mech.mesh.cantilever"].rank == Rank.payload("mesh")
 
+    # frob:tests python/feldspar/solve/errors.py::RegistryError.PayloadKindConflict kind="unit"
     def test_mismatched_kinds_same_port_is_kind_conflict(self) -> None:
         """Connecting `mesh` to `spectrum` is a registration error with
         the same shape as a unit mismatch (WO-12 deliverable)."""
@@ -120,6 +121,7 @@ class TestRegistrationKindChecking:
 
 
 class TestPayloadFeatureViolation:
+    # frob:tests python/feldspar/solve/payload.py::payload_feature_violation kind="unit"
     def test_carries_port_and_feature(self) -> None:
         """4a execution-time domain checks report through the same
         DomainViolation shape scalar checks use."""

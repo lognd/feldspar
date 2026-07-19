@@ -79,6 +79,7 @@ def test_isp_seconds_view_round_trips() -> None:
     assert sys_.from_si(stored, "s(Isp)").danger_ok == pytest.approx(285.0)
 
 
+# frob:tests python/feldspar/core.py::canonical_digest kind="unit"
 def test_digest_stable_across_map_insertion_orders() -> None:
     a = {"b": 2, "a": 1}
     b = {"a": 1, "b": 2}

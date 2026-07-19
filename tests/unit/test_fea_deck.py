@@ -117,12 +117,14 @@ def test_cantilever_modal_deck_has_expected_sections():
     assert format_f64(_MATERIAL.density) in deck
 
 
+# frob:tests python/feldspar/fea/deck.py::build_cantilever_modal_deck kind="unit"
 def test_cantilever_modal_deck_requests_num_modes():
     mesh = _tiny_cantilever_mesh()
     deck = build_cantilever_modal_deck(mesh, _MATERIAL, num_modes=3)
     assert "*FREQUENCY\n3" in deck
 
 
+# frob:tests python/feldspar/fea/deck.py::build_cantilever_deck kind="unit"
 def test_cantilever_deck_is_byte_stable():
     """Two calls with identical MeshData/Material/tip_force inputs must
     produce byte-identical deck text (no dict-iteration or float-repr
@@ -202,6 +204,7 @@ def test_cylinder_deck_has_expected_sections():
         assert keyword in deck
 
 
+# frob:tests python/feldspar/fea/deck.py::build_cylinder_deck kind="unit"
 def test_cylinder_deck_formats_material_via_format_f64():
     mesh = _tiny_cylinder_mesh()
     pressure = 5.0e6

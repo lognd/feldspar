@@ -105,6 +105,7 @@ def test_rung_06_coupled_groups_registers() -> None:
 
 
 # frob:tests examples/solvers/05_expensive_and_abstraction.py kind="integration"
+# frob:tests examples/solvers/05_expensive_and_abstraction.py::flange_as_cantilever kind="unit"
 def test_rung_05_second_solver_is_honestly_not_yet_registrable() -> None:
     """05's `flange_as_cantilever` abstraction-edge solver is explicitly
     "not registrable in M1" (its own comment; F17, README OPEN/M2): the

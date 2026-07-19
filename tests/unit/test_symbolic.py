@@ -228,6 +228,7 @@ def test_law_predicate_narrows_declared_box() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/solve/errors.py::RegistryError.UnboundablePredicate kind="unit"
 def test_law_nonlinear_predicate_is_unboundable() -> None:
     x = Expr.var("x")
     y = Expr.var("y")

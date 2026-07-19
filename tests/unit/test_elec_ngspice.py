@@ -76,6 +76,7 @@ def test_probe_tools_missing_is_tool_missing(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/elec/deck.py::build_divider_deck kind="unit"
 def test_divider_deck_is_deterministic():
     first = deck.build_divider_deck(10.0, 10e3, 10e3, 100e3)
     second = deck.build_divider_deck(10.0, 10e3, 10e3, 100e3)
@@ -84,6 +85,7 @@ def test_divider_deck_is_deterministic():
     assert "print v(out)" in first
 
 
+# frob:tests python/feldspar/elec/deck.py::build_rc_step_deck kind="unit"
 def test_rc_step_deck_is_deterministic():
     first = deck.build_rc_step_deck(5.0, 1000.0, 1e-6, 1e-3, 5e-6)
     second = deck.build_rc_step_deck(5.0, 1000.0, 1e-6, 1e-3, 5e-6)
@@ -114,6 +116,7 @@ def test_parse_print_value_missing_line_fails_closed():
     assert result.err.kind == "ParseFailed"
 
 
+# frob:tests python/feldspar/solve/digest.py::settings_digest kind="unit"
 def test_parse_print_value_malformed_value_fails_closed():
     result = results.parse_print_value("v(out) = notafloat\n", "v(out)")
     assert result.is_err
@@ -199,6 +202,7 @@ def test_divider_direction_returns_tool_missing_without_ngspice(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+# frob:tests python/feldspar/elec/ngspice.py::run_ngspice kind="unit"
 def test_divider_solve_digest_is_deterministic_across_two_runs_mocked():
     canned = Ok(
         NgspiceRun(

@@ -136,6 +136,7 @@ def test_calibrate_domain_mismatch() -> None:
     assert result.danger_err.kind == "DomainMismatch"
 
 
+# frob:tests python/feldspar/calib/store.py::write_record kind="unit"
 def test_check_ceilings_happy_path(tmp_path: Path) -> None:
     records_dir = tmp_path / "records"
     registry = _build_registry()
@@ -166,6 +167,7 @@ def test_check_ceilings_happy_path(tmp_path: Path) -> None:
     assert result.is_ok
 
 
+# frob:tests python/feldspar/calib/errors.py::CalibError.CeilingBusted kind="unit"
 def test_check_ceilings_busted(tmp_path: Path) -> None:
     records_dir = tmp_path / "records"
     registry = _build_registry()

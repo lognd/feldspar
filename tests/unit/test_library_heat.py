@@ -60,6 +60,7 @@ def test_cylindrical_wall_resistance_known_answer():
     )
 
 
+# frob:tests python/feldspar/heat/closed_form.py::rate_from_resistance kind="unit"
 def test_series_resistance_and_rate():
     """Composite wall: R1=0.0625, R2=0.02 K/W in series -> R=0.0825
     K/W; delta_T=50K -> q = 50/0.0825 = 606.06 W."""
@@ -94,6 +95,7 @@ def test_dittus_boelter_nusselt_known_answer():
     )
 
 
+# frob:tests python/feldspar/heat/closed_form.py::dittus_boelter_nusselt_heating kind="unit"
 def test_dittus_boelter_domain_rejects_below_validity_reynolds():
     """The published validity box requires Re >= 1e4 (Incropera ch. 8);
     a call below that is out of the registered Domain."""

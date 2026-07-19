@@ -20,6 +20,8 @@ from feldspar.solve.payload import PayloadRef as FeldsparPayloadRef
 pytestmark = pytest.mark.regolith
 
 
+# frob:tests python/feldspar/pack/converters.py::to_feldspar_interval kind="unit"
+# frob:tests python/feldspar/pack/converters.py::to_regolith_interval kind="unit"
 def test_regolith_to_feldspar_round_trip() -> None:
     """regolith -> feldspar -> regolith preserves lo/hi exactly."""
     original = RegolithInterval(lo=1.5, hi=3.25)

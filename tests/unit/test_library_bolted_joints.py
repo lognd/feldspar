@@ -67,6 +67,7 @@ def test_vdi2230_separation_when_residual_clamp_load_goes_nonpositive():
     assert result.danger_ok.values["mech.joint.bolt.residual_clamp_load"] < 0.0
 
 
+# frob:tests python/feldspar/mech/bolted_joints.py::bolt_single_load_factor_vdi2230 kind="unit"
 def test_vdi2230_nonpositive_stiffness_is_honest_indeterminate():
     _info, fn = _solvers()["mech.joint.bolt_single_load_factor_vdi2230"]
     result = fn(

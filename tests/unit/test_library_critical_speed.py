@@ -22,6 +22,7 @@ def _solvers() -> dict:
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
+# frob:tests python/feldspar/mech/critical_speed.py::shaft_critical_speed_from_stiffness kind="unit"
 def test_critical_speed_from_stiffness_matches_closed_form():
     """k=1e6 N/m, m=2 kg -> omega_c = sqrt(5e5), n_c = omega_c*60/(2*pi)."""
     _info, fn = _solvers()["mech.critical_speed.shaft_critical_speed_from_stiffness"]
@@ -33,6 +34,7 @@ def test_critical_speed_from_stiffness_matches_closed_form():
     assert result.danger_ok.values["mech.critical_speed.rpm"] == expected
 
 
+# frob:tests python/feldspar/mech/critical_speed.py::shaft_critical_speed_rayleigh_single_mass kind="unit"
 def test_critical_speed_rayleigh_matches_closed_form():
     """delta=1 mm -> n_c = (30/pi)*sqrt(g/delta)."""
     _info, fn = _solvers()[

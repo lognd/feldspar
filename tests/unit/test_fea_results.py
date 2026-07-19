@@ -97,6 +97,7 @@ def test_parse_dat_principal_stresses_non_numeric_token_fails_closed():
     assert "line 3" in error.context
 
 
+# frob:tests python/feldspar/fea/results.py::first_mode_frequency kind="unit"
 def test_parse_dat_frequencies_reads_only_the_eigenvalue_table():
     """A real ccx *FREQUENCY .dat holds several int-leading tables; only
     the EIGENVALUE OUTPUT rows (mode, eigenvalue, rad/time, cycles/time,

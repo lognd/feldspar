@@ -118,6 +118,7 @@ def test_torque_lower_matches_hand_computed():
     ] == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/leadscrew.py::leadscrew_torque_lower kind="unit"
 def test_torque_lower_can_be_negative_not_self_locking():
     """Low friction (f=0.02) with the same dm/lead -> TL negative
     (the screw back-drives without applied torque): a real physical
@@ -155,6 +156,7 @@ def test_efficiency_matches_hand_computed():
     )
 
 
+# frob:tests python/feldspar/mech/leadscrew.py::leadscrew_efficiency kind="unit"
 def test_efficiency_nonpositive_is_honest_indeterminate():
     _info, fn = _solvers()["mech.drive.leadscrew_efficiency"]
     result = fn(
@@ -188,6 +190,7 @@ def test_self_locking_margin_matches_hand_computed():
     ] == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/leadscrew.py::leadscrew_self_locking_margin kind="unit"
 def test_self_locking_margin_negative_when_low_friction():
     """f=0.02 with the same dm/lead -> margin negative (NOT
     self-locking), consistent with the negative TL case above."""
@@ -221,6 +224,7 @@ def test_collar_torque_matches_hand_computed():
     ] == pytest.approx(1.5, rel=1e-9)
 
 
+# frob:tests python/feldspar/mech/leadscrew.py::leadscrew_collar_torque kind="unit"
 def test_collar_torque_nonpositive_is_honest_indeterminate():
     _info, fn = _solvers()["mech.drive.leadscrew_collar_torque"]
     result = fn(

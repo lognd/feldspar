@@ -42,6 +42,7 @@ def test_parse_dat_displacements_valid_table():
     }
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_von_mises_principal_py
 def test_parse_dat_principal_stresses_valid_table_and_max_von_mises():
     """A small *EL PRINT S block (the six tensor components ccx actually
     prints, `<elem> <ip> Sxx Syy Szz Sxy Sxz Syz`) parses and reduces to

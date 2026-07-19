@@ -12,6 +12,7 @@ from typani import Err, Ok
 from feldspar import core
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::corner_sweep_py
 def test_three_input_box_hits_eight_deduplicated_sorted_corners() -> None:
     calls: list[dict[str, float]] = []
 
@@ -65,6 +66,7 @@ def test_solver_err_at_one_corner_fails_whole_sweep() -> None:
     assert result.err == "boom at a=1.0"
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::total_error_py
 def test_accumulation_with_eps_zero_point_inputs_is_zero_exactly() -> None:
     box = {"x": core.Interval(3.0, 3.0)}
     result = core.corner_sweep(box, lambda c: Ok({"y": c["x"] * 2.0}))
@@ -72,6 +74,7 @@ def test_accumulation_with_eps_zero_point_inputs_is_zero_exactly() -> None:
     assert core.total_error(hull, 0.0) == 0.0
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::inflate_py
 def test_inflate_then_domain_check_uses_inflated_interval() -> None:
     """02-edge-cases WO-04: subset rule applies to the INFLATED interval."""
     point = core.Interval(5.0, 5.0)

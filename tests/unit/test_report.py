@@ -133,6 +133,8 @@ def test_to_dict_and_explain_share_step_data() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/search.rs::PyRouteStep.realized_domain
+# frob:tests crates/feldspar-py/src/search.rs::PyRouteStep.predicted_eps
 def test_explain_golden_toy_registry() -> None:
     registry = _toy_registry()
     known = _toy_known()

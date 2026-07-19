@@ -112,10 +112,18 @@ def _known() -> dict:
     return {"toy.x": Interval(1.0, 1.0)}
 
 
+# frob:tests crates/feldspar-py/src/search.rs::plan_py
+# frob:tests crates/feldspar-py/src/search.rs::PySolverInput.py_new
+# frob:tests crates/feldspar-py/src/search.rs::PyRoute.steps
+# frob:tests crates/feldspar-py/src/search.rs::PyRoute.total_cost
+# frob:tests crates/feldspar-py/src/search.rs::PyRoute.__repr__
+# frob:tests crates/feldspar-py/src/search.rs::PyRouteStep.__repr__
 def test_acceptance_loose_budget_selects_cheap_route() -> None:
     registry = _toy_registry()
     route = plan(registry, _known(), frozenset(), "toy.target", 10.0).danger_ok
     assert route.steps[-1].solver_id == "toy.cheap_sloppy"
+    assert "toy.target" in repr(route)
+    assert "toy.cheap_sloppy" in repr(route.steps[-1])
     assert route.total_cost == 1.0
 
 
@@ -127,6 +135,7 @@ def test_acceptance_tight_budget_selects_costly_route() -> None:
     assert route.total_cost == 5.0
 
 
+# frob:tests crates/feldspar-py/src/search.rs::PyRoute.predicted_eps
 def test_target_already_known_is_zero_step_route() -> None:
     registry = _toy_registry()
     route = plan(
@@ -137,6 +146,7 @@ def test_target_already_known_is_zero_step_route() -> None:
     assert route.total_cost == 0.0
 
 
+# frob:tests crates/feldspar-py/src/errors.rs::plan_error_to_py
 def test_invalid_budget_before_search() -> None:
     registry = _toy_registry()
     err = plan(registry, _known(), frozenset(), "toy.target", 0.0).err

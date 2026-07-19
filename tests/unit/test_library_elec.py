@@ -29,6 +29,7 @@ def test_register_elec_adds_five_directions():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_rc_step_response_py
 def test_rc_step_matches_benchmark_memo():
     from feldspar import _feldspar
 
@@ -41,6 +42,8 @@ def test_rc_step_matches_benchmark_memo():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_rlc_resonant_frequency_py
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_rlc_quality_factor_py
 def test_rlc_resonance_matches_benchmark_memo():
     from feldspar import _feldspar
 
@@ -55,6 +58,7 @@ def test_rlc_resonance_matches_benchmark_memo():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_divider_loaded_vout_py
 def test_divider_unloaded_and_loaded_match_benchmark_memo():
     from feldspar import _feldspar
 
@@ -69,6 +73,8 @@ def test_divider_unloaded_and_loaded_match_benchmark_memo():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_bjt_bias_collector_current_py
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_bjt_bias_collector_voltage_py
 def test_bjt_bias_matches_benchmark_memo():
     from feldspar import _feldspar
 
@@ -83,6 +89,7 @@ def test_bjt_bias_matches_benchmark_memo():
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/library/elec.rs::elec_nmos_saturation_drain_current_py
 def test_nmos_bias_matches_benchmark_memo():
     from feldspar import _feldspar
 

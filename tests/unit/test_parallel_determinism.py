@@ -33,6 +33,8 @@ def _fn(corner: dict) -> Ok:
     )
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::enumerate_corners_py
+# frob:tests crates/feldspar-py/src/propagation.rs::hull_from_results_py
 @pytest.mark.parametrize("thread_count", [1, 2, 4, 8])
 def test_parallel_corner_sweep_matches_serial_at_any_thread_count(
     thread_count: int,

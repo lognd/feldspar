@@ -105,6 +105,7 @@ def _propped_cantilever_payload(w: float, length: float) -> dict:
     }
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_frame2d_solve_py
 def test_propped_cantilever_udl_matches_closed_form():
     """Benchmarks memo 1.1 numeric anchor: w=10 kN/m, L=6 m,
     EI=6.0e7 N m^2 -> R_A=37.5 kN, R_B=22.5 kN, |M_A|=45.0 kN m."""

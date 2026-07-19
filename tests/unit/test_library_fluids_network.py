@@ -148,6 +148,7 @@ def test_symmetric_parallel_network_splits_evenly():
     assert rows["A"]["dp"] == pytest.approx(rows["B"]["dp"], rel=1e-3)
 
 
+# frob:tests crates/feldspar-py/src/library/fluids.rs::fluids_reynolds_number_py
 def test_asymmetric_laminar_network_matches_hagen_poiseuille_oracle():
     """Independent Hagen-Poiseuille oracle: R = 128 mu L / (pi D^4);
     parallel branches split inversely proportional to resistance."""

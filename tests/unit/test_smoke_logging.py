@@ -11,6 +11,7 @@ _feldspar = pytest.importorskip(
 
 
 # frob:tests python/feldspar/logging_setup kind="integration"
+# frob:tests crates/feldspar-py/src/lib.rs::smoke_span
 def test_rust_span_reaches_python_logging(caplog: pytest.LogCaptureFixture) -> None:
     """A Rust `tracing::info_span!` emitted via `_feldspar.smoke_span()` must
     surface as a Python logging record through the pyo3-log bridge (AD-8)."""

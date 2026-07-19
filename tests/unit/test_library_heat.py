@@ -22,6 +22,7 @@ def _solvers() -> dict:
 
 
 # frob:tests python/feldspar/heat kind="integration"
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_plane_wall_resistance_py
 def test_plane_wall_resistance_known_answer():
     """R = L/(k*A). L=0.1 m, k=0.8 W/m-K (brick), A=2.0 m^2 ->
     R = 0.1/(0.8*2.0) = 0.0625 K/W."""
@@ -39,6 +40,7 @@ def test_plane_wall_resistance_known_answer():
     )
 
 
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_cylindrical_wall_resistance_py
 def test_cylindrical_wall_resistance_known_answer():
     """R = ln(r2/r1)/(2*pi*k*L). r1=0.05 m, r2=0.06 m, k=50 W/m-K
     (steel pipe), L=1.0 m."""
@@ -61,6 +63,8 @@ def test_cylindrical_wall_resistance_known_answer():
 
 
 # frob:tests python/feldspar/heat/closed_form.py::rate_from_resistance kind="unit"
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_series_resistance_py
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_rate_from_resistance_py
 def test_series_resistance_and_rate():
     """Composite wall: R1=0.0625, R2=0.02 K/W in series -> R=0.0825
     K/W; delta_T=50K -> q = 50/0.0825 = 606.06 W."""
@@ -81,6 +85,7 @@ def test_series_resistance_and_rate():
     )
 
 
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_dittus_boelter_nusselt_py
 def test_dittus_boelter_nusselt_known_answer():
     """Nu = 0.023 * Re^0.8 * Pr^0.4 (heating). Re=1e5, Pr=5.0 ->
     Nu = 0.023 * 1e5^0.8 * 5^0.4."""
@@ -104,6 +109,7 @@ def test_dittus_boelter_domain_rejects_below_validity_reynolds():
 
 
 # frob:tests python/feldspar/heat/closed_form.py::convection_resistance kind="unit"
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_convection_resistance_py
 def test_convection_resistance_known_answer():
     """R = 1/(h*A). h=50 W/m^2-K, A=2.0 m^2 -> R = 1/(50*2.0) = 0.01 K/W."""
     _info, fn = _solvers()["heat.convection_resistance"]
@@ -115,6 +121,7 @@ def test_convection_resistance_known_answer():
 
 
 # frob:tests python/feldspar/heat/closed_form.py::coefficient_from_nusselt kind="unit"
+# frob:tests crates/feldspar-py/src/library/heat.rs::heat_coefficient_from_nusselt_py
 def test_coefficient_from_nusselt_known_answer():
     """h = Nu*k/D (Incropera ch. 8 Nusselt-number definition). Nu=100,
     k=0.6 W/m-K, D=0.05 m -> h = 100*0.6/0.05 = 1200 W/m^2-K."""

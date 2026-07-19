@@ -64,6 +64,10 @@ def _orifice_relation() -> Relation:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.lit
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.canonical_string
+# frob:tests crates/feldspar-py/src/symbolic.rs::invert_for_py
+# frob:tests crates/feldspar-py/src/symbolic.rs::invertible_targets_py
 def test_law_derived_digest_equals_hand_built_twin() -> None:
     """Solving the orifice law for `Q` via `.law()` must digest
     byte-identically (`exclude={"solver_id"}`) to a hand-built
@@ -134,6 +138,7 @@ def test_law_derived_directions_carry_full_provenance() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.add
 def test_invertible_targets_excludes_repeated_variable() -> None:
     """`y = x + x`: `x` appears twice, so it is simply absent from
     `invertible_targets` (needs exactly one occurrence)."""
@@ -144,6 +149,7 @@ def test_invertible_targets_excludes_repeated_variable() -> None:
     assert "x" not in targets
 
 
+# frob:tests crates/feldspar-py/src/errors.rs::symbolic_error_to_py
 def test_invert_for_repeated_variable_raises_non_invertible() -> None:
     x = Expr.var("x")
     y = Expr.var("y")
@@ -169,6 +175,7 @@ def _sho_expr() -> tuple:
     return e, rhs
 
 
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.pow
 def test_law_unresolved_multi_branch_is_registry_error() -> None:
     e, rhs = _sho_expr()
     rel = Relation(
@@ -205,6 +212,9 @@ def test_law_declared_branch_succeeds() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/symbolic.rs::predicate_to_box_py
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyPredicate.py_new
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyPredicate.canonical_string
 def test_law_predicate_narrows_declared_box() -> None:
     re_ = Expr.var("Re")
     y = Expr.var("y")
@@ -362,6 +372,7 @@ def test_predicate_to_box_contradictory_bound_is_empty_domain() -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:tests crates/feldspar-py/src/errors.rs::eval_error_to_py
 def test_derived_solve_fn_negative_radicand_is_non_finite_error() -> None:
     """A negative radicand inside the derived `Q` direction's
     `sqrt(2*dp/rho)` must come back as `Err(SolveError.NonFinite(...))`
@@ -374,3 +385,24 @@ def test_derived_solve_fn_negative_radicand_is_non_finite_error() -> None:
     result = fn_q({"C_d": 0.5, "A": 0.1, "dp": -100.0, "rho": 5.0})
     assert result.is_err
     assert result.danger_err == SolveError.NonFinite(port="Q")
+
+
+# ---------------------------------------------------------------------------
+# 11. Direct pyo3-boundary checks for Expr nodes with no other caller.
+# ---------------------------------------------------------------------------
+
+
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.neg
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyExpr.__repr__
+def test_expr_neg_evaluates_and_reprs_canonically() -> None:
+    x = Expr.var("x")
+    neg_x = Expr.neg(x)
+    assert neg_x.eval({"x": 3.0}) == -3.0
+    assert repr(neg_x) == f"Expr({neg_x.canonical_string()})"
+
+
+# frob:tests crates/feldspar-py/src/symbolic.rs::PyPredicate.__repr__
+def test_predicate_reprs_canonically() -> None:
+    x = Expr.var("x")
+    pred = Predicate(x, "lt", Expr.lit(4.0))
+    assert repr(pred) == f"Predicate({pred.canonical_string()})"

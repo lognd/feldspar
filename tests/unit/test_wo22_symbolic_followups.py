@@ -99,6 +99,8 @@ def _orifice_deltas() -> list:
     ]
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::delta_propagate_symbolic_py
+# frob:tests crates/feldspar-py/src/propagation.rs::delta_propagate_numeric_py
 def test_delta_propagate_symbolic_and_numeric_agree() -> None:
     rhs = _orifice_rhs()
     inputs = _orifice_deltas()
@@ -124,11 +126,15 @@ def test_delta_propagate_symbolic_is_deterministic() -> None:
     assert r1.stddev == r2.stddev
 
 
+# frob:tests crates/feldspar-py/src/propagation.rs::PyNormal.py_new
+# frob:tests crates/feldspar-py/src/propagation.rs::PyNormal.stddev
+# frob:tests crates/feldspar-py/src/propagation.rs::PyNormal.__repr__
 def test_normal_to_interval_is_conservative() -> None:
     n = Normal(10.0, 2.0)
     iv = n.to_interval()
     assert iv.lo < n.mean - n.stddev
     assert iv.hi > n.mean + n.stddev
+    assert "10" in repr(n) and "2" in repr(n)
 
 
 # ---------------------------------------------------------------------------

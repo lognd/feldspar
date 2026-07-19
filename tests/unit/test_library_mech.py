@@ -28,6 +28,7 @@ def _solvers() -> dict:
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_rect_second_moment_py
 def test_rect_second_moment_known_answer():
     """Gere, Mechanics of Materials 9e, App. E: I = b*h^3/12 for a
     rectangular cross-section. width=0.04 m, height=0.06 m ->
@@ -41,6 +42,7 @@ def test_rect_second_moment_known_answer():
     )
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_cantilever_tip_deflection_py
 def test_cantilever_tip_deflection_known_answer():
     """Gere, Mechanics of Materials, 9th ed., Table (cantilever,
     concentrated load at free end); see also Young & Budynas, Roark's
@@ -67,6 +69,7 @@ def test_cantilever_tip_deflection_known_answer():
     )
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_cantilever_required_youngs_modulus_py
 def test_cantilever_required_youngs_modulus_round_trip():
     """Gere, Mechanics of Materials, 9th ed., Table (cantilever,
     concentrated load at free end); see also Young & Budynas, Roark's
@@ -107,6 +110,7 @@ def test_cantilever_required_youngs_modulus_round_trip():
     assert recovered == pytest.approx(youngs_modulus, rel=1e-9)
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_bore_von_mises_py
 def test_bore_von_mises_known_answer():
     """Budynas & Nisbett, Shigley's Mechanical Engineering Design,
     latest ed., Thick-Walled Cylinders section (Lame's equations), and
@@ -139,6 +143,28 @@ def test_bore_von_mises_known_answer():
     assert result.danger_ok.values["mech.stress.von_mises"] == pytest.approx(
         expected, rel=1e-9
     )
+
+
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_lame_hoop_stress_bore_py
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_lame_radial_stress_bore_py
+def test_lame_hoop_and_radial_stress_bore_direct_pyo3_call():
+    """Direct pyo3-boundary check for the two Lame primitives that
+    `mech_bore_von_mises` composes (crates/feldspar-library/src/
+    mech/statics.rs): no Python solver direction calls these two
+    wrappers on their own, only through bore_von_mises, so this test
+    exists purely to cover the pyo3 marshalling boundary itself
+    (AD-1) with the same known Lame's-equation case as
+    test_bore_von_mises_known_answer above."""
+    from feldspar import _feldspar
+
+    pressure, inner_radius, outer_radius = 30e6, 1.0, 2.0
+    hoop = _feldspar.mech_lame_hoop_stress_bore(pressure, inner_radius, outer_radius)
+    radial = _feldspar.mech_lame_radial_stress_bore(
+        pressure, inner_radius, outer_radius
+    )
+    a2, b2 = inner_radius**2, outer_radius**2
+    assert hoop == pytest.approx(pressure * (a2 + b2) / (b2 - a2), rel=1e-9)
+    assert radial == pytest.approx(-pressure, rel=1e-9)
 
 
 def test_bore_von_mises_degenerate_ratio_rejected():

@@ -72,6 +72,7 @@ def _solvers(registry) -> dict:
     return {info.solver_id: (info, fn) for info, fn in registry}
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_beam_cantilever_first_mode_py
 def test_beam_cantilever_first_mode_known_answer():
     """Steel cantilever E=200e9, I=8e-6, rho=7850, A=0.01, L=1.0:
     f1 = (1.875104^2/(2*pi)) * sqrt(E*I/(rho*A))."""
@@ -92,6 +93,7 @@ def test_beam_cantilever_first_mode_known_answer():
     assert result.danger_ok.values[FIRST_MODE_PORT] == pytest.approx(expected, rel=1e-9)
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_sdof_first_mode_py
 def test_sdof_first_mode_known_answer():
     registry, _resolver = _registry_and_resolver()
     _info, fn = _solvers(registry)["mech.sdof_first_mode"]
@@ -106,6 +108,7 @@ def _spectrum_ref(resolver, freq_hz, asd):
     return resolver.store("spectrum", payload, "test-fixture")
 
 
+# frob:tests crates/feldspar-py/src/library/mech.rs::mech_miles_grms_py
 def test_miles_grms_end_to_end_over_spectrum_payload():
     """Acceptance: a random-vibe GRMS claim consumes a spectrum payload
     end to end. fn=100 Hz sits exactly on a grid point: no

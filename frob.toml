@@ -23,13 +23,15 @@ exclude = [
 ]
 
 [gates.severity]
-# Legacy-adoption baseline: snapshot-wide obligations warn on the
-# un-annotated legacy surface; diff-scoped and drift rules stay hard
-# errors. Tighten as annotation coverage grows.
-COV001 = "warn"
-TEST001 = "warn"
+# Ratchet stage 1 (2026-07-19): the annotation surface reached zero
+# (frob check 0 unwaived violations), so the structural coverage rules
+# flip to hard errors -- a new public symbol without doc/test edges now
+# fails the build. Count- and coverage-flow-dependent rules stay warn
+# (environment-sensitive; T-0014 tracks the coverage backfill).
+COV001 = "error"
+TEST001 = "error"
 TEST002 = "warn"
-TEST003 = "warn"
+TEST003 = "error"
 TEST005 = "warn"
 TEST006 = "warn"
 

@@ -51,6 +51,7 @@ _CORE_PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 def declare_core_ports(registry: SolverRegistry) -> None:
     """Declares the shared mech core vocabulary (the ONE home of these
     literals -- see `_CORE_PORT_DECLS`). Call exactly once per
@@ -67,6 +68,7 @@ def declare_core_ports(registry: SolverRegistry) -> None:
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 @solver(
     namespace="mech",
     inputs=("mech.section.width", "mech.section.height"),
@@ -133,6 +135,7 @@ cantilever = Relation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 @cantilever.direction(solves_for="mech.deflection.tip")
 def cantilever_tip_deflection(x):
     force = x["mech.load.tip_force"]
@@ -145,6 +148,7 @@ def cantilever_tip_deflection(x):
     return Ok({"mech.deflection.tip": deflection})
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 @cantilever.direction(solves_for="mech.material.youngs_modulus")
 def cantilever_required_youngs_modulus(x):
     force = x["mech.load.tip_force"]
@@ -185,6 +189,7 @@ _LAME_CITATIONS = (
 _LAME_RATIO_MIN_GAP = 1e-6  # m -- minimum (outer - inner) radius gap
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 @solver(
     namespace="mech",
     inputs=(
@@ -232,6 +237,7 @@ def bore_von_mises(x):
     return Ok({"mech.stress.von_mises": stress})
 
 
+# frob:doc docs/modules/mech.md#mech_closed_form
 def register(registry: SolverRegistry) -> None:
     """Registers every mech Phase 1 direction (WO-07). Declares the
     shared mech core vocabulary first (WO111b: every module declares

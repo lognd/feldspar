@@ -56,6 +56,7 @@ _SHIGLEY = "Shigley's Mechanical Engineering Design, 11th ed."
 
 #: Standard gravity, m/s^2 (CODATA/ISO 80000-3), used by the Rayleigh
 #: static-deflection direction.
+# frob:doc docs/modules/mech.md#mech_critical_speed
 G_STANDARD = 9.80665
 
 
@@ -77,6 +78,7 @@ _STIFFNESS_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_critical_speed
 @solver(
     namespace="mech.critical_speed",
     inputs=(
@@ -132,6 +134,7 @@ _RAYLEIGH_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_critical_speed
 @solver(
     namespace="mech.critical_speed",
     inputs=("mech.critical_speed.static_deflection",),
@@ -174,6 +177,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_critical_speed
 def register(registry: SolverRegistry) -> None:
     """Registers the two shaft-critical-speed directions (WO-111:
     stiffness-based and Rayleigh single-mass). Declares this family's

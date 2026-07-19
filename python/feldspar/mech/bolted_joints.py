@@ -78,6 +78,7 @@ _VDI_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bolted_joints
 @solver(
     namespace="mech.joint",
     inputs=(
@@ -182,6 +183,7 @@ _SHEAR_GROUP_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bolted_joints
 @solver(
     namespace="mech.joint",
     inputs=(
@@ -267,6 +269,7 @@ _TENSION_GROUP_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bolted_joints
 @solver(
     namespace="mech.joint",
     inputs=(
@@ -332,6 +335,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bolted_joints
 def register(registry: SolverRegistry) -> None:
     """Registers all three bolted-joint directions (WO-24
     deliverable 1: single-bolt VDI 2230 tier + elastic bolt-group

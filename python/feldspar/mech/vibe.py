@@ -57,12 +57,18 @@ __all__ = [
 #: The vibration tier's fundamental-frequency port (Hz): both this
 #: module's closed-form beam direction and `feldspar.fea.modal`'s ccx
 #: direction target it (04 planner tier-blind selection).
+# frob:doc docs/modules/mech.md#mech_vibe
 FIRST_MODE_PORT = "mech.vibe.first_mode_freq"
 
+# frob:doc docs/modules/mech.md#mech_vibe
 GRMS_PORT = "mech.vibe.grms"
+# frob:doc docs/modules/mech.md#mech_vibe
 SPECTRUM_PORT = "mech.vibe.spectrum"
+# frob:doc docs/modules/mech.md#mech_vibe
 PROFILE_PORT = "mech.vibe.profile"
+# frob:doc docs/modules/mech.md#mech_vibe
 MASK_PORT = "mech.vibe.mask"
+# frob:doc docs/modules/mech.md#mech_vibe
 MASK_CONTAINMENT_PORT = "mech.vibe.mask_containment"
 
 _BEAM_CITATION = Citation(
@@ -95,6 +101,7 @@ _MASK_CITATION = Citation(
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/mech.md#mech_vibe
 @solver(
     namespace="mech",
     inputs=(
@@ -140,6 +147,7 @@ def beam_cantilever_first_mode(x):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/mech.md#mech_vibe
 @solver(
     namespace="mech",
     inputs=("mech.vibe.stiffness", "mech.vibe.mass"),
@@ -307,6 +315,7 @@ def _make_mask_containment_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/mech.md#mech_vibe
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Declares this module's port table (payload ports need declared
     kinds, F12) and registers every vibration-tier direction. Any

@@ -103,6 +103,7 @@ def _l10(x: dict, p: float, kind: str):
     return Ok({"mech.bearing.l10": l10})
 
 
+# frob:doc docs/modules/mech.md#mech_bearing_life
 @solver(
     namespace="mech.bearing",
     inputs=("mech.bearing.dynamic_rating", "mech.bearing.equivalent_load"),
@@ -130,6 +131,7 @@ def bearing_basic_rating_life_l10_ball(x):
     return _l10(x, _P_BALL, "ball")
 
 
+# frob:doc docs/modules/mech.md#mech_bearing_life
 @solver(
     namespace="mech.bearing",
     inputs=("mech.bearing.dynamic_rating", "mech.bearing.equivalent_load"),
@@ -167,6 +169,7 @@ _L10H_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bearing_life
 @solver(
     namespace="mech.bearing",
     inputs=("mech.bearing.l10", "mech.bearing.speed_rpm"),
@@ -217,6 +220,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_bearing_life
 def register(registry: SolverRegistry) -> None:
     """Registers all three bearing-life directions (WO-24 deliverable
     3: ISO 281 basic L10 for ball and roller bearings + L10 -> L10h

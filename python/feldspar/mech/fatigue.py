@@ -87,14 +87,18 @@ __all__ = ["MINER_SPECTRUM_PORT", "register"]
 #: deliverable 1, lithos WO-110-F6/F4). Same JSON-payload convention
 #: `library/vibe.py`'s `SPECTRUM_PORT` uses (own home here, no shared
 #: schema module -- the two spectra carry unrelated fields).
+# frob:doc docs/modules/mech.md#mech_fatigue
 MINER_SPECTRUM_PORT = "mech.fatigue.miner.spectrum"
 
 _SHIGLEY = "Shigley's Mechanical Engineering Design, 11th ed."
 
 #: Shigley 11e ch. 6 sec. 6-9: load-type Marin factor, code constants
 #: (a fixed lookup, not a fitted formula).
+# frob:doc docs/modules/mech.md#mech_fatigue
 KC_BENDING = 1.0
+# frob:doc docs/modules/mech.md#mech_fatigue
 KC_AXIAL = 0.85
+# frob:doc docs/modules/mech.md#mech_fatigue
 KC_TORSION = 0.59
 
 # ---------------------------------------------------------------------------
@@ -119,6 +123,7 @@ _BASELINE_CITATIONS = (
 _SUT_MAX_CALIBRATED_PA = 1.4e9
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=("mech.fatigue.baseline.sut",),
@@ -173,6 +178,7 @@ _SURFACE_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=(
@@ -244,6 +250,7 @@ _MARIN_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=(
@@ -321,6 +328,7 @@ _GOODMAN_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=(
@@ -420,6 +428,7 @@ _GERBER_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=(
@@ -547,6 +556,7 @@ def _sn_cycles_to_failure(sigma_a: float, a: float, b: float) -> float:
     return (sigma_a / a) ** (1.0 / b)
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 @solver(
     namespace="mech.fatigue",
     inputs=(
@@ -742,6 +752,7 @@ def _make_miner_damage_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/mech.md#mech_fatigue
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Registers all seven fatigue directions (WO-24 deliverable 4:
     baseline Se', Marin surface factor, Marin-composed Se, modified-

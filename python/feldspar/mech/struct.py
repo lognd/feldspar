@@ -92,12 +92,14 @@ __all__ = [
 ]
 
 #: The `frame` payload input port (calcite/03 sec. 4, lithos WO-48).
+# frob:doc docs/modules/mech.md#mech_struct
 FRAME_PORT = "mech.struct.frame"
 #: The result payload output port -- reuses the existing `"table"`
 #: payload kind (09 sec. 4's generic tabular-content kind) rather than
 #: minting a new one, since a new kind string would need a spec-table
 #: change this WO does not own (docs are the contract, `test_payload.py`
 #: pins the 09 sec. 4 list verbatim).
+# frob:doc docs/modules/mech.md#mech_struct
 FRAME_RESULT_PORT = "mech.struct.result"
 
 _CITATION = Citation(
@@ -281,6 +283,7 @@ def _udl_fef_local(w: float, length: float) -> list[float]:
     return [0.0, shear, moment, 0.0, shear, -moment]
 
 
+# frob:doc docs/modules/mech.md#mech_struct
 def solve_frame_payload(
     payload: dict,
     section_material: dict,
@@ -622,6 +625,7 @@ _TRANSFER_CITATION = Citation(
 _TRIBUTARY_TRANSFER_KIND = "Bearing"
 
 
+# frob:doc docs/modules/mech.md#mech_struct
 def resolve_tributary_loads(
     transfers: Sequence[dict],
     source_intensities: dict,
@@ -780,6 +784,7 @@ def resolve_tributary_loads(
     return Ok((derived_loads, evidence))
 
 
+# frob:doc docs/modules/mech.md#mech_struct
 def extract_member_demands(result: dict) -> dict:
     """WO-23 deliverable 2: reduces `solve_frame_payload`'s
     `member_end_forces` (local `[n1, v1, m1, n2, v2, m2]` per member,
@@ -813,6 +818,7 @@ _H1_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_struct
 def civil_utilization_h1(
     axial_demand: float,
     moment_demand: float,
@@ -935,6 +941,7 @@ def _make_frame_direction(resolver: PayloadResolver):
     return info, fn
 
 
+# frob:doc docs/modules/mech.md#mech_struct
 def register(registry: SolverRegistry, resolver: PayloadResolver) -> None:
     """Declares the `frame`/`frame_result` payload ports and registers
     the one `mech.struct` direction (WO-21). See this module's

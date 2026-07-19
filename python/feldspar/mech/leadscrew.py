@@ -105,6 +105,7 @@ def _reject_nonpositive(**kwargs: float) -> SolveError | None:
     return None
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -154,6 +155,7 @@ def leadscrew_torque_raise(x):
     return Ok({"mech.drive.leadscrew.torque_raise": tr})
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -194,6 +196,7 @@ def leadscrew_torque_lower(x):
     return Ok({"mech.drive.leadscrew.torque_lower": tl})
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -233,6 +236,7 @@ def leadscrew_efficiency(x):
     return Ok({"mech.drive.leadscrew.efficiency": e})
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -270,6 +274,7 @@ def leadscrew_self_locking_margin(x):
     return Ok({"mech.drive.leadscrew.self_locking_margin": mu - tan_lambda})
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -325,6 +330,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_leadscrew
 def register(registry: SolverRegistry) -> None:
     """Registers all five leadscrew directions (WO-24 deliverable 7,
     leadscrew half only: torque to raise/lower, efficiency, self-

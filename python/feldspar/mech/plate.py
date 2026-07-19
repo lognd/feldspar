@@ -74,6 +74,7 @@ _GEOM_BOX = {
 }
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 def flexural_rigidity(e: float, t: float, nu: float) -> float:
     """Kirchhoff plate flexural rigidity `D = E*t^3 / (12*(1-nu^2))`
     (Roark Table 11.2 header; Timoshenko art. 16). One home for the
@@ -114,6 +115,7 @@ _SS_STRESS_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 @solver(
     namespace="mech.plate",
     inputs=tuple(_GEOM_BOX),
@@ -156,6 +158,7 @@ _SS_DEFL_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 @solver(
     namespace="mech.plate",
     inputs=tuple(_GEOM_BOX),
@@ -198,6 +201,7 @@ _CLAMPED_STRESS_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 @solver(
     namespace="mech.plate",
     inputs=tuple(_GEOM_BOX),
@@ -239,6 +243,7 @@ _CLAMPED_DEFL_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 @solver(
     namespace="mech.plate",
     inputs=tuple(_GEOM_BOX),
@@ -282,6 +287,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_plate
 def register(registry: SolverRegistry) -> None:
     """Registers the four circular-plate uniform-load directions
     (WO-111: simply-supported and clamped, max stress and max

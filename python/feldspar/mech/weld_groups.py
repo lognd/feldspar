@@ -87,6 +87,7 @@ _INPLANE_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_weld_groups
 @solver(
     namespace="mech.weld",
     inputs=(
@@ -171,6 +172,7 @@ _BENDING_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_weld_groups
 @solver(
     namespace="mech.weld",
     inputs=(
@@ -235,6 +237,7 @@ _UTILIZATION_CITATION = Citation(
 )
 
 
+# frob:doc docs/modules/mech.md#mech_weld_groups
 @solver(
     namespace="mech.weld",
     inputs=(
@@ -327,6 +330,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_weld_groups
 def register(registry: SolverRegistry) -> None:
     """Registers all three weld-group directions (WO-24 deliverable
     2: in-plane shear/torsion + out-of-plane bending + the combined

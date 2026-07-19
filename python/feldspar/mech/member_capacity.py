@@ -94,6 +94,7 @@ _F2_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_member_capacity
 @solver(
     namespace="mech.member",
     inputs=("mech.member.flexure.fy", "mech.member.flexure.zx"),
@@ -162,6 +163,7 @@ _E3_CITATIONS = (
 _KL_R_MAX = 200.0
 
 
+# frob:doc docs/modules/mech.md#mech_member_capacity
 @solver(
     namespace="mech.member",
     inputs=(
@@ -246,6 +248,7 @@ _EULER_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_member_capacity
 @solver(
     namespace="mech.member",
     inputs=(
@@ -318,6 +321,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_member_capacity
 def register(registry: SolverRegistry) -> None:
     """Registers all three member-capacity directions (WO-24
     deliverables 0 + 8: F2 flexural yield, E3 axial yield/buckling,

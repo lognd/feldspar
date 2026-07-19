@@ -71,6 +71,7 @@ _ACCEL_CITATIONS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_drive
 @solver(
     namespace="mech.drive",
     inputs=(
@@ -142,6 +143,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/mech.md#mech_drive
 def register(registry: SolverRegistry) -> None:
     """Registers the reflected-inertia acceleration-torque direction
     (WO-111 drive sizing). Declares this family's port table first

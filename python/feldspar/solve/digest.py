@@ -14,6 +14,7 @@ from feldspar.core import canonical_digest
 __all__ = ["canonical_digest", "settings_digest"]
 
 
+# frob:doc docs/modules/solve.md#solve_digest
 def settings_digest(settings: Any) -> str:
     """The `SolverInfo.settings_digest` a solver's decorator-level
     `settings=` closure folds into (F1); `None` (no settings) digests

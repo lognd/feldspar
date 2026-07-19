@@ -51,6 +51,7 @@ def _symbolic_error_from_exc(exc: Exception) -> RegistryError:
     return RegistryError.EmptyDomain(port=port)
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 def make_direction(
     *,
     solver_id: str,
@@ -94,6 +95,7 @@ def make_direction(
     )
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 class Relation:
     """Multi-direction physical law builder (F7): shared metadata
     declared once, each direction an explicit small function, ids
@@ -131,6 +133,7 @@ class Relation:
         self._default_accuracy = accuracy
         self._directions: list[Tuple[SolverInfo, SolveFn]] = []
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def direction(
         self,
         *,
@@ -181,6 +184,7 @@ class Relation:
 
         return deco
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def law(
         self,
         *,
@@ -318,6 +322,7 @@ class Relation:
 
         return Ok(None)
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def register(self, registry: Any) -> "Result[None, RegistryError]":
         for info, fn in self._directions:
             result = registry.register(info, fn)
@@ -342,6 +347,7 @@ def _check_strictly_ascending(x: Sequence[float]) -> None:
             raise ValueError(f"table x values must be strictly ascending, got {x!r}")
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 def table_solver_1d(
     *,
     namespace: str,
@@ -397,6 +403,7 @@ def table_solver_1d(
     )
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 def table_solver_2d(
     *,
     namespace: str,
@@ -459,6 +466,7 @@ def table_solver_2d(
     )
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 class Correlation:
     """Published formula + validity box + accuracy band + citation as
     ONE object (F8) -- the literature ships these four together, and
@@ -493,6 +501,7 @@ class Correlation:
         self._tags = tags
         self._built: Optional[Tuple[SolverInfo, SolveFn]] = None
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def formula(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         solver_id = f"{self._namespace}.{fn.__name__.lstrip('_')}"  # ty: ignore[unresolved-attribute]
         self._built = _build.build_solver_info_and_fn(
@@ -511,6 +520,7 @@ class Correlation:
         )
         return fn
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def register(self, registry: Any) -> "Result[None, RegistryError]":
         if self._built is None:
             raise RuntimeError(
@@ -519,6 +529,7 @@ class Correlation:
         return registry.register(*self._built)
 
 
+# frob:doc docs/modules/solve.md#solve_sugar
 class CoupledGroup:
     """Strong two-way coupling as ONE composite solver (09 sec. 4b, M8;
     examples/solvers/06_coupled_groups.py). The planner sees a single
@@ -687,6 +698,7 @@ class CoupledGroup:
             SolveError.NoConvergence(iterations=self._max_iter, residual=residual)
         )
 
+    # frob:doc docs/modules/solve.md#solve_sugar
     def register(self, registry: Any) -> "Result[None, RegistryError]":
         def _raw_fn(
             x: Mapping[str, float], eps_budget: Optional[float] = None

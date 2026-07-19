@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 __all__ = ["CostPoint", "CostCurve"]
 
 
+# frob:doc docs/modules/solve.md#solve_seeking
 class CostPoint(BaseModel):
     """One sampled `(eps, cost)` point on a budget-seeker's cost curve."""
 
@@ -56,6 +57,7 @@ class CostPoint(BaseModel):
         return value
 
 
+# frob:doc docs/modules/solve.md#solve_seeking
 class CostCurve(BaseModel):
     """Sampled `(eps, cost)` points, ascending by `eps` (09 sec. 3).
     `scalar()` builds the one-point degenerate curve for a non-eps-
@@ -78,6 +80,7 @@ class CostCurve(BaseModel):
             )
         return points
 
+    # frob:doc docs/modules/solve.md#solve_seeking
     @classmethod
     def scalar(cls, cost: float) -> "CostCurve":
         """The one-point curve (09 sec. 3: "scalar cost = one-point
@@ -91,6 +94,7 @@ class CostCurve(BaseModel):
         need a `CostCurve` value uniformly)."""
         return cls(points=(CostPoint(eps=0.0, cost=cost),))
 
+    # frob:doc docs/modules/solve.md#solve_seeking
     def cost_for_budget(self, eps_budget: float) -> float:
         """Conservative cost estimate for a remaining `eps_budget` (see
         module docstring for the non-increasing-step-function

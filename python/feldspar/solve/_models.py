@@ -17,6 +17,7 @@ from feldspar.solve.payload import PayloadRef
 from feldspar.solve.seeking import CostCurve
 
 
+# frob:doc docs/modules/solve.md#solve__models
 class Citation(BaseModel):
     """A method citation; `SolverRegistry.register` enforces the
     citation floor (FINV-6): empty or calibration-only is an error."""
@@ -28,6 +29,7 @@ class Citation(BaseModel):
     note: str = ""
 
 
+# frob:doc docs/modules/solve.md#solve__models
 class ClaimSenses(enum.Enum):
     """Which one-sided claim(s) a solver/direction is conservative for
     (G4). Coerces from a case-insensitive string (`"upper"`, `"lower"`,
@@ -38,6 +40,7 @@ class ClaimSenses(enum.Enum):
     LOWER = "lower"
     BOTH = "both"
 
+    # frob:doc docs/modules/solve.md#solve__models
     @classmethod
     def coerce(cls, value: "ClaimSenses | str") -> "ClaimSenses":
         if isinstance(value, ClaimSenses):
@@ -45,6 +48,7 @@ class ClaimSenses(enum.Enum):
         return cls(str(value).lower())
 
 
+# frob:doc docs/modules/solve.md#solve__models
 class SolverInfo(BaseModel):
     """Frozen solver metadata (01-interfaces `SolverInfo`); the exact
     thing `SolverRegistry.digest()` folds (AD-5, FINV-7)."""
@@ -102,6 +106,7 @@ class SolverInfo(BaseModel):
     law_rhs: Optional[Any] = Field(default=None, exclude=True)
 
 
+# frob:doc docs/modules/solve.md#solve__models
 class SolveOutput(BaseModel):
     """A solver's raw solve result (01-interfaces `SolveOutput`,
     DX F16). `measured_eps` replaces the declared accuracy ceiling for
@@ -119,5 +124,6 @@ class SolveOutput(BaseModel):
     payloads: Mapping[str, PayloadRef] = {}
 
 
+# frob:doc docs/modules/solve.md#solve__models
 #: `Accuracy(0.0, 0.0)`; the EXACT constant (01-interfaces `feldspar.solve.EXACT`).
 EXACT = Accuracy(0.0, 0.0)

@@ -45,47 +45,58 @@ class _TaggedError:
         return f"{type(self).__name__}.{self.kind}({args})"
 
 
+# frob:doc docs/modules/solve.md#solve_errors
 class RegistryError(_TaggedError):
     """`SolverRegistry` registration failures (01-interfaces
     `RegistryError`); every variant below is reachable via
     `tests/unit/test_registry.py`."""
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def DuplicateSolverId(cls, solver_id: str) -> "RegistryError":
         return cls("DuplicateSolverId", solver_id=solver_id)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def PortUnitConflict(cls, port: str) -> "RegistryError":
         return cls("PortUnitConflict", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def PortRankConflict(cls, port: str) -> "RegistryError":
         return cls("PortRankConflict", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def UnknownPort(cls, port: str) -> "RegistryError":
         return cls("UnknownPort", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def DuplicatePortDecl(cls, port: str) -> "RegistryError":
         return cls("DuplicatePortDecl", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def EmptyCitations(cls, solver_id: str) -> "RegistryError":
         return cls("EmptyCitations", solver_id=solver_id)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def NonPositiveCost(cls, solver_id: str) -> "RegistryError":
         return cls("NonPositiveCost", solver_id=solver_id)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def AccuracyOutputMismatch(cls, solver_id: str) -> "RegistryError":
         return cls("AccuracyOutputMismatch", solver_id=solver_id)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def Frozen(cls) -> "RegistryError":
         return cls("Frozen")
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def BadTable(cls, reason: str) -> "RegistryError":
         return cls("BadTable", reason=reason)
@@ -94,6 +105,7 @@ class RegistryError(_TaggedError):
     # checking at registration mirrors unit checking, so these two are
     # the payload twins of `PortUnitConflict`/`UnknownPort`.
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def PayloadKindConflict(cls, port: str) -> "RegistryError":
         """Two declarations of the same port name with DIFFERENT payload
@@ -101,6 +113,7 @@ class RegistryError(_TaggedError):
         error, same shape as a unit mismatch."""
         return cls("PayloadKindConflict", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def UnknownPayloadKind(cls, port: str, payload_kind: str) -> "RegistryError":
         """A payload-rank declaration whose kind string is not in the
@@ -114,23 +127,28 @@ class RegistryError(_TaggedError):
     # `feldspar_core::symbolic::SymbolicError`'s own four variants
     # (crates/feldspar-py/src/errors.rs `symbolic_error_to_py`).
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def NonInvertible(cls, variable: str, reason: str) -> "RegistryError":
         return cls("NonInvertible", variable=variable, reason=reason)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def MultiBranch(cls, variable: str, branches: Any) -> "RegistryError":
         return cls("MultiBranch", variable=variable, branches=branches)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def UnboundablePredicate(cls, predicate: str) -> "RegistryError":
         return cls("UnboundablePredicate", predicate=predicate)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def EmptyDomain(cls, port: str) -> "RegistryError":
         return cls("EmptyDomain", port=port)
 
 
+# frob:doc docs/modules/solve.md#solve_errors
 class SolveError(_TaggedError):
     """Solve/execution failures (01-interfaces `SolveError`); the
     executor (WO-04/WO-06) is what actually raises most of these --
@@ -141,30 +159,37 @@ class SolveError(_TaggedError):
     like every other variant here, so fallback rerouting (04) applies
     unchanged."""
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def ToolMissing(cls, tool: str, guidance: str) -> "SolveError":
         return cls("ToolMissing", tool=tool, guidance=guidance)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def ToolFailed(cls, tool: str, log_tail: str) -> "SolveError":
         return cls("ToolFailed", tool=tool, log_tail=log_tail)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def Timeout(cls, tool: str, seconds: float) -> "SolveError":
         return cls("Timeout", tool=tool, seconds=seconds)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def ParseFailed(cls, context: str) -> "SolveError":
         return cls("ParseFailed", context=context)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def OutOfDomain(cls, violation: Any) -> "SolveError":
         return cls("OutOfDomain", violation=violation)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def NonFinite(cls, port: str) -> "SolveError":
         return cls("NonFinite", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def OutputOutOfDomain(
         cls, port: str, lo: float, hi: float, box_lo: float, box_hi: float
@@ -180,22 +205,27 @@ class SolveError(_TaggedError):
             "OutputOutOfDomain", port=port, lo=lo, hi=hi, box_lo=box_lo, box_hi=box_hi
         )
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def MissingOutput(cls, port: str) -> "SolveError":
         return cls("MissingOutput", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def InvalidMeasurement(cls, reason: str) -> "SolveError":
         return cls("InvalidMeasurement", reason=reason)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def BudgetExceeded(cls, realized: float, budget: float) -> "SolveError":
         return cls("BudgetExceeded", realized=realized, budget=budget)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def NoRouteRemaining(cls, attempts: Any) -> "SolveError":
         return cls("NoRouteRemaining", attempts=attempts)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def PayloadKindMismatch(
         cls, port: str, expected_kind: str, actual_kind: str
@@ -214,12 +244,14 @@ class SolveError(_TaggedError):
             actual_kind=actual_kind,
         )
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def MissingPayload(cls, port: str) -> "SolveError":
         """WO-12 (09 sec. 4, 02-edge-cases): a payload port had no value
         at all where one was required."""
         return cls("MissingPayload", port=port)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def LadderExhausted(
         cls, best_eps: float, budget: Optional[float], rungs_tried: int
@@ -241,6 +273,7 @@ class SolveError(_TaggedError):
             rungs_tried=rungs_tried,
         )
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def NoConvergence(cls, iterations: int, residual: float) -> "SolveError":
         """WO-18 (09 sec. 4b): a `CoupledGroup`'s damped fixed-point
@@ -252,6 +285,7 @@ class SolveError(_TaggedError):
         indeterminate shape."""
         return cls("NoConvergence", iterations=iterations, residual=residual)
 
+    # frob:doc docs/modules/solve.md#solve_errors
     @classmethod
     def DanglingDigest(cls, digest: str) -> "SolveError":
         """WO-12 (09 sec. 4, 02-edge-cases): a `PayloadRef.digest` that

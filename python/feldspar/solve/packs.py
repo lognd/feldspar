@@ -31,6 +31,7 @@ _log = get_logger(__name__)
 
 # The one entry-point group every out-of-repo solver pack registers
 # through (10 sec. 3). Nothing else may hard-code this string.
+# frob:doc docs/modules/solve.md#solve_packs
 SOLVER_PACK_ENTRY_POINT_GROUP = "feldspar.solver_packs"
 
 # Words that name a METHOD/TOOL/TIER rather than WHAT is claimed
@@ -42,6 +43,7 @@ _METHOD_WORDS: Tuple[str, ...] = ("fea", "ccx", "gmsh", "spice", "ngspice")
 # The standard built-in namespaces (`feldspar/library/*.py`); a pack may
 # upstream into one of these through review, but never squat on it
 # outright (10 sec. 3 "Namespace etiquette").
+# frob:doc docs/modules/solve.md#solve_packs
 DEFAULT_STANDARD_NAMESPACES: Tuple[str, ...] = ("mech", "elec", "fluids", "heat")
 
 RegisterFn = Callable[[SolverRegistry], None]
@@ -68,21 +70,25 @@ __all__ = [
 ]
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class SolverPackEntryPoint(Protocol):
     """The slice of `importlib.metadata.EntryPoint` discovery reads
     (AD-11 fakes: tests and a pack's own conformance session inject a
     stand-in with no real installed distribution)."""
 
+    # frob:doc docs/modules/solve.md#solve_packs
     @property
     def name(self) -> str:
         """The entry-point name (the pack's id, one per group member)."""
         ...
 
+    # frob:doc docs/modules/solve.md#solve_packs
     def load(self) -> object:
         """Resolve the entry point's target object (a real EntryPoint
         imports here)."""
         ...
 
+    # frob:doc docs/modules/solve.md#solve_packs
     @property
     def dist(self) -> "object | None":
         """The owning distribution, whose `.version` is the pack
@@ -92,6 +98,7 @@ class SolverPackEntryPoint(Protocol):
         ...
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class FakeSolverPackEntryPoint:
     """A stand-in for `importlib.metadata.EntryPoint` (AD-11): satisfies
     `SolverPackEntryPoint` structurally, so both `load_solver_packs`
@@ -103,13 +110,16 @@ class FakeSolverPackEntryPoint:
         self._version = version
         self._register_fn = register_fn
 
+    # frob:doc docs/modules/solve.md#solve_packs
     @property
     def name(self) -> str:
         return self._name
 
+    # frob:doc docs/modules/solve.md#solve_packs
     def load(self) -> object:
         return self._register_fn
 
+    # frob:doc docs/modules/solve.md#solve_packs
     @property
     def dist(self) -> "object | None":
         return _FakeDist(self._version)
@@ -122,6 +132,7 @@ class _FakeDist:
         self.version = version
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class PackInfo(BaseModel):
     """One successfully composed solver pack's identity (id + version) --
     the pair `pack_composition_digest` folds (10 sec. 3's WO-20-
@@ -133,6 +144,7 @@ class PackInfo(BaseModel):
     version: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class DuplicateSolverId(BaseModel):
     """A pack declared a solver id something already owns -- the
     built-ins (`owned_by="<builtin>"`) or an earlier pack in this same
@@ -146,6 +158,7 @@ class DuplicateSolverId(BaseModel):
     owned_by: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class NamespaceViolation(BaseModel):
     """A pack registered outside its own sub-namespace (`<pack>.*`, or
     `<standard>.<pack>.*` under one of the caller's standard
@@ -159,6 +172,7 @@ class NamespaceViolation(BaseModel):
     namespace: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class MethodNamedSolverId(BaseModel):
     """A pack's namespace or solver id names a method/tool/tier instead
     of what is claimed (the D94 lint, one level down)."""
@@ -170,6 +184,7 @@ class MethodNamedSolverId(BaseModel):
     word: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class PackRegisterRaised(BaseModel):
     """A pack's `register(registry)` callable raised while composing.
     Third-party pack code is a plugin boundary: its exceptions are our
@@ -181,6 +196,7 @@ class PackRegisterRaised(BaseModel):
     message: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class MalformedSolverPack(BaseModel):
     """An entry point's target was not a callable `register(registry)`."""
 
@@ -190,6 +206,7 @@ class MalformedSolverPack(BaseModel):
     message: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class PortDeclarationFailed(BaseModel):
     """A pack's new port declarations conflicted (F12) once replayed
     onto the base registry."""
@@ -200,6 +217,7 @@ class PortDeclarationFailed(BaseModel):
     error: str
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class RegistrationRejected(BaseModel):
     """A pack's solver was rejected by `SolverRegistry.register` itself
     (empty citations, non-positive cost, accuracy/output mismatch, ...)
@@ -225,6 +243,7 @@ SolverPackLoadError = (
 )
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 class SolverPackLoadOutcome(BaseModel):
     """The total result of one solver-pack composition pass. Loading is
     TOTAL: a bad pack lands in `skipped` as a value (never aborting the
@@ -236,6 +255,7 @@ class SolverPackLoadOutcome(BaseModel):
     skipped: Tuple[SolverPackLoadError, ...] = ()
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 def method_named_solver_violation(text: str) -> Optional[str]:
     """The first method/tool word found in `text` (a namespace or
     solver id), or `None` if it is clean -- the one vocabulary home
@@ -297,6 +317,7 @@ def _pack_version(ep: SolverPackEntryPoint) -> str:
     return version if version else "0"
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 def load_solver_packs(
     registry: SolverRegistry,
     *,
@@ -448,6 +469,7 @@ def load_solver_packs(
     return SolverPackLoadOutcome(loaded=tuple(loaded), skipped=tuple(skipped))
 
 
+# frob:doc docs/modules/solve.md#solve_packs
 def pack_composition_digest(base_digest: str, outcome: SolverPackLoadOutcome) -> str:
     """Folds a pack composition's identity into `base_digest` (10 sec.
     3's WO-20-precedent rule): `SolverInfo` itself carries no pack

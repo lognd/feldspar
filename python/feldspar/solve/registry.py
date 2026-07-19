@@ -19,6 +19,7 @@ from feldspar.solve.solver import SolveFn
 _log = get_logger(__name__)
 
 
+# frob:doc docs/modules/solve.md#solve_registry
 class SolverRegistry:
     """Sorted-by-id iteration, a folded registry digest (feeds FINV-7),
     and the FINV-6 citation floor -- populated by each namespace
@@ -29,6 +30,7 @@ class SolverRegistry:
         self._ports: Dict[str, PortDecl] = {}
         self._frozen = False
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def declare_ports(self, *decls: PortDecl) -> "Result[None, RegistryError]":
         """F12: a namespace module declares its port table once; a
         conflicting redeclaration (same name, different unit or rank --
@@ -102,6 +104,7 @@ class SolverRegistry:
             return Err(RegistryError.DuplicatePortDecl(port=decl.name))
         return Ok(None)
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def register(self, info: SolverInfo, fn: SolveFn) -> "Result[None, RegistryError]":
         """`Err` on duplicate id, port unit/rank conflict via an
         undeclared port, empty/calibration-only citations (FINV-6),
@@ -167,6 +170,7 @@ class SolverRegistry:
         self._ports.pop(port_name, None)
         _log.info("rolled back port declaration of %s", port_name)
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def get(self, solver_id: str) -> "Tuple[SolverInfo, SolveFn] | None":
         """Look up one registered `(SolverInfo, SolveFn)` pair by id
         (WO-18, 09 sec. 4b): `CoupledGroup`'s closure resolves its
@@ -177,6 +181,7 @@ class SolverRegistry:
         -- the closure itself decides what that means for its caller."""
         return self._solvers.get(solver_id)
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def freeze(self) -> None:
         self._frozen = True
         _log.info(
@@ -185,9 +190,11 @@ class SolverRegistry:
             len(self._ports),
         )
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def is_frozen(self) -> bool:
         return self._frozen
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def digest(self) -> str:
         """Canonical-JSON -> blake3 fold of every registered `SolverInfo`,
         sorted by `solver_id` (FINV-1: import-order-independent; feeds
@@ -199,5 +206,6 @@ class SolverRegistry:
         for _id, pair in sorted(self._solvers.items()):
             yield pair
 
+    # frob:doc docs/modules/solve.md#solve_registry
     def port_table(self) -> Mapping[str, PortDecl]:
         return dict(self._ports)

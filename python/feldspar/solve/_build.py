@@ -45,6 +45,7 @@ RawReturn = Union[Result, SolveOutput, Mapping[str, float], float, int]
 SolveFn = Callable[[Mapping[str, float]], "Result[SolveOutput, SolveError]"]
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def coerce_domain(
     domain: Union[Domain, Mapping[str, Any]], tags: Iterable[str] = ()
 ) -> Domain:
@@ -62,6 +63,7 @@ def coerce_domain(
     return Domain(box, set(tags))
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def coerce_citation(item: Union[Citation, str]) -> Citation:
     """F10: `"kind: ref -- note"` (note optional) coerces to `Citation`."""
     if isinstance(item, Citation):
@@ -78,10 +80,12 @@ def coerce_citation(item: Union[Citation, str]) -> Citation:
     return Citation(kind=kind_literal, ref=ref.strip(), note=note.strip())
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def coerce_citations(items: Iterable[Union[Citation, str]]) -> Tuple[Citation, ...]:
     return tuple(coerce_citation(i) for i in items)
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def coerce_accuracy(
     accuracy: Union[Accuracy, Mapping[str, Accuracy]], outputs: Iterable[str]
 ) -> Mapping[str, Accuracy]:
@@ -91,6 +95,7 @@ def coerce_accuracy(
     return dict(accuracy)
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def wrap_solve_fn(
     raw_fn: Callable[..., Any],
     outputs: Tuple[str, ...],
@@ -140,6 +145,7 @@ def wrap_solve_fn(
     return wrapped
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def invoke_solve_fn(
     fn: SolveFn, x: Mapping[str, float], eps_budget: Optional[float] = None
 ) -> "Result[SolveOutput, SolveError]":
@@ -157,6 +163,7 @@ def invoke_solve_fn(
     return fn(x)
 
 
+# frob:doc docs/modules/solve.md#solve__build
 def build_solver_info_and_fn(
     *,
     solver_id: str,

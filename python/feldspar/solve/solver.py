@@ -47,9 +47,11 @@ __all__ = [
 # (`_build.wrap_solve_fn`).
 SolveFn = _build.SolveFn
 
+# frob:doc docs/modules/solve.md#solve_solver
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+# frob:doc docs/modules/solve.md#solve_solver
 def solver(
     *,
     namespace: str,

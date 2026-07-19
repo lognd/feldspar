@@ -36,6 +36,7 @@ __all__ = [
 #: does not enumerate them -- kind values are opaque to the core, only
 #: this module's callers (registration code, the mesh/geometry solver
 #: directions) are expected to draw from this set).
+# frob:doc docs/modules/solve.md#solve_payload
 PAYLOAD_KINDS = frozenset(
     {
         "geometry.parametric",
@@ -54,6 +55,7 @@ PAYLOAD_KINDS = frozenset(
 )
 
 
+# frob:doc docs/modules/solve.md#solve_payload
 class PayloadRef(BaseModel):
     """A payload PORT VALUE: `{kind, digest, origin}` (09 sec. 4). Exact
     by reference -- uncertainty never propagates through a payload, so
@@ -81,6 +83,7 @@ class PayloadRef(BaseModel):
         return value
 
 
+# frob:doc docs/modules/solve.md#solve_payload
 @runtime_checkable
 class PayloadResolver(Protocol):
     """The orchestrator-provided resolver handle (D96/OPEN-2): feldspar
@@ -90,12 +93,14 @@ class PayloadResolver(Protocol):
     caller (the pack/executor boundary), never a feldspar-owned global.
     """
 
+    # frob:doc docs/modules/solve.md#solve_payload
     def resolve(self, ref: PayloadRef) -> "Result[bytes, SolveError]":
         """Look up `ref.digest`'s content; `Err(SolveError.DanglingDigest)`
         if the store has no entry for that hash (02-edge-cases WO-12
         rows)."""
         ...
 
+    # frob:doc docs/modules/solve.md#solve_payload
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Deposit `content` and return its content-addressed ref (the
         store computes the digest -- feldspar never re-derives it, so
@@ -106,6 +111,7 @@ class PayloadResolver(Protocol):
         ...
 
 
+# frob:doc docs/modules/solve.md#solve_payload
 def resolver_cache_identity(resolver: "PayloadResolver") -> str:
     """The honest cache-key marker for which `PayloadResolver`
     IMPLEMENTATION a payload-consuming solver was built over (bug fix,
@@ -130,6 +136,7 @@ def resolver_cache_identity(resolver: "PayloadResolver") -> str:
     return type(resolver).__name__
 
 
+# frob:doc docs/modules/solve.md#solve_payload
 def payload_feature_violation(port: str, feature: str) -> DomainViolation:
     """The 09 sec. 4a execution-time domain check's violation value: an
     abstraction edge whose domain is over payload FEATURES ("no hole

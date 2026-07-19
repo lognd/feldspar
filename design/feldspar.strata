@@ -420,6 +420,8 @@ assert c_ccx_no_callback noflow ccx_solver -> solve
 // in this model (feldspar is a library; its callers are trusted
 // toolchain code), so the claim bodies name the outermost caller.
 // frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+// frob:ticket T-0017
 assume "weakness:CWE-78:fea" noflow regolith_consumer -> fea owner logan review "2026-10-16"
 // frob:doc docs/workflow/strata-system-model.md#known-gaps-not-gamed-away
+// frob:ticket T-0017
 assume "weakness:CWE-78:elec" noflow regolith_consumer -> elec owner logan review "2026-10-16"

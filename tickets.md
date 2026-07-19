@@ -646,7 +646,7 @@ and not spice"` -> 568 passed. Coverage re-stamped
 ```yaml
 id: T-0017
 title: Track frob sys audit gate-zero remediation edits to design/feldspar.strata
-state: in-progress
+state: done
 kind: feature
 origin: agent
 created: '2026-07-18'
@@ -654,7 +654,8 @@ blocked_by: []
 parent: null
 scope:
 - design/feldspar.strata
-evidence: []
+evidence:
+- tests/integration/test_design_strata_audit.py::test_sys_audit_named_gaps_match_tracked_open_tickets
 attachments: []
 acceptance:
 - Given frob sys audit is re-run, when the current design/feldspar.strata is loaded,
@@ -662,6 +663,39 @@ acceptance:
 threat: null
 ```
 Records the design/feldspar.strata edits made to drive frob sys audit to zero unwaived gaps: regolith_consumer modeled foreign (honest CWE-78 NoFlow chokepoint shape per docs/strata/threat.md), f_regolith_pack given a declared rate (LINT001, now a foreign-sourced flow), rust_core given a real may=ffi declaration plus a SYS100:exec waiver (test-only cargo build harness), core_api given a SYS101:ffi waiver (scanner-invisible compiled-extension import), domains given a SYS100:eval waiver (Expr.eval method-call false positive), fea/elec given LINT004 waivers (see T-0016 for the real kill-switch follow-on).
+## Done report
+
+Audited every strata edit this ticket's body names against the actual
+file: `rust_core`/`core_api`/`domains`/`fea`/`elec`/`regolith_consumer`
+node blocks and the `f_regolith_pack` flow already carried a `//
+frob:ticket T-0017` comment binding them to this ticket (grep confirms
+7 hits). One real gap found and fixed: the two `assume
+"weakness:CWE-78:..."` claim lines (the regolith_consumer-foreign
+CWE-78 discharge this ticket's OWN description names first) had no
+`frob:ticket` tag at all -- `assume`'s grammar has no ticket field
+(only `owner`/`review`), so the comment-DSL convention is the only way
+to bind it, and it was missing. Added `// frob:ticket T-0017` above
+both `assume "weakness:CWE-78:fea" ...` and `assume
+"weakness:CWE-78:elec" ...` lines, completing the binding for every
+edit this ticket's description claims.
+
+T-0016 landed after this ticket was opened and replaced the fea/elec
+`waive "LINT004" ... ticket "T-0016"` lines with real `attr
+flag=FELDSPAR_DISABLE_CCX`/`attr flag=FELDSPAR_DISABLE_NGSPICE`
+declarations -- the fea/elec node blocks' own `frob:ticket T-0017` tag
+is unaffected (it binds the node's `may exec/env/fs` declarations,
+which T-0017 itself added; the `attr flag=` line is T-0016's edit,
+already covered by T-0016's own Done report and evidence).
+
+Verification: `frob sys audit` -- PROVED, 0 unwaived gaps, 3 waived
+(unchanged). `frob check` -- 0 errors, 52 waived (unchanged from
+T-0016's post-fix count). `uv run pytest
+tests/integration/test_design_strata_audit.py` -- 1 passed (the
+existing audit-tripwire test T-0003 already built: `frob sys audit .`
+as a real subprocess, asserting PROVED and no CWE-78 gap at elec/fea --
+still the correct regression guard for this ticket's binding, no new
+test needed since it re-validates the whole strata model, not just
+this ticket's slice).
 
 <!-- ticket:T-0018 -->
 ```yaml

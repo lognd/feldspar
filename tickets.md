@@ -1118,3 +1118,21 @@ closed_form.py`, `tests/unit/test_heat_wo142.py` (new),
 Escalations: none -- no demo claim in this repo required a
 conjugate/coupled solve; the d3 wall was named per the WO's own
 anticipated honest outcome, not hit as a surprise.
+
+<!-- ticket:T-0021 -->
+```yaml
+id: T-0021
+title: 'fluids: Hardy-Cross _Edge validates params (KeyError crash on imposer without
+  flow_rate)'
+state: queued
+kind: bug
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope: []
+evidence: []
+attachments: []
+acceptance: []
+threat: null
+```

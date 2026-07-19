@@ -27,9 +27,14 @@ pub use fluids::{
     fluids_series_dp_py,
 };
 pub use heat::{
+    heat_churchill_chu_horizontal_cylinder_nusselt_py, heat_churchill_chu_vertical_plate_nusselt_py,
     heat_coefficient_from_nusselt_py, heat_convection_resistance_py,
     heat_cylindrical_wall_resistance_py, heat_dittus_boelter_nusselt_py,
-    heat_plane_wall_resistance_py, heat_rate_from_resistance_py, heat_series_resistance_py,
+    heat_effectiveness_counterflow_py, heat_effectiveness_parallel_flow_py,
+    heat_effectiveness_shell_and_tube_one_pass_py, heat_gnielinski_nusselt_py,
+    heat_hx_outlet_temp_py, heat_hx_rate_from_effectiveness_py, heat_laminar_nusselt_py,
+    heat_ntu_from_ua_py, heat_plane_wall_resistance_py, heat_rate_from_resistance_py,
+    heat_series_resistance_py,
 };
 pub use mech::{
     mech_beam_cantilever_first_mode_py, mech_bore_von_mises_py,

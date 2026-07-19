@@ -165,8 +165,16 @@ no logic -- same thin pass-through contract as `library::mech`.
 
 <!-- frob:describes crates/feldspar-py/src/library/heat.rs -->
 
-PyO3 wrappers for `feldspar_library::heat` (WO-20): marshalling only,
-no logic -- same thin pass-through contract as `library::mech`.
+PyO3 wrappers for `feldspar_library::heat` (WO-20, widened WO-142):
+marshalling only, no logic -- same thin pass-through contract as
+`library::mech`. WO-142 adds thin wrappers for
+`heat_gnielinski_nusselt`, `heat_laminar_nusselt`,
+`heat_churchill_chu_horizontal_cylinder_nusselt`/
+`heat_churchill_chu_vertical_plate_nusselt`, and the NTU-effectiveness
+family (`heat_ntu_from_ua`, `heat_effectiveness_parallel_flow`,
+`heat_effectiveness_counterflow`,
+`heat_effectiveness_shell_and_tube_one_pass`,
+`heat_hx_rate_from_effectiveness`, `heat_hx_outlet_temp`).
 
 ## py_library_elec
 

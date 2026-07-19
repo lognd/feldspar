@@ -1015,3 +1015,106 @@ unrelated), 55 waived. `uv run ty check python/` -> all checks passed.
 lint-imports` -> FINV-3/10 contract kept (regolith imports still
 confined to `feldspar.pack`; `feldspar.fluids.network` still imports
 nothing from `regolith`).
+
+<!-- ticket:T-0020 -->
+```yaml
+id: T-0020
+title: 'heat: WO-142 correlation growth (lithos companion)'
+state: done
+kind: feature
+origin: agent
+created: '2026-07-19'
+blocked_by: []
+parent: null
+scope: []
+evidence:
+- tests/unit/test_heat_wo142.py::test_gnielinski_known_answer
+- tests/unit/test_catalog_composition.py::test_full_catalog_composes_with_every_direction_registered
+attachments: []
+acceptance: []
+threat: null
+```
+## Done report
+
+WO-142 feldspar-side heat-transfer correlation growth landed (lithos
+`docs/workflow/work-orders/WO-142-*.md` companion, feldspar-side
+deliverable list):
+
+1. Gnielinski 1976 (Gnielinski, V., Int. Chem. Eng. 16(2):359-368):
+   `heat_gnielinski_nusselt` (Rust, `crates/feldspar-library/src/
+   heat.rs`) / `heat.gnielinski_nusselt` (Python direction,
+   `python/feldspar/heat/closed_form.py`) -- f-coupled, consumes
+   `heat.internal_flow.friction_factor` (the WO-139 friction-factor
+   pairing), domain box `3000 < Re < 5e6`, `0.5 <= Pr <= 2000`.
+2. Dittus-Boelter cooling branch (n=0.3): `heat.
+   dittus_boelter_nusselt_cooling` registered against the existing
+   `heat_dittus_boelter_nusselt(heating=false)` Rust fn (already
+   parametrized; only the Python registration was missing).
+3. Laminar fully-developed Nu constants: `heat_laminar_nusselt(bool)`
+   -> 3.66/4.36 (Incropera & DeWitt Table 8.1), split into two Python
+   directions (`laminar_fully_developed_nusselt_const_temp`/
+   `_const_flux`) per the house no-boolean-solver-input convention
+   (same pattern `dittus_boelter_nusselt_heating`/`_cooling` already
+   uses).
+4. Churchill & Chu 1975 natural convection (horizontal cylinder,
+   Int. J. Heat Mass Transfer 18:1049-1053; vertical plate,
+   18:1323-1329): `heat_churchill_chu_horizontal_cylinder_nusselt` /
+   `heat_churchill_chu_vertical_plate_nusselt` -- both primaries
+   paywalled, cited explicitly alongside the Incropera & DeWitt
+   restatement (eq. 9.34/9.26) per the acceptance criterion.
+5. NTU-effectiveness family (Kays & London, Compact Heat Exchangers,
+   3rd ed. 1984; restated Incropera & DeWitt Table 11.4):
+   `heat_ntu_from_ua`, `heat_effectiveness_parallel_flow`,
+   `heat_effectiveness_counterflow`,
+   `heat_effectiveness_shell_and_tube_one_pass`,
+   `heat_hx_rate_from_effectiveness`, `heat_hx_outlet_temp` (split
+   into `hx_outlet_temp_hot`/`_cold` Python directions, same
+   boolean-input convention as above) -- composes
+   UA -> NTU -> effectiveness -> outlet temperatures end to end.
+6. Every direction cites its primary paper; Gnielinski and
+   Churchill-Chu additionally state the Incropera & DeWitt textbook
+   restatement explicitly (both primaries paywalled).
+
+Registry: 13 new solver directions under namespace `heat`
+(`dittus_boelter_nusselt_cooling`, `gnielinski_nusselt`,
+`laminar_fully_developed_nusselt_const_temp`,
+`laminar_fully_developed_nusselt_const_flux`,
+`churchill_chu_horizontal_cylinder_nusselt`,
+`churchill_chu_vertical_plate_nusselt`, `ntu_from_ua`,
+`effectiveness_parallel_flow`, `effectiveness_counterflow`,
+`effectiveness_shell_and_tube_one_pass`,
+`hx_rate_from_effectiveness`, `hx_outlet_temp_hot`,
+`hx_outlet_temp_cold`). `tests/unit/test_catalog_composition.py`
+`EXPECTED_SOLVER_IDS` updated to the new 13-direction total.
+
+Deliverable 7 (lithos `thermo.htc` pad check): NOT this repo's
+territory -- the lithos-side companion agent's responsibility under
+the same WO; not built here.
+
+Conjugate/coupled wall (D258/F159 sec. 1.5/d3): NOT attempted --
+pointer recorded in `docs/modules/heat.md`'s scope note to
+`docs/spec/fluorite/03-lowering.md:114-124`, per the WO's explicit
+"record, don't attempt" instruction.
+
+Evidence:
+- `cargo test --workspace`: all green (52 mech + 10 fluids-related +
+  77/1 core + 16 new heat unit tests among them; 0 failed).
+- `uv run pytest tests/ -q -m "not regolith and not fea and not spice"`
+  -> 580 passed, 131 deselected, `EXIT=0`.
+- `frob check` -> 0 errors, 0 warnings, 53 pre-existing waived items
+  (T-0014 external-tool-floor backlog, unrelated to this change).
+- `frob check --only sys` -> PASS, 0 errors, 0 warnings.
+- Coverage restamped: `frob check --stamp-coverage` ->
+  `source_sha=be2ea2fc`.
+
+Files touched: `crates/feldspar-library/src/heat.rs`,
+`crates/feldspar-py/src/library/heat.rs`,
+`crates/feldspar-py/src/library/mod.rs`, `crates/feldspar-py/src/
+lib.rs`, `python/feldspar/_feldspar.pyi`, `python/feldspar/heat/
+closed_form.py`, `tests/unit/test_heat_wo142.py` (new),
+`tests/unit/test_catalog_composition.py`, `docs/modules/heat.md`,
+`docs/modules/feldspar-library.md`, `docs/modules/feldspar-py.md`.
+
+Escalations: none -- no demo claim in this repo required a
+conjugate/coupled solve; the d3 wall was named per the WO's own
+anticipated honest outcome, not hit as a surprise.

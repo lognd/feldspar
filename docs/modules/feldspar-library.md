@@ -123,16 +123,29 @@ the incompressible regime; regime distinguished via `Domain.tags`.
 
 <!-- frob:describes crates/feldspar-library/src/heat.rs -->
 
-Heat-transfer closed-form formula home (WO-20 Phase 2): 1-D conduction
-resistance networks (plane-wall conduction `R = L / (k * A)`,
-cylindrical wall, convection) and Dittus-Boelter forced convection.
+Heat-transfer closed-form formula home (WO-20 Phase 2, widened by
+WO-142): 1-D conduction resistance networks (plane-wall conduction
+`R = L / (k * A)`, cylindrical wall, convection) and Dittus-Boelter
+forced convection (both heating n=0.4 and cooling n=0.3 branches).
 Same `#[no_mangle] pub extern "C" fn` discipline as `mech`/`fluids`.
-Scope note (WO-20 close-out): this file covers only the entries needed
-for the acceptance-tested benchmark cases; the rest of the 07 heat
-catalog (transient lumped/Heisler, natural convection, boiling/
-condensation, radiation networks, LMTD/effectiveness-NTU heat
-exchangers) is EXPLICITLY CUT from this WO and flagged in the
-close-out report -- not silently dropped.
+
+WO-142 growth adds: `heat_gnielinski_nusselt` (f-coupled correlation,
+Gnielinski 1976, paywalled primary restated Incropera & DeWitt ch. 8);
+`heat_laminar_nusselt` (Table 8.1 constants, 3.66/4.36);
+`heat_churchill_chu_horizontal_cylinder_nusselt`/
+`heat_churchill_chu_vertical_plate_nusselt` (Churchill & Chu 1975,
+both primaries paywalled, restated Incropera & DeWitt eq. 9.34/9.26);
+and the NTU-effectiveness family `heat_ntu_from_ua`/
+`heat_effectiveness_parallel_flow`/`heat_effectiveness_counterflow`/
+`heat_effectiveness_shell_and_tube_one_pass`/
+`heat_hx_rate_from_effectiveness`/`heat_hx_outlet_temp` (Kays &
+London, *Compact Heat Exchangers*, 3rd ed., 1984; restated Incropera &
+DeWitt Table 11.4).
+
+Scope note (WO-20 close-out, amended WO-142): boiling/condensation and
+radiation networks remain EXPLICITLY CUT; conjugate/coupled solves
+(flow-and-wall mutually dependent) are a recorded wall, not attempted
+(`docs/spec/fluorite/03-lowering.md:114-124`) -- not silently dropped.
 
 ## library_elec
 

@@ -66,3 +66,93 @@ pub fn heat_coefficient_from_nusselt_py(
 ) -> f64 {
     feldspar_library::heat::heat_coefficient_from_nusselt(nusselt, fluid_conductivity, diameter)
 }
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_gnielinski_nusselt")]
+pub fn heat_gnielinski_nusselt_py(reynolds: f64, prandtl: f64, friction_factor: f64) -> f64 {
+    feldspar_library::heat::heat_gnielinski_nusselt(reynolds, prandtl, friction_factor)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_laminar_nusselt")]
+pub fn heat_laminar_nusselt_py(constant_wall_temp: bool) -> f64 {
+    feldspar_library::heat::heat_laminar_nusselt(constant_wall_temp)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_churchill_chu_horizontal_cylinder_nusselt")]
+pub fn heat_churchill_chu_horizontal_cylinder_nusselt_py(rayleigh: f64, prandtl: f64) -> f64 {
+    feldspar_library::heat::heat_churchill_chu_horizontal_cylinder_nusselt(rayleigh, prandtl)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_churchill_chu_vertical_plate_nusselt")]
+pub fn heat_churchill_chu_vertical_plate_nusselt_py(rayleigh: f64, prandtl: f64) -> f64 {
+    feldspar_library::heat::heat_churchill_chu_vertical_plate_nusselt(rayleigh, prandtl)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_ntu_from_ua")]
+pub fn heat_ntu_from_ua_py(ua: f64, c_min: f64) -> f64 {
+    feldspar_library::heat::heat_ntu_from_ua(ua, c_min)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_effectiveness_parallel_flow")]
+pub fn heat_effectiveness_parallel_flow_py(ntu: f64, c_r: f64) -> f64 {
+    feldspar_library::heat::heat_effectiveness_parallel_flow(ntu, c_r)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_effectiveness_counterflow")]
+pub fn heat_effectiveness_counterflow_py(ntu: f64, c_r: f64) -> f64 {
+    feldspar_library::heat::heat_effectiveness_counterflow(ntu, c_r)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_effectiveness_shell_and_tube_one_pass")]
+pub fn heat_effectiveness_shell_and_tube_one_pass_py(ntu: f64, c_r: f64) -> f64 {
+    feldspar_library::heat::heat_effectiveness_shell_and_tube_one_pass(ntu, c_r)
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_hx_rate_from_effectiveness")]
+pub fn heat_hx_rate_from_effectiveness_py(
+    effectiveness: f64,
+    c_min: f64,
+    t_hot_in: f64,
+    t_cold_in: f64,
+) -> f64 {
+    feldspar_library::heat::heat_hx_rate_from_effectiveness(
+        effectiveness,
+        c_min,
+        t_hot_in,
+        t_cold_in,
+    )
+}
+
+// frob:doc docs/modules/feldspar-py.md#py_library_heat
+// frob:ticket T-0020
+#[pyfunction]
+#[pyo3(name = "heat_hx_outlet_temp")]
+pub fn heat_hx_outlet_temp_py(t_in: f64, rate: f64, capacity_rate: f64, cooling: bool) -> f64 {
+    feldspar_library::heat::heat_hx_outlet_temp(t_in, rate, capacity_rate, cooling)
+}

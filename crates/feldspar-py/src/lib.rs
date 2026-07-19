@@ -38,9 +38,14 @@ use library::{
     fluids_laminar_friction_factor_py, fluids_minor_loss_dp_py, fluids_normal_shock_mach2_py,
     fluids_normal_shock_pressure_ratio_py, fluids_npsh_available_py, fluids_parallel_flow_py,
     fluids_pump_operating_flow_py, fluids_pump_operating_head_py, fluids_reynolds_number_py,
-    fluids_series_dp_py, heat_coefficient_from_nusselt_py, heat_convection_resistance_py,
-    heat_cylindrical_wall_resistance_py, heat_dittus_boelter_nusselt_py,
-    heat_plane_wall_resistance_py, heat_rate_from_resistance_py, heat_series_resistance_py,
+    fluids_series_dp_py, heat_churchill_chu_horizontal_cylinder_nusselt_py,
+    heat_churchill_chu_vertical_plate_nusselt_py, heat_coefficient_from_nusselt_py,
+    heat_convection_resistance_py, heat_cylindrical_wall_resistance_py,
+    heat_dittus_boelter_nusselt_py, heat_effectiveness_counterflow_py,
+    heat_effectiveness_parallel_flow_py, heat_effectiveness_shell_and_tube_one_pass_py,
+    heat_gnielinski_nusselt_py, heat_hx_outlet_temp_py, heat_hx_rate_from_effectiveness_py,
+    heat_laminar_nusselt_py, heat_ntu_from_ua_py, heat_plane_wall_resistance_py,
+    heat_rate_from_resistance_py, heat_series_resistance_py,
     mech_beam_cantilever_first_mode_py, mech_bore_von_mises_py,
     mech_cantilever_required_youngs_modulus_py, mech_cantilever_tip_deflection_py,
     mech_frame2d_solve_py, mech_lame_hoop_stress_bore_py, mech_lame_radial_stress_bore_py,
@@ -69,6 +74,7 @@ fn smoke_span() -> PyResult<()> {
 /// in the extension emits a `tracing`/`log` record (AD-8), then
 /// registers the quantity-core classes and free functions.
 // frob:doc docs/modules/feldspar-py.md#py_lib
+// frob:ticket T-0020
 #[pymodule]
 fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -123,6 +129,25 @@ fn _feldspar(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(heat_rate_from_resistance_py, m)?)?;
     m.add_function(wrap_pyfunction!(heat_dittus_boelter_nusselt_py, m)?)?;
     m.add_function(wrap_pyfunction!(heat_coefficient_from_nusselt_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_gnielinski_nusselt_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_laminar_nusselt_py, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        heat_churchill_chu_horizontal_cylinder_nusselt_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        heat_churchill_chu_vertical_plate_nusselt_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(heat_ntu_from_ua_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_effectiveness_parallel_flow_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_effectiveness_counterflow_py, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        heat_effectiveness_shell_and_tube_one_pass_py,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(heat_hx_rate_from_effectiveness_py, m)?)?;
+    m.add_function(wrap_pyfunction!(heat_hx_outlet_temp_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_sdof_first_mode_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_beam_cantilever_first_mode_py, m)?)?;
     m.add_function(wrap_pyfunction!(mech_miles_grms_py, m)?)?;

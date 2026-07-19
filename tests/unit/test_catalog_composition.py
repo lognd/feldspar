@@ -28,11 +28,13 @@ from typani import Err, Ok
 from feldspar.catalog import build_engine_catalog
 from feldspar.solve import PayloadRef, SolveError
 
-# The full expected catalog, sorted (83 directions as of WO111b). This
-# list is deliberately a LITERAL: a direction silently dropped by a
-# composition-order regression (rather than a crash) still fails the
-# comparison, and a new direction landing is forced to update the
-# expectation consciously.
+# The full expected catalog, sorted (83 directions as of WO111b, +13
+# WO-142 heat-transfer correlation growth). This list is deliberately a
+# LITERAL: a direction silently dropped by a composition-order
+# regression (rather than a crash) still fails the comparison, and a
+# new direction landing is forced to update the expectation
+# consciously.
+# frob:ticket T-0020
 EXPECTED_SOLVER_IDS = [
     "elec.si.ac_shunt_sizing_c",
     "elec.si.ac_shunt_sizing_r",
@@ -62,10 +64,23 @@ EXPECTED_SOLVER_IDS = [
     "fluids.pump_operating_flow",
     "fluids.pump_operating_head",
     "fluids.series_dp",
+    "heat.churchill_chu_horizontal_cylinder_nusselt",
+    "heat.churchill_chu_vertical_plate_nusselt",
     "heat.coefficient_from_nusselt",
     "heat.convection_resistance",
     "heat.cylindrical_wall_resistance",
+    "heat.dittus_boelter_nusselt_cooling",
     "heat.dittus_boelter_nusselt_heating",
+    "heat.effectiveness_counterflow",
+    "heat.effectiveness_parallel_flow",
+    "heat.effectiveness_shell_and_tube_one_pass",
+    "heat.gnielinski_nusselt",
+    "heat.hx_outlet_temp_cold",
+    "heat.hx_outlet_temp_hot",
+    "heat.hx_rate_from_effectiveness",
+    "heat.laminar_fully_developed_nusselt_const_flux",
+    "heat.laminar_fully_developed_nusselt_const_temp",
+    "heat.ntu_from_ua",
     "heat.plane_wall_resistance",
     "heat.rate_from_resistance",
     "heat.series_resistance",

@@ -52,3 +52,24 @@ hand-computed check of its own cited closed form (the `mech.fatigue`
 Shigley-eq calibration convention); each docstring records where an
 independent second-source oracle point was not located this dispatch
 (named residual). `register(registry)` registers the family.
+
+## materials_hardenability
+
+<!-- frob:describes python/feldspar/materials/hardenability.py::grossmann_ideal_critical_diameter -->
+<!-- frob:describes python/feldspar/materials/hardenability.py::jominy_distance_to_cooling_rate -->
+<!-- frob:describes python/feldspar/materials/hardenability.py::hollomon_jaffe_tempering_parameter -->
+<!-- frob:describes python/feldspar/materials/hardenability.py::register -->
+
+Hardenability closed forms: `grossmann_ideal_critical_diameter`
+(Grossmann 1942, `D_I = base_diameter * multiplying_factor`, both
+caller-supplied -- Grossmann's own base-carbon curve and per-element
+multiplying-factor tables are a named cut, transcribing them being the
+exact licensing risk this ticket flags); `jominy_distance_to_cooling_
+rate` (the Jominy/ASTM A255 end-quench mid-bar power-law correlation,
+`cooling_rate = coeff * distance^exponent`, `coeff`/`exponent` caller-
+fitted); `hollomon_jaffe_tempering_parameter` (Hollomon & Jaffe 1945,
+`P = T*(C + log10(t))`, `C` caller-supplied). Each calibration test is
+a hand-computed check of its own cited closed form; each docstring
+records where an independent second-source oracle point was not
+located this dispatch (named residual). `register(registry)` registers
+the family.

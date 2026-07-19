@@ -6,13 +6,9 @@ stands in for the real tool via `FELDSPAR_CCX`, so these run without
 requiring CalculiX installed, same shape as the ngspice/tool-boundary
 tests elsewhere in this suite."""
 
-import os
 import stat
 
-import pytest
-
 from feldspar.fea import ccx
-from feldspar.solve.errors import SolveError
 
 
 def _make_fake_ccx(tmp_path, script: str):

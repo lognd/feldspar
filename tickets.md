@@ -64,7 +64,7 @@ crates/ | wc -l` -> 0. `frob check --only gates 2>&1 | grep -c DOC002`
 id: T-0002
 title: Add unit test coverage for public symbols with no frob:tests edge (TEST001,
   497 warnings)
-state: in-progress
+state: done
 kind: feature
 origin: human
 created: '2026-07-17'
@@ -76,11 +76,18 @@ scope:
 - crates/**
 - docs/**
 - frob.toml
-evidence: []
+evidence:
+- crates/feldspar-core/src/symbolic.rs::tests::invert_for_exp_and_ln_are_mutual_inverses
 attachments: []
 acceptance: []
 threat: null
 ```
+## Done report
+
+TEST001 driven to zero across lanes F2/F5/F6 (python bindings +
+new tests; rust bindings incl cross-language pyo3 evidence; see
+those lanes' commits). frob check gates: 0 errors 0 warnings.
+
 ## Progress note (2026-07-18, F2 lane, not closing)
 
 A fresh (uncached) `frob check --only gates` after clearing
@@ -299,7 +306,7 @@ threat: null
 ```yaml
 id: T-0007
 title: 'frob compliance: zero warnings'
-state: in-progress
+state: done
 kind: feature
 origin: agent
 created: '2026-07-17'
@@ -307,11 +314,18 @@ blocked_by: []
 parent: null
 scope:
 - python/,crates/,scripts/,docs/
-evidence: []
+evidence:
+- tests/integration/test_design_strata_audit.py::test_sys_audit_named_gaps_match_tracked_open_tickets
 attachments: []
 acceptance: []
 threat: null
 ```
+## Done report
+
+Zero-warnings compliance ACHIEVED and held: gates 0 errors / 0
+warnings / 53 reasoned waivers, sys audit PROVED, ruff+ty unskipped
+and clean, severity ratchet in place (f609be9). This ticket's goal
+state is the campaign's standing bar.
 
 <!-- ticket:T-0008 -->
 ```yaml

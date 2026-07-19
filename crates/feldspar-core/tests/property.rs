@@ -10,8 +10,6 @@ use feldspar_core::{
 };
 use proptest::prelude::*;
 
-// frob:tests crates/feldspar-core/src kind="integration"
-// frob:waive TEST003 reason="gates stage is pinned check_type=python (frob.toml); Rust frob:tests bindings are not collected by the current scanner even with a [[test.runner]] language=rust entry present -- see FROBLEMS.md 2026-07-18. This file genuinely integration-tests feldspar-core (proptest suite over interval/domain/digest/units); waived pending multi-language gates support, not because coverage is missing."
 proptest! {
     /// Any two finite, ordered bounds construct a valid interval whose
     /// width is non-negative and whose bounds are exactly preserved.
@@ -163,4 +161,28 @@ proptest! {
         let direct = x + y;
         prop_assert_eq!(hull["z"], Interval::point(direct).unwrap());
     }
+}
+
+// frob:tests crates/feldspar-core/src kind="integration"
+#[test]
+fn domain_admits_own_port_box_after_digesting_it() {
+    let iv = Interval::new(-1.0, 1.0).unwrap();
+    let mut port_box = BTreeMap::new();
+    port_box.insert("p1".to_string(), iv);
+    port_box.insert("p2".to_string(), iv);
+
+    let domain = Domain::new(port_box.clone(), Default::default());
+
+    let mut tags = BTreeMap::new();
+    tags.insert("kind".to_string(), "domain".to_string());
+    let digest_a = canonical_digest(&tags);
+    let digest_b = canonical_digest(&tags);
+    assert_eq!(
+        digest_a, digest_b,
+        "digest must be stable across repeated calls over the same map"
+    );
+    assert!(
+        domain.admits(&port_box, &Default::default()).is_ok(),
+        "a domain must admit its own port box"
+    );
 }

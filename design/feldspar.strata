@@ -115,7 +115,7 @@ node domains : trusted {
     clearance Internal;
     code "python/feldspar/mech/**" "python/feldspar/fluids/**"
         "python/feldspar/thermo/**" "python/feldspar/heat/**"
-        "python/feldspar/calib/**";
+        "python/feldspar/calib/**" "python/feldspar/materials/**";
     // fs: calib/store.py writes calibration records (write_text) --
     // caught by the sys audit's own SYS100 scan after the first model
     // draft missed it. NOTE the audit also reports 'eval' observed on

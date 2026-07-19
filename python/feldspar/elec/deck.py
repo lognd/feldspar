@@ -21,6 +21,7 @@ from feldspar.core import format_f64
 __all__ = ["build_divider_deck", "build_rc_step_deck"]
 
 
+# frob:doc docs/modules/elec.md#elec_deck
 def build_divider_deck(vin: float, r1: float, r2: float, rl: float) -> str:
     """Loaded resistive divider deck (benchmark memo sec. 4.3): a DC
     source `vin` through `r1` into node `out`, `r2` from `out` to
@@ -42,6 +43,7 @@ def build_divider_deck(vin: float, r1: float, r2: float, rl: float) -> str:
     )
 
 
+# frob:doc docs/modules/elec.md#elec_deck
 def build_rc_step_deck(vf: float, r: float, c: float, t: float, timestep: float) -> str:
     """Series RC step-response deck (benchmark memo sec. 4.1): a
     piecewise-linear step source `vf` at t=0 through `r` into node

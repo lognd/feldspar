@@ -33,6 +33,7 @@ _log = get_logger(__name__)
 _LOG_TAIL_LINES = 20
 
 
+# frob:doc docs/modules/elec.md#elec_ngspice
 class NgspiceRun(BaseModel):
     """A completed ngspice batch run: the captured stdout+stderr TEXT
     (not a path -- the tempdir it was written under is gone by the
@@ -46,6 +47,7 @@ class NgspiceRun(BaseModel):
     tool_version: str
 
 
+# frob:doc docs/modules/elec.md#elec_ngspice
 def find_ngspice() -> Result[Path, SolveError]:
     """Locates the `ngspice` executable: `FELDSPAR_NGSPICE` env var
     first (must point at an existing executable file), then `PATH` via
@@ -87,6 +89,7 @@ def _parse_tool_version(output: str) -> str:
     return "unknown"
 
 
+# frob:doc docs/modules/elec.md#elec_ngspice
 def run_ngspice(deck: str, timeout_s: float) -> Result[NgspiceRun, SolveError]:
     """Writes `deck` to `job.cir` in a throwaway tempdir, runs
     `ngspice -b job.cir` (batch mode, no interactive prompt), and
@@ -157,6 +160,7 @@ def run_ngspice(deck: str, timeout_s: float) -> Result[NgspiceRun, SolveError]:
         )
 
 
+# frob:doc docs/modules/elec.md#elec_ngspice
 def probe_tools() -> Result[None, SolveError]:
     """Thin `find_ngspice()` wrapper dropping the `Ok` payload -- the
     `probe_tools` convention `plan/cache.py`'s `_tools_still_consistent`

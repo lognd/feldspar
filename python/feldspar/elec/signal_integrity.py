@@ -170,6 +170,7 @@ _MICROSTRIP_T_RANGE = Interval(1.0e-6, 2.0e-4)
 _MICROSTRIP_ER_RANGE = Interval(2.0, 12.0)
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=(
@@ -279,6 +280,7 @@ def _elliptic_ratio(k: float) -> float:
     return (1.0 / math.pi) * math.log(2.0 * (1.0 + math.sqrt(k)) / (1.0 - math.sqrt(k)))
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=("elec.si.stripline.w", "elec.si.stripline.b", "elec.si.stripline.er"),
@@ -340,6 +342,7 @@ _TERM_Z0_RANGE = Interval(1.0, 500.0)
 _TERM_R_RANGE = Interval(0.0, 500.0)
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=("elec.si.series_termination.z0", "elec.si.series_termination.ro"),
@@ -401,6 +404,7 @@ _THEVENIN_CITATIONS = (
 _TERM_V_RANGE = Interval(0.01, 20.0)
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=(
@@ -444,6 +448,7 @@ def thevenin_termination_r1(x):
     return Ok({"elec.si.thevenin_termination.r1": r1})
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=(
@@ -523,6 +528,7 @@ _AC_SHUNT_C_CITATIONS = (
 _RISE_TIME_RANGE = Interval(1.0e-11, 1.0e-6)
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=("elec.si.ac_shunt.z0",),
@@ -545,6 +551,7 @@ def ac_shunt_sizing_r(x):
     return Ok({"elec.si.ac_shunt.r": z0})
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 @solver(
     namespace="elec.si",
     inputs=("elec.si.ac_shunt.rise_time", "elec.si.ac_shunt.r"),
@@ -606,6 +613,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/elec.md#elec_signal_integrity
 def register(registry: SolverRegistry) -> None:
     """Registers all eight WO-25 signal-integrity directions (two
     impedance forms, two termination families, `diff_pair_z` NAMED CUT

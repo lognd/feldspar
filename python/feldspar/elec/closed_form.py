@@ -44,6 +44,7 @@ _RAZAVI = Citation(
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 @solver(
     namespace="elec",
     inputs=(
@@ -81,6 +82,7 @@ def divider_loaded(x):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 @solver(
     namespace="elec",
     inputs=(
@@ -118,6 +120,7 @@ def rc_step(x):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 @solver(
     namespace="elec",
     inputs=(
@@ -158,6 +161,7 @@ def rlc_resonance(x):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 @solver(
     namespace="elec",
     inputs=(
@@ -223,6 +227,7 @@ def bjt_bias(x):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 @solver(
     namespace="elec",
     inputs=("elec.nmos.k", "elec.nmos.vgs", "elec.nmos.vth"),
@@ -294,6 +299,7 @@ _PORT_DECLS = (
 )
 
 
+# frob:doc docs/modules/elec.md#elec_closed_form
 def register(registry: SolverRegistry) -> None:
     """Registers every elec closed-form direction (WO-17). Declares
     this family's port table first (WO111b)."""

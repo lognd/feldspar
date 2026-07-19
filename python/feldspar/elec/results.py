@@ -29,6 +29,7 @@ __all__ = ["parse_print_value"]
 _PRINT_LINE_RE = re.compile(r"^\s*(\S+)\s*=\s*([+-]?[0-9.eE+-]+)\s*$")
 
 
+# frob:doc docs/modules/elec.md#elec_results
 def parse_print_value(log_text: str, expr_name: str) -> Result[float, SolveError]:
     """Scans `log_text` for a `print`-emitted `<expr_name> = <value>`
     line (case-insensitive match on the name) and parses `<value>` as

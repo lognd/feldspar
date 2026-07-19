@@ -43,6 +43,7 @@ _log = get_logger(__name__)
 __all__ = ["ToolVersion", "register"]
 
 
+# frob:doc docs/modules/elec.md#elec_solver
 class ToolVersion(BaseModel):
     """Best-effort ngspice version string folded into the
     settings_digest -- same fixed-at-registration-time limitation
@@ -108,6 +109,7 @@ def _probe_ngspice_tools():
     return ngspice.probe_tools()
 
 
+# frob:doc docs/modules/elec.md#elec_solver
 @solver(
     namespace="elec.ngspice",
     inputs=(
@@ -202,6 +204,7 @@ _RC_STEP_ACCURACY = {
 }
 
 
+# frob:doc docs/modules/elec.md#elec_solver
 @solver(
     namespace="elec.ngspice",
     inputs=(
@@ -289,6 +292,7 @@ divider.solver_direction[1].probe_tools = _probe_ngspice_tools  # ty: ignore[unr
 rc_step.solver_direction[1].probe_tools = _probe_ngspice_tools  # ty: ignore[unresolved-attribute]
 
 
+# frob:doc docs/modules/elec.md#elec_solver
 def register(registry: SolverRegistry) -> None:
     """Registers both ngspice (discretized-tier) directions (WO-17)."""
     result_a = registry.register(*divider.solver_direction)  # ty: ignore[unresolved-attribute]

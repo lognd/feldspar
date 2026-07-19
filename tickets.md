@@ -288,7 +288,7 @@ the `ruff format` reformatting pass.
 id: T-0006
 title: Retrofit docs-index links / frob:describes anchors across docs/spec and docs/workflow,
   then re-enable DOC001 (gates.docs.include)
-state: queued
+state: done
 kind: docs
 origin: human
 created: '2026-07-17'
@@ -296,11 +296,48 @@ blocked_by: []
 parent: null
 scope:
 - docs/**
-evidence: []
+evidence:
+- cmd:bash -c "! frob check --only gates 2>&1 | grep -q DOC001" exit=0 sha256=e3b0c44298fc
 attachments: []
 acceptance: []
 threat: null
 ```
+## Done report
+
+Trial: temporarily flipped `[gates.docs]` to the default
+`include = ["docs/**/*.md"]` glob and ran `frob check --only gates` to
+survey what DOC001 would flag. Before: 43 orphans (12 docs/spec/*.md,
+3 docs/spec/toolchain/*.md, docs/workflow/README.md,
+docs/workflow/FINV-audit.md, 25 docs/workflow/work-orders/WO-*.md).
+`docs/modules/*.md` (14 files) were already reachable via
+frob:describes anchors, so left untouched. No design-log/archive dirs
+exist in feldspar's docs/ tree (checked: only spec/, workflow/,
+modules/) so no verbatim-archive constraint applied.
+
+Fix: docs/README.md's existing directory map is prose/ASCII inside a
+fenced code block, which frob's doclink crawler does not parse as
+links or backtick-refs. Added a "File index" section (real markdown
+links) to docs/README.md covering every spec/toolchain file plus
+workflow/README.md, and a "Work order index" section to
+docs/workflow/README.md covering every WO-nn file plus
+FINV-audit.md. Additive only -- no existing prose/design content
+edited or removed.
+
+Re-enabled DOC001 in `[gates.severity]` at `error` (matching the
+COV001/TEST001/TEST003 ratchet already in place), with `roots =
+["docs/README.md", "README.md"]` since feldspar's reading-order home
+is `docs/README.md`, not the tool's default `docs/index.md`.
+
+After: `frob check --only gates` -> 0 DOC001 orphans (grep -c DOC001
+in gates output goes from 43 to 0). Full `frob check` (all stages,
+`check_type = "python"`): 0 errors, 0 warnings, 53 waived (pre-existing
+waivers, unrelated to this ticket). `frob check --only sys`: PASS, 0
+errors, 0 warnings (system audit unaffected). `uv run pytest tests/ -q
+-m "not regolith and not fea and not spice"`: 568 passed.
+
+Commits: `docs(index): add markdown-link index for spec + workflow
+docs` (docs/README.md, docs/workflow/README.md); `chore(gates):
+re-enable DOC001 at error severity (T-0006)` (frob.toml).
 
 <!-- ticket:T-0007 -->
 ```yaml

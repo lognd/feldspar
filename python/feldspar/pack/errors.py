@@ -31,6 +31,7 @@ def _describe(error: Any) -> str:
     return f"{kind}({error!r})"
 
 
+# frob:doc docs/modules/pack.md#pack_errors
 def map_engine_error(model_id: str, error: Any) -> DomainError:
     """Any feldspar `SolveError`/`PlanError` value -> a regolith `DomainError`.
 
@@ -45,6 +46,7 @@ def map_engine_error(model_id: str, error: Any) -> DomainError:
     )
 
 
+# frob:doc docs/modules/pack.md#pack_errors
 def margin_exhausted_error(
     model_id: str,
     eps_achieved: float,

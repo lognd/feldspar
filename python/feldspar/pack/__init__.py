@@ -59,6 +59,7 @@ _log = get_logger(__name__)
 __all__ = ["MANIFEST", "register"]  # MANIFEST via module __getattr__ (PEP 562)
 
 
+# frob:doc docs/modules/pack.md#pack_init
 def register(registry: Any) -> None:
     """Registers feldspar's regolith models on `registry` (a
     regolith `ModelRegistry`) and nothing else (06 "register(registry)

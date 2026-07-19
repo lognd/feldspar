@@ -90,7 +90,9 @@ __all__ = [
 # accept a `claim_kind` override (OPEN-6 interim) so re-keying onto a
 # closed-form claim kind for direct cost competition in one registry
 # graph is a one-line change at the call site, not a code change here.
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_STRESS_CLAIM_KIND = "mech.static_stress"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_DEFLECTION_CLAIM_KIND = "mech.static_deflection"
 
 # FEA is the expensive (reduced) tier: its cost must stay above every
@@ -213,11 +215,13 @@ class _FeaModel(Model):
             else frozenset({"linear_elastic", "small_deflection"})
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         """The model's own version id (bump on any physics/eps change)."""
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """FEA is the reduced (expensive) tier -- always costlier than
@@ -235,6 +239,7 @@ class _FeaModel(Model):
             return limit - value
         return value - limit
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
         """Convert -> `feldspar.plan.solve.solve()` -> convert back,
         with WO-13 margin-driven adaptive refinement (09 sec. 5, 06
@@ -422,6 +427,7 @@ class _ClosedFormEngineModel(_FeaModel):
     already-registered, already-tested direction; none reimplements
     physics."""
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Closed-form algebraic routes are the cheapest tier (mirrors
@@ -435,6 +441,7 @@ class _ClosedFormEngineModel(_FeaModel):
         return f"feldspar {__version__} / closed-form"
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FeaStaticStressModel(_FeaModel):
     """Reduced-tier von-Mises static stress, upper bound (06's table).
 
@@ -464,6 +471,7 @@ class FeaStaticStressModel(_FeaModel):
             required_regimes=required_regimes,
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """Upper-bound von-Mises bore-stress claim (06's table)."""
@@ -477,6 +485,7 @@ class FeaStaticStressModel(_FeaModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FeaStaticDeflectionModel(_FeaModel):
     """Reduced-tier static deflection, upper bound (06's table).
 
@@ -507,6 +516,7 @@ class FeaStaticDeflectionModel(_FeaModel):
             required_regimes=required_regimes,
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """Upper-bound tip-deflection claim (06's table)."""
@@ -534,6 +544,7 @@ _PAYLOAD_TIER_COST = 20
 _GEOMETRY_PAYLOAD_PORT = "mech.geom.cantilever.parametric"
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FeaStaticDeflectionFromGeometryModel(Model):
     """The D96 payload-channel deflection model (06 "Planned (09 M4)",
     WO-14 boundary v2): consumes a `geometry.parametric` payload ref on
@@ -566,6 +577,7 @@ class FeaStaticDeflectionFromGeometryModel(Model):
         cost ordering, not exclusivity, decides)."""
         self._claim_kind = claim_kind
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """Upper-bound tip-deflection claim over a geometry PAYLOAD plus
@@ -584,17 +596,20 @@ class FeaStaticDeflectionFromGeometryModel(Model):
             payload_kinds={_GEOMETRY_PAYLOAD_PORT: "geometry.parametric"},
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         """The model's own version id (bump on any physics/eps change)."""
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Costlier than the scalar FEA tier (mesh generation ahead of
         the ccx solve, 06 "cost declares the honest relative expense")."""
         return _PAYLOAD_TIER_COST
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(
         self,
         request: DischargeRequest,
@@ -677,8 +692,11 @@ class FeaStaticDeflectionFromGeometryModel(Model):
 # FEA-tier plan/execute machinery above.
 # ---------------------------------------------------------------------------
 
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_STIFFNESS_CLAIM_KIND = "mech.stiffness"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_RAIL_LO_CLAIM_KIND = "elec.rail.lo"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_RAIL_HI_CLAIM_KIND = "elec.rail.hi"
 
 #: Required scalar inputs (SI base units): Pa, m^4, m.
@@ -735,6 +753,7 @@ def _finite_corner_sweep(
     return Ok((lo_hull, hi_hull))
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class MechStiffnessModel(Model):
     """Closed-form cantilever tip stiffness `k = 3*E*I/L**3`, a floor
     claim (`mech.stiffness`, `value >= limit`).
@@ -753,6 +772,7 @@ class MechStiffnessModel(Model):
         mirrors `_FeaModel.__init__`)."""
         self._claim_kind = claim_kind
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """Floor (lower-bound) stiffness claim over the three beam
@@ -765,17 +785,20 @@ class MechStiffnessModel(Model):
             domain=("linear_elastic", "small_deflection", "closed_form"),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         """The model's own version id (bump on any physics/eps change)."""
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Closed-form: the cheapest tier (mirrors the library's own
         `cost=1e-7` intent at the pack's integer cost granularity)."""
         return 1
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
         """Worst-corner (minimum, INV-9: a floor claim's honest
         prediction is conservative-low) stiffness over the interval
@@ -849,6 +872,7 @@ class MechStiffnessModel(Model):
         return Ok(Prediction(value=worst, eps=0.0, coverage=1.0, in_domain=True))
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class ElecRailModel(Model):
     """Closed-form loaded resistor-divider rail voltage, one instance
     per obligation half (`elec.rail: within [lo, hi]` lowers to TWO
@@ -870,6 +894,7 @@ class ElecRailModel(Model):
         self._claim_kind = claim_kind
         self._sense = sense
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """A lo-floor or hi-ceiling rail claim (per `self._sense`) over
@@ -882,16 +907,19 @@ class ElecRailModel(Model):
             domain=("linear", "small_signal", "closed_form"),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         """The model's own version id (bump on any physics/eps change)."""
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Closed-form: the cheapest tier."""
         return 1
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(self, request: DischargeRequest) -> Result[Prediction, HarnessError]:
         """Worst-corner rail voltage over the interval box (max for the
         `.hi` ceiling half, min for the `.lo` floor half, INV-9),
@@ -1018,13 +1046,21 @@ class ElecRailModel(Model):
 # recorded decision, not extend it.
 # ---------------------------------------------------------------------------
 
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_MEMBER_FLEXURAL_CAPACITY_CLAIM_KIND = "mech.member.flexural_capacity"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_MEMBER_AXIAL_CAPACITY_CLAIM_KIND = "mech.member.axial_capacity"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_EULER_BUCKLING_LOAD_CLAIM_KIND = "mech.member.euler_buckling_load"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_BOLT_LOAD_FACTOR_CLAIM_KIND = "mech.joint.bolt_load_factor"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_WELD_UTILIZATION_CLAIM_KIND = "mech.weld.utilization"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_BEARING_RATING_LIFE_CLAIM_KIND = "mech.bearing.rating_life_hours"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FATIGUE_GOODMAN_FACTOR_OF_SAFETY_CLAIM_KIND = "mech.fatigue.factor_of_safety"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FATIGUE_GERBER_FACTOR_OF_SAFETY_CLAIM_KIND = (
     "mech.fatigue.gerber_factor_of_safety"
 )
@@ -1032,21 +1068,31 @@ DEFAULT_FATIGUE_GERBER_FACTOR_OF_SAFETY_CLAIM_KIND = (
 # Miner's-rule cumulative damage over a declared load-block spectrum
 # payload -- the fleet's `mech.fatigue.damage(<part>, over=<spectrum>)
 # < 1.0` call form (D223 feldspar-side fatigue depth).
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FATIGUE_CYCLES_TO_FAILURE_CLAIM_KIND = "mech.fatigue.cycles_to_failure"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FATIGUE_DAMAGE_CLAIM_KIND = "mech.fatigue.damage"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_LEADSCREW_TORQUE_RAISE_CLAIM_KIND = "mech.drive.leadscrew_torque_raise"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_DRIVE_ACCEL_TORQUE_CLAIM_KIND = "mech.drive.accel_torque"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_JUNCTION_TEMPERATURE_TRANSIENT_CLAIM_KIND = (
     "thermo.junction_temperature_transient"
 )
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_JUNCTION_TEMPERATURE_DUTY_CYCLE_CLAIM_KIND = (
     "thermo.junction_temperature_duty_cycle"
 )
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_SHAFT_CRITICAL_SPEED_CLAIM_KIND = "mech.critical_speed"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_PLATE_MAX_STRESS_CLAIM_KIND = "mech.plate.max_stress"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_PLATE_MAX_DEFLECTION_CLAIM_KIND = "mech.plate.max_deflection"
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
     """AISC 360-16 F2.1 compact/braced flexural yield capacity
     (`library.member_capacity.flexural_yield_capacity_f2`), a floor
@@ -1063,6 +1109,7 @@ class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"compact", "braced", "steel"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1074,6 +1121,7 @@ class MemberFlexuralCapacityModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class MemberAxialCapacityModel(_ClosedFormEngineModel):
     """AISC 360-16 E3 axial yield/flexural-buckling capacity
     (`library.member_capacity.axial_yield_buckling_capacity_e3`), a
@@ -1094,6 +1142,7 @@ class MemberAxialCapacityModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"steel", "no_slender_elements"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1105,6 +1154,7 @@ class MemberAxialCapacityModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class EulerBucklingLoadModel(_ClosedFormEngineModel):
     """Classical Euler elastic critical buckling load
     (`library.member_capacity.euler_critical_buckling_load`), a floor
@@ -1126,6 +1176,7 @@ class EulerBucklingLoadModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"elastic", "prismatic", "no_slender_elements"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1137,6 +1188,7 @@ class EulerBucklingLoadModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class BoltLoadFactorModel(_ClosedFormEngineModel):
     """VDI 2230-class single-bolt load factor
     (`library.bolted_joints.bolt_single_load_factor_vdi2230`), a floor
@@ -1166,6 +1218,7 @@ class BoltLoadFactorModel(_ClosedFormEngineModel):
             ),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1182,6 +1235,7 @@ class BoltLoadFactorModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class WeldUtilizationModel(_ClosedFormEngineModel):
     """Fillet weld-group elastic-line utilization ratio
     (`library.weld_groups.weld_group_utilization`), a ceiling claim:
@@ -1205,6 +1259,7 @@ class WeldUtilizationModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"elastic", "fillet", "static"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1216,6 +1271,7 @@ class WeldUtilizationModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class BearingRatingLifeModel(_ClosedFormEngineModel):
     """ISO 281:2007 basic dynamic rating life in hours at constant
     speed (`library.bearing_life.bearing_basic_rating_life_l10h`), a
@@ -1236,6 +1292,7 @@ class BearingRatingLifeModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"iso_281", "constant_speed"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1247,6 +1304,7 @@ class BearingRatingLifeModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
     """Modified-Goodman fatigue factor of safety, fatigue-governs
     branch (`library.fatigue.fatigue_goodman_factor_of_safety`), a
@@ -1279,6 +1337,7 @@ class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"steel", "hcf", "fatigue_governs"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1290,6 +1349,7 @@ class FatigueGoodmanFactorOfSafetyModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FatigueGerberFactorOfSafetyModel(_ClosedFormEngineModel):
     """Gerber-parabola fatigue factor of safety
     (`library.fatigue.fatigue_gerber_factor_of_safety`, Shigley 11e
@@ -1316,6 +1376,7 @@ class FatigueGerberFactorOfSafetyModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"steel", "hcf", "fatigue_governs"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1327,6 +1388,7 @@ class FatigueGerberFactorOfSafetyModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FatigueSnCyclesToFailureModel(_ClosedFormEngineModel):
     """S-N log-log knee-line cycles-to-failure
     (`library.fatigue.fatigue_sn_cycles_to_failure`, Shigley 11e eqs.
@@ -1353,6 +1415,7 @@ class FatigueSnCyclesToFailureModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"steel", "hcf"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1376,6 +1439,7 @@ def _miner_spectrum_payload_port() -> str:
     return MINER_SPECTRUM_PORT
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FatigueMinerDamageModel(Model):
     """The D96 payload-channel Miner's-rule cumulative-damage model
     (06 "Planned (09 M4)", same shape `FeaStaticDeflectionFromGeometryModel`
@@ -1404,6 +1468,7 @@ class FatigueMinerDamageModel(Model):
         WO-110's `mech.fatigue.damage` call form)."""
         self._claim_kind = claim_kind
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         """Upper-bound cumulative-damage claim (`D < limit`, typically
@@ -1422,11 +1487,13 @@ class FatigueMinerDamageModel(Model):
             payload_kinds={_miner_spectrum_payload_port(): "spectrum"},
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         """The model's own version id (bump on any physics/eps change)."""
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Same payload tier as `FeaStaticDeflectionFromGeometryModel`
@@ -1435,6 +1502,7 @@ class FatigueMinerDamageModel(Model):
         honest relative expense")."""
         return _PAYLOAD_TIER_COST
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(
         self,
         request: DischargeRequest,
@@ -1495,6 +1563,7 @@ class FatigueMinerDamageModel(Model):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
     """Square-thread power-screw torque to raise a load
     (`library.leadscrew.leadscrew_torque_raise`), a ceiling claim: the
@@ -1523,6 +1592,7 @@ class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"square_thread", "no_collar"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1558,6 +1628,7 @@ class LeadscrewTorqueRaiseModel(_ClosedFormEngineModel):
 # ---------------------------------------------------------------------------
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class ThermalTransientStepTemperatureModel(_ClosedFormEngineModel):
     """Single-node lumped-capacitance step-response junction temperature
     (`library.thermal_transient.step_temperature`, Incropera ch. 5 sec.
@@ -1589,6 +1660,7 @@ class ThermalTransientStepTemperatureModel(_ClosedFormEngineModel):
             ),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1600,6 +1672,7 @@ class ThermalTransientStepTemperatureModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class ThermalTransientDutyCyclePeakTemperatureModel(_ClosedFormEngineModel):
     """Periodic-steady-state peak junction temperature under a square-
     wave (duty-cycled) power pulse train
@@ -1635,6 +1708,7 @@ class ThermalTransientDutyCyclePeakTemperatureModel(_ClosedFormEngineModel):
             ),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1651,6 +1725,7 @@ class ThermalTransientDutyCyclePeakTemperatureModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class ShaftCriticalSpeedModel(_ClosedFormEngineModel):
     """Single-mass shaft first critical (whirl) speed from lateral
     stiffness and lumped mass (`library.critical_speed.
@@ -1673,6 +1748,7 @@ class ShaftCriticalSpeedModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"single_mass", "undamped", "first_mode"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1684,6 +1760,7 @@ class ShaftCriticalSpeedModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class DriveAccelTorqueModel(_ClosedFormEngineModel):
     """Reflected-inertia acceleration torque for a geared motion axis
     (`library.drive.drive_acceleration_torque`, Norton/Slocum, memo sec.
@@ -1710,6 +1787,7 @@ class DriveAccelTorqueModel(_ClosedFormEngineModel):
             ),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1721,6 +1799,7 @@ class DriveAccelTorqueModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class PlateMaxStressModel(_ClosedFormEngineModel):
     """Peak bending stress in a uniformly loaded simply-supported
     circular flat plate (`library.plate.
@@ -1747,6 +1826,7 @@ class PlateMaxStressModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"thin_plate", "small_deflection", "circular"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1758,6 +1838,7 @@ class PlateMaxStressModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class PlateMaxDeflectionModel(_ClosedFormEngineModel):
     """Center deflection of a uniformly loaded simply-supported circular
     flat plate (`library.plate.plate_circular_uniform_ss_max_deflection`,
@@ -1782,6 +1863,7 @@ class PlateMaxDeflectionModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"thin_plate", "small_deflection", "circular"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1815,17 +1897,27 @@ class PlateMaxDeflectionModel(_ClosedFormEngineModel):
 # paper over.
 # ---------------------------------------------------------------------------
 
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_MICROSTRIP_Z0_LO_CLAIM_KIND = "elec.si.microstrip_z0.lo"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_MICROSTRIP_Z0_HI_CLAIM_KIND = "elec.si.microstrip_z0.hi"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_STRIPLINE_Z0_LO_CLAIM_KIND = "elec.si.stripline_z0.lo"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_STRIPLINE_Z0_HI_CLAIM_KIND = "elec.si.stripline_z0.hi"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_SERIES_TERMINATION_CLAIM_KIND = "elec.si.series_termination.rs"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_THEVENIN_TERMINATION_R1_CLAIM_KIND = "elec.si.thevenin_termination.r1"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_THEVENIN_TERMINATION_R2_CLAIM_KIND = "elec.si.thevenin_termination.r2"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_AC_SHUNT_R_CLAIM_KIND = "elec.si.ac_shunt.r"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_AC_SHUNT_C_CLAIM_KIND = "elec.si.ac_shunt.c"
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class MicrostripImpedanceModel(_ClosedFormEngineModel):
     """Hammerstad-Jensen microstrip characteristic impedance
     (`library.signal_integrity.microstrip_z0`), one instance per
@@ -1853,6 +1945,7 @@ class MicrostripImpedanceModel(_ClosedFormEngineModel):
         )
         self._sense = sense
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1864,6 +1957,7 @@ class MicrostripImpedanceModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class StriplineImpedanceModel(_ClosedFormEngineModel):
     """Cohn's exact symmetric-stripline characteristic impedance
     (`library.signal_integrity.stripline_z0`), one instance per
@@ -1890,6 +1984,7 @@ class StriplineImpedanceModel(_ClosedFormEngineModel):
         )
         self._sense = sense
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1906,6 +2001,7 @@ class StriplineImpedanceModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class SeriesTerminationModel(_ClosedFormEngineModel):
     """Source-series termination resistor sizing
     (`library.signal_integrity.series_termination`), a floor claim:
@@ -1926,6 +2022,7 @@ class SeriesTerminationModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"source_series", "matched_line"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1937,6 +2034,7 @@ class SeriesTerminationModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class TheveninTerminationR1Model(_ClosedFormEngineModel):
     """Thevenin (parallel) termination pull-up leg sizing
     (`library.signal_integrity.thevenin_termination_r1`), a floor
@@ -1959,6 +2057,7 @@ class TheveninTerminationR1Model(_ClosedFormEngineModel):
             engine_tags=frozenset({"thevenin_parallel", "matched_line"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -1970,6 +2069,7 @@ class TheveninTerminationR1Model(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class TheveninTerminationR2Model(_ClosedFormEngineModel):
     """Thevenin (parallel) termination pull-down leg sizing
     (`library.signal_integrity.thevenin_termination_r2`), the
@@ -1990,6 +2090,7 @@ class TheveninTerminationR2Model(_ClosedFormEngineModel):
             engine_tags=frozenset({"thevenin_parallel", "matched_line"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2001,6 +2102,7 @@ class TheveninTerminationR2Model(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class AcShuntResistorModel(_ClosedFormEngineModel):
     """AC shunt termination resistor sizing
     (`library.signal_integrity.ac_shunt_sizing_r`), a floor claim: `R`
@@ -2015,6 +2117,7 @@ class AcShuntResistorModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"ac_shunt"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2026,6 +2129,7 @@ class AcShuntResistorModel(_ClosedFormEngineModel):
         )
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class AcShuntCapacitorModel(_ClosedFormEngineModel):
     """AC shunt termination capacitor sizing
     (`library.signal_integrity.ac_shunt_sizing_c`), a floor claim over
@@ -2042,6 +2146,7 @@ class AcShuntCapacitorModel(_ClosedFormEngineModel):
             engine_tags=frozenset({"ac_shunt", "quarter_rise_time_heuristic"}),
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2087,9 +2192,13 @@ class AcShuntCapacitorModel(_ClosedFormEngineModel):
 # instead of a physical-quantity name.
 # ---------------------------------------------------------------------------
 
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FLUIDS_MDOT_LO_CLAIM_KIND = "fluids.mdot.lo"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FLUIDS_MDOT_HI_CLAIM_KIND = "fluids.mdot.hi"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FLUIDS_FLOW_IMBALANCE_CLAIM_KIND = "fluids.flow_imbalance"
+# frob:doc docs/modules/pack.md#pack_models
 DEFAULT_FLUIDS_DP_CLAIM_KIND = "fluids.dp"
 
 #: `fluids.dp`'s two path-endpoint selector keys carry a fixed role
@@ -2133,6 +2242,7 @@ def _resolve_solved_network(
     return Ok(solved.danger_ok)
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FluidsMdotModel(Model):
     """Single-edge mass/volumetric flow-rate query over a solved
     Hardy-Cross network (`fluids.mdot(<edge>)`), one instance per
@@ -2159,6 +2269,7 @@ class FluidsMdotModel(Model):
         self._claim_kind = claim_kind
         self._sense = sense
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2170,10 +2281,12 @@ class FluidsMdotModel(Model):
             payload_kinds={FLOWNET_PORT: "flownet"},
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Payload-tier cost (mirrors `FeaStaticDeflectionFromGeometryModel`
@@ -2183,6 +2296,7 @@ class FluidsMdotModel(Model):
         keeps winning when it applies."""
         return _PAYLOAD_TIER_COST
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(
         self,
         request: DischargeRequest,
@@ -2217,6 +2331,7 @@ class FluidsMdotModel(Model):
         return Ok(Prediction(value=edge.flow, eps=0.0, coverage=1.0, in_domain=True))
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FluidsFlowImbalanceModel(Model):
     """Sibling-branch flow-distribution-uniformity query over a solved
     Hardy-Cross network (`fluids.flow_imbalance([e1, e2, ...])`), an
@@ -2236,6 +2351,7 @@ class FluidsFlowImbalanceModel(Model):
     ) -> None:
         self._claim_kind = claim_kind
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2247,14 +2363,17 @@ class FluidsFlowImbalanceModel(Model):
             payload_kinds={FLOWNET_PORT: "flownet"},
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         return _PAYLOAD_TIER_COST
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(
         self,
         request: DischargeRequest,
@@ -2304,6 +2423,7 @@ class FluidsFlowImbalanceModel(Model):
         return Ok(Prediction(value=imbalance, eps=0.0, coverage=1.0, in_domain=True))
 
 
+# frob:doc docs/modules/pack.md#pack_models
 class FluidsDpModel(Model):
     """Multi-segment (multi-path) pressure-drop query over a solved
     Hardy-Cross network (`fluids.dp(<from> -> <to>)`), an upper-bound
@@ -2335,6 +2455,7 @@ class FluidsDpModel(Model):
     def __init__(self, *, claim_kind: str = DEFAULT_FLUIDS_DP_CLAIM_KIND) -> None:
         self._claim_kind = claim_kind
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def signature(self) -> ModelSignature:
         return ModelSignature(
@@ -2346,10 +2467,12 @@ class FluidsDpModel(Model):
             payload_kinds={FLOWNET_PORT: "flownet"},
         )
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def version(self) -> str:
         return "1"
 
+    # frob:doc docs/modules/pack.md#pack_models
     @property
     def cost(self) -> int:
         """Costlier than the single-segment closed form (a full
@@ -2359,6 +2482,7 @@ class FluidsDpModel(Model):
         honest relative expense")."""
         return _PAYLOAD_TIER_COST
 
+    # frob:doc docs/modules/pack.md#pack_models
     def estimate(
         self,
         request: DischargeRequest,

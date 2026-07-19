@@ -22,16 +22,19 @@ __all__ = [
 ]
 
 
+# frob:doc docs/modules/pack.md#pack_converters
 def to_feldspar_interval(interval: RegolithInterval) -> FeldsparInterval:
     """A regolith `Interval` -> the equivalent feldspar `Interval`."""
     return FeldsparInterval(interval.lo, interval.hi)
 
 
+# frob:doc docs/modules/pack.md#pack_converters
 def to_regolith_interval(interval: FeldsparInterval) -> RegolithInterval:
     """A feldspar `Interval` -> the equivalent regolith `Interval`."""
     return RegolithInterval(lo=interval.lo, hi=interval.hi)
 
 
+# frob:doc docs/modules/pack.md#pack_converters
 def to_feldspar_payload_ref(ref: RegolithPayloadRef) -> FeldsparPayloadRef:
     """A regolith `PayloadRef` (D96, sec. 8.3) -> the equivalent feldspar
     `PayloadRef` (09 sec. 4). Both are `{kind, digest, origin}`, exact by
@@ -42,6 +45,7 @@ def to_feldspar_payload_ref(ref: RegolithPayloadRef) -> FeldsparPayloadRef:
     return FeldsparPayloadRef(kind=ref.kind, digest=ref.digest, origin=ref.origin)
 
 
+# frob:doc docs/modules/pack.md#pack_converters
 def to_regolith_payload_ref(ref: FeldsparPayloadRef) -> RegolithPayloadRef:
     """A feldspar `PayloadRef` -> the equivalent regolith `PayloadRef`."""
     return RegolithPayloadRef(kind=ref.kind, digest=ref.digest, origin=ref.origin)

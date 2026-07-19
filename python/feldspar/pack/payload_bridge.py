@@ -53,10 +53,12 @@ _GUIDANCE = (
 )
 
 
+# frob:doc docs/modules/pack.md#pack_payload_bridge
 class NoStoreResolver:
     """A `feldspar.solve.payload.PayloadResolver` that always reports the
     missing orchestrator-store channel, honestly, for every digest."""
 
+    # frob:doc docs/modules/pack.md#pack_payload_bridge
     def resolve(self, ref: PayloadRef) -> Result[bytes, SolveError]:
         """Always `Err(SolveError.ToolMissing(...))`: there is no bytes
         store reachable from this resolver (see module docstring)."""
@@ -72,6 +74,7 @@ class NoStoreResolver:
             )
         )
 
+    # frob:doc docs/modules/pack.md#pack_payload_bridge
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Never called: the pack boundary never writes payloads of its
         own (06 "Boundary rules") -- a call here is a programmer bug."""
@@ -81,6 +84,7 @@ class NoStoreResolver:
         )
 
 
+# frob:doc docs/modules/pack.md#pack_payload_bridge
 class RegolithResolverAdapter:
     """A `feldspar.solve.payload.PayloadResolver` built over a lithos
     D154 resolver callable (`digest: str -> Result[bytes, <error>]`,
@@ -109,6 +113,7 @@ class RegolithResolverAdapter:
         wraps that one call."""
         self._resolve = resolve
 
+    # frob:doc docs/modules/pack.md#pack_payload_bridge
     def resolve(self, ref: PayloadRef) -> Result[bytes, SolveError]:
         """Resolve ``ref.digest`` through the wrapped lithos callable,
         then check the D154 schema-version envelope before returning
@@ -191,6 +196,7 @@ class RegolithResolverAdapter:
         )
         return Ok(data)
 
+    # frob:doc docs/modules/pack.md#pack_payload_bridge
     def store(self, kind: str, content: bytes, origin: str) -> PayloadRef:
         """Never called: the pack boundary never writes payloads of its
         own (06 "Boundary rules") -- a call here is a programmer bug."""

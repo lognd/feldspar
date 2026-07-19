@@ -107,6 +107,31 @@ examples/          target-API pressure tests (written before code;
                    geometry/edge-case friction log (G-nn)
 ```
 
+## File index
+
+(T-0006, 2026-07-19: DOC001-obligated linked index, additive to the
+directory map above -- the map is prose/ASCII-art for orientation,
+this is the actual markdown-link graph every doc file hangs off of.)
+
+- [01-overview.md](spec/01-overview.md)
+- [02-quantities-and-uncertainty.md](spec/02-quantities-and-uncertainty.md)
+- [03-solvers.md](spec/03-solvers.md)
+- [04-routing.md](spec/04-routing.md)
+- [05-fea-pipeline.md](spec/05-fea-pipeline.md)
+- [06-regolith-pack.md](spec/06-regolith-pack.md)
+- [07-capability-map.md](spec/07-capability-map.md)
+- [08-open-questions.md](spec/08-open-questions.md)
+- [09-model-integration.md](spec/09-model-integration.md)
+- [10-solver-metamodel.md](spec/10-solver-metamodel.md)
+- [11-symbolic.md](spec/11-symbolic.md)
+- [12-solver-organization.md](spec/12-solver-organization.md)
+- [toolchain/00-architecture.md](spec/toolchain/00-architecture.md)
+- [toolchain/01-interfaces.md](spec/toolchain/01-interfaces.md)
+- [toolchain/02-edge-cases.md](spec/toolchain/02-edge-cases.md)
+- [workflow/README.md](workflow/README.md) -- ground rules + WO
+  dependency graph + the work-order index (`work-orders/WO-nn-*.md`)
+  and `FINV-audit.md`
+
 ## Conventions
 
 - Docs are the contract: code disagreement with a spec doc is a bug in

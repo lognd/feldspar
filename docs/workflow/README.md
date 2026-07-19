@@ -76,3 +76,37 @@ WO-11 (done), WO-04/07
 
 Dispatch order and gates live in `../../TODO.md` (the one live
 queue).
+
+## Work order index
+
+(T-0006, 2026-07-19: DOC001-obligated linked index -- every WO file
+plus the FINV audit ledger, so each is reachable from `docs/README.md`
+without re-deriving the dependency graph above.)
+
+- [WO-01-scaffolding.md](work-orders/WO-01-scaffolding.md)
+- [WO-02-quantity-core.md](work-orders/WO-02-quantity-core.md)
+- [WO-03-solver-protocol.md](work-orders/WO-03-solver-protocol.md)
+- [WO-04-propagation.md](work-orders/WO-04-propagation.md)
+- [WO-05-planner.md](work-orders/WO-05-planner.md)
+- [WO-06-solve-facade.md](work-orders/WO-06-solve-facade.md)
+- [WO-07-library-mech.md](work-orders/WO-07-library-mech.md)
+- [WO-08-fea-pipeline.md](work-orders/WO-08-fea-pipeline.md)
+- [WO-09-regolith-pack.md](work-orders/WO-09-regolith-pack.md)
+- [WO-10-explain-closeout.md](work-orders/WO-10-explain-closeout.md)
+- [WO-11-symbolic-core.md](work-orders/WO-11-symbolic-core.md)
+- [WO-111b-followup-closeout.md](work-orders/WO-111b-followup-closeout.md)
+- [WO-12-payload-ports.md](work-orders/WO-12-payload-ports.md)
+- [WO-13-budget-seeking.md](work-orders/WO-13-budget-seeking.md)
+- [WO-14-regolith-boundary-v2.md](work-orders/WO-14-regolith-boundary-v2.md)
+- [WO-15-parallel-execution.md](work-orders/WO-15-parallel-execution.md)
+- [WO-16-structured-ports.md](work-orders/WO-16-structured-ports.md)
+- [WO-17-ngspice-tier.md](work-orders/WO-17-ngspice-tier.md)
+- [WO-18-coupled-groups.md](work-orders/WO-18-coupled-groups.md)
+- [WO-19-solver-pack-kit.md](work-orders/WO-19-solver-pack-kit.md)
+- [WO-20-thermal-fluids-wave.md](work-orders/WO-20-thermal-fluids-wave.md)
+- [WO-21-civil-structural-wave.md](work-orders/WO-21-civil-structural-wave.md)
+- [WO-22-symbolic-followups.md](work-orders/WO-22-symbolic-followups.md)
+- [WO-23-load-paths.md](work-orders/WO-23-load-paths.md)
+- [WO-24-library-depth.md](work-orders/WO-24-library-depth.md)
+- [WO-25-signal-integrity-models.md](work-orders/WO-25-signal-integrity-models.md)
+- [FINV-audit.md](FINV-audit.md)
